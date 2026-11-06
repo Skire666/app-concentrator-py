@@ -94,6 +94,14 @@ def test_set_language_switches_and_rejects_unset_or_unknown() -> None:
     assert translator.language is LanguageEnum.FRENCH
 
 
+def test_has_looks_in_current_and_fallback_catalogs() -> None:
+    translator = _translator()
+
+    assert translator.has("greeting")
+    assert translator.has("only.english")
+    assert not translator.has("nowhere.at.all")
+
+
 def test_empty_translator_returns_keys() -> None:
     translator = JsonCatalogTranslator({}, language=LanguageEnum.ENGLISH, fallback_language=LanguageEnum.ENGLISH)
 

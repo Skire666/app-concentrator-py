@@ -165,6 +165,10 @@ class JsonCatalogTranslator(TranslatorPort):
         return ValidationResult.success()
 
     @override
+    def has(self, key: str) -> bool:
+        return any(key in self._catalogs.get(language, {}) for language in (self._language, self._fallback_language))
+
+    @override
     def tr(self, key: str, **params: object) -> str:
         text = self._lookup(key)
         if not params:

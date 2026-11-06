@@ -210,3 +210,37 @@ superseded.
   places allowed to catch `Exception`: the global exception hooks and `EventBus` dispatch.
 - Consequences: a buggy subscriber cannot break unrelated features and its failure is never
   silent. `BaseException` subclasses (`KeyboardInterrupt`, `SystemExit`) still propagate.
+
+## ADR-022 — Layout state through LayoutStateKeeper
+
+- Status: accepted (phase 0), owner decision (2026-11-06).
+- Context: Qt layout blobs (window geometry, splitter and header states) must be persisted in
+  `ui-state.ini`, but `ui` may not import `application.ports.ViewPreferencesPort`, and the layout is
+  not the business of `ShellPresenter`.
+- Decision: a reusable presentation component, `presentation/common/layout_state_keeper.py`
+  (`load(key) -> str | None`, `save(key, value)`), backed by `ViewPreferencesPort`. Keys are `Final`
+  constants in `presentation/common/layout_keys.py`, all prefixed `layout/`; phase 4 "Reset layout"
+  removes `layout/*` only, and other UI state (`storage/data_file_path`) never uses that prefix. Qt
+  blobs cross the presentation layer as opaque base64 strings: the window encodes them, exports them
+  on close (not on every resize) and restores them once before `show()`. A base64 decoding failure or
+  a `restoreGeometry` / `restoreState` returning `False` falls back to the ini defaults and logs a
+  WARNING. `ui-state.ini` is accessed only through `ViewPreferencesPort` (`AGENTS.md` §7.3, §8.5).
+- Consequences: one layout mechanism for every window, page and table (phase 5 header state uses
+  it); layout reset is a prefix removal.
+
+## ADR-023 — Action-scoped rendering and action label keys
+
+- Status: accepted (phase 0), owner decision (2026-11-06).
+- Context: snapshot equality skips the render, not the build. Rebuilding every section on each
+  busy/release transition would rebuild, from phase 5 on, a 2,000-row table snapshot (up to 100 ms)
+  twice on every click anywhere. Separately, the phase 0 spec listed `shell.module.*` keys for the
+  module buttons, which would duplicate the action labels.
+- Decision: `ActionGate` requests only the sections bound to the action, from an explicit mapping in
+  `presentation/common/action_sections.py`; a test checks that every `ActionIdEnum` member is mapped.
+  `RenderCoordinator.request_all()` is reserved for language changes and data file switches. The key
+  `action.<name_lowercase>` (optional `.tooltip`) is the single source of labels for controls bound to
+  an action; the module buttons therefore use `action.shell_show_*` instead of `shell.module.*`.
+  State-specific texts that are not action labels keep their own keys. `TranslatorPort.has(key)`
+  supports the optional tooltip.
+- Consequences: a new action must be added to the mapping (enforced by test); the catalog test checks
+  one label per action.

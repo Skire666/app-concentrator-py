@@ -336,7 +336,7 @@ synchronously on quit (`storage.shutdown_flush_timeout_ms`). The status bar show
 | File | Owner | Content | Access |
 |---|---|---|---|
 | `concentrator.ini` | application (next to the exe; `assets/config/` in dev) | constants and defaults | read-only, validated by pydantic into `AppConfig` at startup |
-| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path | read-write via `ViewPreferencesPort` and `ui.support` |
+| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path | read-write only through `ViewPreferencesPort`; Qt blobs (geometry, splitter and header states) cross the presentation layer as opaque base64 strings via `LayoutStateKeeper`, under `layout/*` keys (ADR-022) |
 | user JSON5 file | user | business data and personal settings | `UserDataFilePort` only |
 
 `AppConfig` values support the tokens `{appdata}`, `{localappdata}` and `{app_dir}`, resolved by
@@ -379,13 +379,18 @@ silent code-level defaults for ini keys.
   imports the domain. Keep them shallow (furryp Demeter depth 3).
 - `ButtonSnapshot(text, tooltip, enabled, visible, action)` where `action` is an `ActionIdEnum`.
   Panels emit `action_requested(int)`; presenters dispatch.
+- The catalog key `action.<name_lowercase>` (optional `action.<name_lowercase>.tooltip`) is the single
+  source of the label of every button and menu item bound to that action; no parallel per-feature
+  button keys. State-specific texts that are not action labels (captions, the language button text)
+  keep their own keys (ADR-023).
 
 ### 8.2 Render coordination
 
 - `RenderCoordinator.register(section, build_snapshot, render)` once per panel (`RenderSectionEnum`).
 - `request(*sections)` / `request_all()` collect sections and schedule one flush on the next
   event-loop turn (`SchedulerPort.call_soon`). The flush builds each snapshot once, skips it if equal
-  to the last rendered one, then calls `render` once. Language changes call `request_all()`.
+  to the last rendered one, then calls `render` once. `request_all()` is reserved for language
+  changes and data file switches: snapshot equality skips the render, not the build.
 - Panels implement `render(snapshot)` idempotently, wrapped in `setUpdatesEnabled(False/True)` and
   `QSignalBlocker` for programmatic value changes.
 - Tables use `SnapshotTableModel` (`QAbstractTableModel`) fed with snapshot rows: append-only changes
@@ -396,7 +401,9 @@ silent code-level defaults for ini keys.
 
 `ActionGate.run(action, operation, *, interactive=False)`:
 - ignores the call while `action` is busy (log DEBUG);
-- marks it busy and requests a render (bound controls become disabled);
+- marks it busy and requests only the sections bound to the action
+  (`presentation/common/action_sections.py`, every `ActionIdEnum` member mapped), so the bound
+  controls become disabled without rebuilding unrelated snapshots (ADR-023);
 - runs the operation and measures it with `ClockPort.monotonic()`;
 - logs INFO `Action <NAME> took <ms> ms` when above `ui.slow_action_threshold_ms` (not for
   `interactive=True`, e.g. modal dialogs);
@@ -415,7 +422,7 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
 
 | Tier | Folder | Does | Never does |
 |---|---|---|---|
-| Window | `ui/windows/` | `MainWindow`, pages (`FocusPage`, `JournalPage`, `SettingsPage`) and dialogs: build layout from panels, connect panel signals to presenter methods, register panels with `RenderCoordinator`, save/restore geometry | Branching logic, formatting, service calls |
+| Window | `ui/windows/` | `MainWindow`, pages (`FocusPage`, `JournalPage`, `SettingsPage`) and dialogs: build layout from panels, connect panel signals to presenter methods, register panels with `RenderCoordinator`, restore layout once before `show()` and export it on close through `LayoutStateKeeper` (base64 Qt blobs; decoding or restore failure: ini defaults + WARNING) | Branching logic, formatting, service calls, reading `QSettings` |
 | Panel | `ui/panels/` | Composes widgets, exposes intent signals (`*_requested`), `render(snapshot)` | Talks to other panels directly, decides enabled states |
 | Widget | `ui/widgets/` | Small reusable control (`DurationDisplayWidget`, `SnapshotButton`, `FieldErrorLabel`, `SnapshotTableModel`) | Knows any feature |
 

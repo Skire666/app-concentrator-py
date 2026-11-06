@@ -1,11 +1,13 @@
 """Catalog parity and completeness (AGENTS.md section 9).
 
-Convention checked here: a catalog key used in code is either the literal first argument of ``tr`` /
-``tr_plural``, or the string value of a constant whose name ends with ``_KEY``.
+Keys used in code are checked in two ways: every plain string literal of the source that looks like a
+key of a catalog family (``app.``, ``shell.``, ``error.`` ...) must exist, and keys built from enums
+(``error.<code>``, ``action.<action>``) are checked member by member.
 """
 
 import ast
 import json
+import re
 import string
 from pathlib import Path
 from typing import Final, cast
@@ -13,6 +15,8 @@ from typing import Final, cast
 import pytest
 
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
+from concentrator.presentation.common.action_id_enum import ActionIdEnum
+from concentrator.presentation.common.ui_texts import action_label_key, error_message_key
 from tests.architecture.source_tree import REPO_ROOT, parse, relative, source_files
 
 CATALOG_DIR: Final = REPO_ROOT / "assets" / "i18n"
@@ -27,26 +31,23 @@ def _placeholders(text: str) -> set[str]:
     return {field for _literal, field, _spec, _conversion in string.Formatter().parse(text) if field}
 
 
-def _referenced_keys(path: Path) -> list[tuple[str, int, bool]]:
-    """Return (key, line, is_plural) for every catalog key referenced in one module."""
-    found: list[tuple[str, int, bool]] = []
-    for node in ast.walk(parse(path)):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.args:
-            first = node.args[0]
-            if (
-                node.func.attr in {"tr", "tr_plural"}
-                and isinstance(first, ast.Constant)
-                and isinstance(first.value, str)
-            ):
-                found.append((first.value, node.lineno, node.func.attr == "tr_plural"))
-        elif isinstance(node, ast.Assign | ast.AnnAssign):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            names = [target.id for target in targets if isinstance(target, ast.Name)]
-            value = node.value
-            is_key_constant = any(name.endswith("_KEY") for name in names)
-            if is_key_constant and isinstance(value, ast.Constant) and isinstance(value.value, str):
-                found.append((value.value, node.lineno, False))
-    return found
+def _formatted_parts(tree: ast.Module) -> set[int]:
+    """Ids of the constants that are fragments of f-strings (dynamic keys, checked elsewhere)."""
+    return {id(value) for node in ast.walk(tree) if isinstance(node, ast.JoinedStr) for value in node.values}
+
+
+def _key_literals(path: Path, key_pattern: re.Pattern[str]) -> list[tuple[str, int]]:
+    """Return (literal, line) for every plain string literal that looks like a catalog key."""
+    tree = parse(path)
+    fragments = _formatted_parts(tree)
+    return [
+        (node.value, node.lineno)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and id(node) not in fragments
+        and key_pattern.fullmatch(node.value)
+    ]
 
 
 ENGLISH: Final = _load("en.json")
@@ -69,14 +70,32 @@ def test_catalog_texts_are_not_empty(name: str) -> None:
 
 @pytest.mark.parametrize("code", list(ErrorCodeEnum), ids=lambda code: code.name)
 def test_every_error_code_has_a_message(code: ErrorCodeEnum) -> None:
-    assert f"error.{code.name.lower()}" in ENGLISH
+    assert error_message_key(code) in ENGLISH
 
 
-def test_every_key_referenced_in_code_exists() -> None:
-    missing: list[str] = []
-    for path in source_files():
-        for key, line, is_plural in _referenced_keys(path):
-            expected = [f"{key}.one", f"{key}.other"] if is_plural else [key]
-            missing.extend(f"{relative(path)}:{line} {item}" for item in expected if item not in ENGLISH)
+@pytest.mark.parametrize("action", [action for action in ActionIdEnum if action.is_set], ids=lambda a: a.name)
+def test_every_action_has_a_label(action: ActionIdEnum) -> None:
+    assert action_label_key(action) in ENGLISH
+
+
+def test_every_key_literal_in_code_exists() -> None:
+    families = "|".join(sorted({re.escape(key.split(".", 1)[0]) for key in ENGLISH}))
+    key_pattern = re.compile(rf"(?:{families})\.[a-z0-9_]+(?:\.[a-z0-9_]+)*")
+    missing = [
+        f"{relative(path)}:{line} {literal}"
+        for path in source_files()
+        for literal, line in _key_literals(path, key_pattern)
+        if literal not in ENGLISH
+    ]
 
     assert missing == []
+
+
+def test_key_literal_scan_sees_the_shell_texts() -> None:
+    families = "|".join(sorted({re.escape(key.split(".", 1)[0]) for key in ENGLISH}))
+    key_pattern = re.compile(rf"(?:{families})\.[a-z0-9_]+(?:\.[a-z0-9_]+)*")
+    presenter = REPO_ROOT / "concentrator" / "presentation" / "shell" / "shell_presenter.py"
+
+    literals = {literal for literal, _line in _key_literals(presenter, key_pattern)}
+
+    assert {"app.title", "shell.language.button.fr", "placeholder.journal"} <= literals

@@ -25,6 +25,17 @@ class TranslatorPort(Protocol):
         """
         ...
 
+    def has(self, key: str) -> bool:
+        """Tell whether a key exists in the current or the fallback catalog (for optional texts).
+
+        Args:
+            key: Dotted catalog key.
+
+        Returns:
+            Whether ``tr(key)`` would return a catalog text rather than the key itself.
+        """
+        ...
+
     def tr(self, key: str, **params: object) -> str:
         """Translate a key.
 

@@ -81,8 +81,8 @@ Zone 1, top to bottom:
 3. `QuickAddPanel`: one-line input "Add a task..." (Enter creates the task in the current list).
 4. `TaskTablePanel`: `QTableView` + `SnapshotTableModel`, extended selection, clickable checkbox
    column (toggles done/open), double-click or Enter opens the editor, Del deletes, Space toggles
-   done, Ctrl+N new task, context menu with the toolbar actions; header state persisted through
-   `ui.support` (column widths and order).
+   done, Ctrl+N new task, context menu with the toolbar actions; header state (column widths and
+   order) persisted through `LayoutStateKeeper` under a `layout/*` key (ADR-022).
 5. `TaskDetailsPanel` in a vertical splitter under the table (collapsible, size persisted).
 
 Dialogs: `TaskEditDialog` (multi-line text, list combo, due date with "No date", optional time),
