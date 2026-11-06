@@ -50,7 +50,7 @@ this file must be updated in the same change.
    wrapped in its dedicated `*Collection` class.
 8. Widgets are dumb: they render a snapshot and emit signals. No business logic and no service calls
    in `ui/`.
-9. One render entry point: `RenderCoordinator.request(...)`. Never call `render()` directly.
+9. One render entry point: `RenderCoordinator.request(...)`. Never call `render_snapshot()` directly.
 10. Every user action goes through `ActionGate` (>= 100 ms cooldown, control disabled while busy,
     INFO log when the operation takes > 200 ms).
 11. Use cases are synchronous and in-memory. Every user-data disk write goes through the single
@@ -113,7 +113,7 @@ concentrator/
 │   └── shell/ storage/ timer/ todo/ focus/ journal/ settings/   *_presenter.py, *_snapshot.py, *_form.py
 ├── ui/                   Qt widgets only
 │   ├── windows/          MainWindow, pages and dialogs: compose panels, wire signals
-│   ├── panels/           compose widgets, expose signals, render(snapshot)
+│   ├── panels/           compose widgets, expose signals, render_snapshot(snapshot)
 │   ├── widgets/          small reusable controls, SnapshotTableModel
 │   └── support/          styles, icons, Qt helpers, QtDialogService (implements DialogPort)
 └── bootstrap/            composition root: startup sequence, wiring, shutdown
@@ -163,7 +163,7 @@ click ─► Panel signal ─► (wired by Window) ─► Presenter.on_xxx()
       ─► Writer (in-memory UserDataStore) ─► EventBus.publish(event) ─► SaveCoordinator (debounce)
       │                                                               └► writer thread ─► JSON5 file
       └► Presenter handles event ─► RenderCoordinator.request(section)
-         ─► next event-loop turn: build snapshot once, compare with last, Panel.render(snapshot)
+         ─► next event-loop turn: build snapshot once, compare with last, Panel.render_snapshot(snapshot)
 ```
 
 A `QTimer` created in bootstrap ticks `AppTicker.tick()` every `timer.tick_interval_ms`; the timer
@@ -391,7 +391,8 @@ silent code-level defaults for ini keys.
   event-loop turn (`SchedulerPort.call_soon`). The flush builds each snapshot once, skips it if equal
   to the last rendered one, then calls `render` once. `request_all()` is reserved for language
   changes and data file switches: snapshot equality skips the render, not the build.
-- Panels implement `render(snapshot)` idempotently, wrapped in `setUpdatesEnabled(False/True)` and
+- Panels implement `render_snapshot(snapshot)` idempotently (not `render`, which `QWidget` already
+  defines for painting), wrapped in `setUpdatesEnabled(False/True)` and
   `QSignalBlocker` for programmatic value changes.
 - Tables use `SnapshotTableModel` (`QAbstractTableModel`) fed with snapshot rows: append-only changes
   insert rows, other changes reset the model. Sorting and filtering happen in presenters (testable),
@@ -423,7 +424,7 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
 | Tier | Folder | Does | Never does |
 |---|---|---|---|
 | Window | `ui/windows/` | `MainWindow`, pages (`FocusPage`, `JournalPage`, `SettingsPage`) and dialogs: build layout from panels, connect panel signals to presenter methods, register panels with `RenderCoordinator`, restore layout once before `show()` and export it on close through `LayoutStateKeeper` (base64 Qt blobs; decoding or restore failure: ini defaults + WARNING) | Branching logic, formatting, service calls, reading `QSettings` |
-| Panel | `ui/panels/` | Composes widgets, exposes intent signals (`*_requested`), `render(snapshot)` | Talks to other panels directly, decides enabled states |
+| Panel | `ui/panels/` | Composes widgets, exposes intent signals (`*_requested`), `render_snapshot(snapshot)` | Talks to other panels directly, decides enabled states |
 | Widget | `ui/widgets/` | Small reusable control (`DurationDisplayWidget`, `SnapshotButton`, `FieldErrorLabel`, `SnapshotTableModel`) | Knows any feature |
 
 - Presenters ask for confirmations, file pickers and forms through `presentation.ports.DialogPort`;
@@ -472,8 +473,8 @@ CRITICAL and show a dialog. Never use exceptions for control flow.
 - Interfaces are `typing.Protocol` classes. Adapters subclass them explicitly.
 - Naming: modules `snake_case.py`; classes `PascalCase`; enums `*Enum` in `*_enum.py`; rules `*Rules`
   in `*_rules.py`; collections `*Collection` in `*_collection.py`; ports `*Port` in `*_port.py`;
-  snapshots `*Snapshot`; presenters `*Presenter`; forms `*Form`; ui files `*_window.py`, `*_dialog.py`,
-  `*_panel.py`, `*_widget.py`; tests `test_<module>.py`.
+  snapshots `*Snapshot`; presenters `*Presenter`; forms `*Form`; ui files `*_window.py`, `*_page.py`,
+  `*_dialog.py`, `*_panel.py`, `*_widget.py`; tests `test_<module>.py`.
 - OOP and SOLID: small classes, single responsibility, private state with `_` prefix, behavior next
   to data, composition over inheritance, dependency injection through constructors.
 - Size limits (furryp/ruff): function <= 26 lines, file <= 1000 lines, cyclomatic complexity <= 9,
@@ -573,7 +574,7 @@ updated, no TODO comments left without an issue reference.
 - `except Exception: pass`, `except: ...`, returning `None` to signal an error, error strings.
 - Pydantic models or JSON5 dicts leaking out of `infrastructure/persistence/`.
 - Reading `concentrator.ini` or `QSettings` from anywhere other than their adapters.
-- Several `render()` calls for one user action; timers polling from widgets.
+- Several `render_snapshot()` calls for one user action; timers polling from widgets.
 - Mutable entities, public mutable attributes, lists of entities passed around without a
   `*Collection`.
 - Writing user data from the main thread, or from more than one thread.
