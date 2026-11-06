@@ -3,7 +3,7 @@ Aide moi à planifier un futur projet que je veux développer.
 Objectif :
 - Développe la partie fonctionnelle ainsi que l'IHM.
 - Challenger les propositions techniques et me dire les mauvais choix ou des alternatives meilleures.
-- Rédiger le fichier AGENTS.md, tout en anglais, de moins de 800 lignes (ou moins de 40 000 caractères).
+- Rédiger le fichier AGENTS.md, tout en anglais, de moins de 850 lignes (ou moins de 45 000 caractères).
 - Rédiger les spécifications, phase par phase
 - Faire en plusieurs phase. Review entre chaque phase.
 - Commencer par le minuteur, puis terminer pas le TODO list.
@@ -72,9 +72,9 @@ Un minuteur et ses boutons :
 - Le minuteur est en heure, minute, seconde.
 - La taille des caractères est de 64 pixels (ils sont grands)
 - le minuteur démarre en un clic, sonne à zéro.
-- Lorsque le minuteur est inactif ou stoppé : il y a 3 boutons -> "edit timer (actif)" + "reset (est désactivé)", "start (actif)
+- Lorsque le minuteur est inactif ou stoppé : il y a 3 boutons -> "edit timer (actif)" + "reset (actif)", "start (actif)
 - Lorsque le minuteur est lancé : il y a 3 boutons -> "edit timer (actif)", "reset (actif)", "paused (actif)"
-- Lorsqu'il est terminé : il y a 2 boutons : "restart (actif)", "oK (actif)", "relancer dans 5min".
+- Lorsqu'il est terminé : il y a 3 boutons : "restart (actif)", "oK (actif)", "relancer dans 5min".
 - éditer le minuteur permets : de choisir le son, le volume, et durée avant l'arrêt automatique, et s'il doit se relancer.
 - pour l'alarme : il est possible de lire des mp3 de n'importe quelle taille, en boucle, X fois.
 - Une alerte qui se déclenche même quand l'onglet est en arrière-plan (un son, une notification et le bouton qui clignote dans la barre des tâches).
@@ -118,6 +118,7 @@ Dossier root : 'app-concentrator-py'
 - Fichier 'CONTRIBUTING.md'
 - Fichier 'README.md'
 - Fichier 'USAGE.md'
+- Fichier 'LICENSE'
 - Fichier 'pyproject.toml'
 
 -------------------------------------------------
@@ -226,7 +227,9 @@ Logging : utiliser le module standard de `logging`
 
 # chemin et valeurs par défaut.
 
-Pour éviter les problèmes de maintenance et éviter de redéployer systématiquement, il faut privilégier l'utilisation de constante issue du fichier '.ini' de l'application. Le but étant d'éviter les constantes codées en dur dans le code.
+Pour éviter les constantes codées en dur dans le code : il faut privilégier l'utilisation de constante issue du fichier '.ini' de l'application.
+Le but étant de faciliter les problèmes de maintenance et éviter de redéployer systématiquement juste pour un chemin qui change.
+Ne concerne que les variables système ou applicative et qui sont en dehors du périmètre fonctionnelle.
 
 -------------------------------------------------
 Règle de codage

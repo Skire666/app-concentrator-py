@@ -17,7 +17,7 @@
     },
     "too-many-instance-attributes": { "max-instance-attributes": 20 },
     "layer-violation": {
-      "source-roots": ["."],
+      "source-roots": ["concentrator"],
       "include-type-checking": true,
       "contracts": [
         {

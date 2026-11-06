@@ -218,3 +218,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local runtime files created while developing
+*.json5.tmp
+*.json5.bak
+*.corrupt-*
+
+# OS / editors
+Thumbs.db
+desktop.ini
+.DS_Store

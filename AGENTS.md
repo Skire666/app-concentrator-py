@@ -24,7 +24,7 @@ Concentrator is a local, single-user, single-window desktop application for **Wi
 │ full   │                                           │ favorites · options   │
 │ height │ Menu B "Journal" and Menu C "Settings" replace zones 1 + 2        │
 │        ├───────────────────────────────────────────────────────────────────┤
-│        │ Status bar (1 line): last save state · language button FRA/ENG   │
+│        │ Status bar (1 line): last save state · language button FRA/ENG    │
 └────────┴───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -119,8 +119,8 @@ concentrator/
 
 ## 4. Architecture
 
-Hexagonal (ports and adapters). Dependencies point inward: `ui -> presentation -> application ->
-domain`, and `infrastructure -> application -> domain`. `bootstrap` wires everything.
+Hexagonal (ports and adapters). Dependencies point inward: `ui -> presentation -> application -> domain`,
+and `infrastructure -> application -> domain`. `bootstrap` wires everything.
 
 ### 4.1 Layers and responsibilities
 
@@ -181,6 +181,8 @@ engine, chime service and journal polling run from that tick. Nothing in `ui/` o
   normalize in their factory and are validated by `*Rules`.
 - Multi-line text is `MultilineText(lines: tuple[str, ...])`. Paths and URLs are single-line and
   normalized (`\` replaced by `/`) by the domain, so the UI shows the stored form after saving.
+- Paths (`C:/`, `D:/`, UNC) and URLs detected in task text are only made clickable like hyperlinks
+  and opened as-is: never checked for existence or type before opening.
 
 ### 5.2 Enums
 
@@ -287,6 +289,7 @@ Singleton aggregates (`UserSettings`, `TimerConfig`, `HourlyChime`) expose only 
 
 ### 7.1 User data file (JSON5)
 
+- JSON5 is a deliberate choice: the file must stay clear for a user who reads or edits it.
 - Location chosen at first launch: open an existing file, create at the default location
   (`paths.default_data_file`, i.e. `%APPDATA%/Concentrator/concentrator.json5`), or create elsewhere.
   The chosen path is stored in the UI state `.ini`.
