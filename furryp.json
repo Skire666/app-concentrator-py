@@ -1,0 +1,185 @@
+{
+  "include": ["concentrator/**/*.py"],
+  "select": ["FUR"],
+  "rules": {
+    "unused-foqa": {},
+    "function-too-long": { "max-lines": 26 },
+    "file-too-long": { "max-lines": 1000 },
+    "halstead-file": { "metric": "volume", "max": 15000 },
+    "halstead-function": { "metric": "volume", "max": 1200 },
+    "cognitive-complexity": { "max": 16 },
+    "too-complex-class": { "max-class-complexity": 80 },
+    "demeter-chain": {
+      "max-depth": 3,
+      "ignore-roots": ["self", "cls"],
+      "ignore-imported-modules": true,
+      "count-calls": false
+    },
+    "too-many-instance-attributes": { "max-instance-attributes": 20 },
+    "layer-violation": {
+      "source-roots": ["."],
+      "include-type-checking": true,
+      "contracts": [
+        {
+          "type": "forbidden",
+          "name": "domain-is-pure",
+          "source": ["concentrator.domain"],
+          "forbidden": [
+            "concentrator.application",
+            "concentrator.infrastructure",
+            "concentrator.presentation",
+            "concentrator.ui",
+            "concentrator.bootstrap",
+            "PySide6",
+            "shiboken6",
+            "pydantic",
+            "pydantic_core",
+            "json5"
+          ]
+        },
+        {
+          "type": "forbidden",
+          "name": "domain-common-is-feature-free",
+          "source": ["concentrator.domain.common"],
+          "forbidden": [
+            "concentrator.domain.timer",
+            "concentrator.domain.todo",
+            "concentrator.domain.focus",
+            "concentrator.domain.settings"
+          ]
+        },
+        {
+          "type": "forbidden",
+          "name": "domain-timer-is-independent",
+          "source": ["concentrator.domain.timer"],
+          "forbidden": ["concentrator.domain.todo", "concentrator.domain.focus"]
+        },
+        {
+          "type": "forbidden",
+          "name": "domain-todo-is-independent",
+          "source": ["concentrator.domain.todo"],
+          "forbidden": ["concentrator.domain.timer", "concentrator.domain.focus"]
+        },
+        {
+          "type": "forbidden",
+          "name": "application-boundaries",
+          "source": ["concentrator.application"],
+          "forbidden": [
+            "concentrator.infrastructure",
+            "concentrator.presentation",
+            "concentrator.ui",
+            "concentrator.bootstrap",
+            "PySide6",
+            "shiboken6",
+            "pydantic",
+            "pydantic_core",
+            "json5"
+          ]
+        },
+        {
+          "type": "forbidden",
+          "name": "presentation-is-qt-free",
+          "source": ["concentrator.presentation"],
+          "forbidden": [
+            "concentrator.infrastructure",
+            "concentrator.ui",
+            "concentrator.bootstrap",
+            "PySide6",
+            "shiboken6",
+            "pydantic",
+            "pydantic_core",
+            "json5"
+          ]
+        },
+        {
+          "type": "forbidden",
+          "name": "infrastructure-boundaries",
+          "source": ["concentrator.infrastructure"],
+          "forbidden": ["concentrator.presentation", "concentrator.ui", "concentrator.bootstrap"]
+        },
+        {
+          "type": "forbidden",
+          "name": "infrastructure-qt-only-in-qt-adapters",
+          "source": [
+            "concentrator.infrastructure.persistence",
+            "concentrator.infrastructure.config",
+            "concentrator.infrastructure.i18n",
+            "concentrator.infrastructure.logging",
+            "concentrator.infrastructure.system"
+          ],
+          "forbidden": ["PySide6", "shiboken6"]
+        },
+        {
+          "type": "forbidden",
+          "name": "json5-only-in-persistence",
+          "source": [
+            "concentrator.infrastructure.config",
+            "concentrator.infrastructure.i18n",
+            "concentrator.infrastructure.logging",
+            "concentrator.infrastructure.system",
+            "concentrator.infrastructure.qt"
+          ],
+          "forbidden": ["json5"]
+        },
+        {
+          "type": "forbidden",
+          "name": "pydantic-only-in-persistence-and-config",
+          "source": [
+            "concentrator.infrastructure.i18n",
+            "concentrator.infrastructure.logging",
+            "concentrator.infrastructure.system",
+            "concentrator.infrastructure.qt"
+          ],
+          "forbidden": ["pydantic", "pydantic_core"]
+        },
+        {
+          "type": "forbidden",
+          "name": "ui-talks-to-presentation-only",
+          "source": ["concentrator.ui"],
+          "forbidden": [
+            "concentrator.domain",
+            "concentrator.application",
+            "concentrator.infrastructure",
+            "concentrator.bootstrap",
+            "pydantic",
+            "pydantic_core",
+            "json5"
+          ]
+        },
+        {
+          "type": "forbidden",
+          "name": "ui-widgets-are-leaves",
+          "source": ["concentrator.ui.widgets"],
+          "forbidden": ["concentrator.ui.panels", "concentrator.ui.windows"]
+        },
+        {
+          "type": "forbidden",
+          "name": "ui-panels-below-windows",
+          "source": ["concentrator.ui.panels"],
+          "forbidden": ["concentrator.ui.windows"]
+        },
+        {
+          "type": "forbidden",
+          "name": "ui-support-is-generic",
+          "source": ["concentrator.ui.support"],
+          "forbidden": ["concentrator.ui.panels", "concentrator.ui.windows", "concentrator.ui.widgets"]
+        },
+        {
+          "type": "forbidden",
+          "name": "nothing-imports-bootstrap",
+          "source": [
+            "concentrator.domain",
+            "concentrator.application",
+            "concentrator.infrastructure",
+            "concentrator.presentation",
+            "concentrator.ui"
+          ],
+          "forbidden": ["concentrator.bootstrap"]
+        }
+      ]
+    }
+  },
+  "report": {
+    "title": "concentrator_report"
+  }
+}

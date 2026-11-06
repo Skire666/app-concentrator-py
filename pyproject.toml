@@ -1,0 +1,257 @@
+[project]
+name = "concentrator"
+version = "0.1.0"
+description = "Local Windows 11 desktop app combining a focus timer with alarms and a TODO list manager."
+readme = "README.md"
+
+# Capped on purpose: PySide6 wheels declare Requires-Python <3.15, uv needs a compatible range.
+requires-python = ">=3.14,<3.15"
+license = "Unlicense"
+license-files = ["LICENSE"]
+authors = [{ name = "skire666" }]
+classifiers = [
+    "Private :: Do Not Upload",
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: English",
+    "Natural Language :: French",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Scheduling",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pyside6>=6.11",  # Qt Widgets + QtMultimedia (MP3 playback through the FFmpeg backend)
+    "pydantic>=2.12,<3",  # 2.12 is the first release supporting Python 3.14
+    "json5>=0.12",  # JSON5 read/write, user data file only
+]
+
+# Windows launcher without console window: `uv run concentrator`.
+[project.gui-scripts]
+concentrator = "concentrator.__main__:main"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
+    "ruff>=0.17.3",
+    "pytest>=8.4",
+    "pytest-cov>=6.2",
+    "pytest-qt>=4.5",
+    "pyinstaller>=6.16",  # first release line supporting Python 3.14
+]
+# furryp is not a Python dependency of the project: it must be available on PATH.
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+
+# Flat layout: the package `concentrator/` sits at the repository root.
+module-root = ""
+module-name = "concentrator"
+
+# ---------------------------------------------------------------------------
+# ruff
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+
+# Set on purpose: the line counts of function-too-long and file-too-long depend on it.
+line-length = 120
+target-version = "py314"
+
+# Source, tests and scripts are linted; build artefacts are not.
+include = ["concentrator/**/*.py", "tests/**/*.py", "scripts/**/*.py", "pyproject.toml"]
+extend-exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.format]
+
+# Use double quotes rather than single quotes.
+quote-style = "double"
+
+# Indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Avoid useless new line after comma.
+skip-magic-trailing-comma = true
+
+# "auto" | "lf" | "crlf" | "cr" | "native"
+line-ending = "lf"
+
+# Format code examples inside docstrings too.
+docstring-code-format = true
+
+[tool.ruff.lint]
+
+# List of rule families to enable.
+select = [
+    "A",    # flake8-builtins
+    "ANN",  # flake8-annotations
+    "ARG",  # flake8-unused-arguments
+    "B",    # flake8-bugbear
+    "BLE",  # flake8-blind-except
+    "C4",   # flake8-comprehensions
+    "C90",  # mccabe
+    "D",    # pydocstyle
+    "DOC",  # pydoclint (preview): Args/Returns/Raises match the signature
+    "DTZ",  # flake8-datetimez: no naive datetimes
+    "E",    # pycodestyle errors
+    "ERA",  # eradicate
+    "F",    # pyflakes
+    "FURB", # refurb
+    "I",    # isort
+    "ICN",  # flake8-import-conventions
+    "INP",  # flake8-no-pep420: every package has an __init__.py
+    "ISC",  # flake8-implicit-str-concat
+    "LOG",  # flake8-logging
+    "N",    # pep8-naming
+    "PERF", # perflint
+    "PGH",  # pygrep-hooks: no blanket type: ignore
+    "PIE",  # flake8-pie
+    "PLC",  # pylint convention
+    "PLE",  # pylint error
+    "PLR",  # pylint refactor
+    "PLW",  # pylint warning
+    "PT",   # flake8-pytest-style
+    "PTH",  # flake8-use-pathlib
+    "RET",  # flake8-return
+    "RUF",  # ruff-specific rules
+    "SIM",  # flake8-simplify
+    "SLF",  # flake8-self: no private member access from outside the class
+    "T20",  # flake8-print: no print() in a GUI app
+    "TID",  # flake8-tidy-imports
+    "TRY",  # tryceratops
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+]
+
+# Activate preview
+preview = true
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+
+# Absolute imports only.
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+
+# The formatter ignores magic trailing commas (skip-magic-trailing-comma): isort must too.
+split-on-trailing-comma = false
+
+# Order: standard library, third party, first party.
+known-first-party = ["concentrator"]
+
+[tool.ruff.lint.mccabe]
+
+# Alert if cyclomatic complexity exceeds this threshold.
+# 10 is the widely accepted standard (McCabe's own recommendation).
+# 1-5: simple | 6-10: acceptable | 11-15: refactor | 15+: high bug risk
+max-complexity = 9 # 9 recommended
+
+[tool.ruff.lint.per-file-ignores]
+
+# Tests: no docstrings, magic values and private access allowed for assertions.
+"tests/**" = ["D", "DOC", "PLR2004", "SLF001", "PLR6301"]
+
+# Scripts are standalone tools, not packages; they report on stdout.
+"scripts/**" = ["INP001", "T201"]
+
+[tool.ruff.lint.pydocstyle]
+
+# Enforce Google style for docstrings (Args:, Returns:, Raises:...).
+# Other possible values: "numpy" or "pep257".
+convention = "google"
+
+[tool.ruff.lint.pylint]
+
+# Maximum number of arguments for a function/method
+max-args = 8  # default: 5
+
+# Maximum number of positional arguments for a function/method
+max-positional-args = 8  # default: same as max-args
+
+# Maximum number of boolean expressions in a function/method
+max-bool-expr = 8  # default: 5
+
+# Maximum number of branches in a function/method (if, elif, else, for, while, try, except...)
+max-branches = 12  # default: 12
+
+# Maximum number of statements in the body of a function/method
+max-statements = 35  # default: 50
+
+# Maximum number of return statements in a function/method
+max-returns = 8  # default: 6
+
+# Maximum number of public methods for a class
+max-public-methods = 30  # default: 20
+
+# Maximum number of local variables in a function/method
+max-locals = 12  # default: 15
+
+# Maximum number of nested blocks
+max-nested-blocks = 4  # default: 5
+
+# ---------------------------------------------------------------------------
+# basedpyright
+# ---------------------------------------------------------------------------
+
+[tool.basedpyright]
+
+# Same perimeter as ruff.
+include = ["concentrator", "tests", "scripts"]
+exclude = ["**/__pycache__", "build", "dist", ".venv"]
+
+# Set on purpose: the minimum of requires-python, not the version of the active interpreter.
+pythonVersion = "3.14"
+
+# The application only targets Windows: sys.platform branches and ctypes.windll are checked for it.
+pythonPlatform = "Windows"
+
+# The level chosen for the project.
+typeCheckingMode = "strict" # "off" | "basic" | "standard" | "strict" | "all"
+
+# Stricter than "strict" on points that matter for this code base.
+reportImplicitOverride = "error"             # @override required on overridden methods
+reportUnnecessaryTypeIgnoreComment = "error" # no stale ignores
+reportIgnoreCommentWithoutRule = "error"     # ignores must name the rule
+
+# ---------------------------------------------------------------------------
+# pytest and coverage
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+minversion = "8.4"
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]
+qt_api = "pyside6"
+markers = [
+    "ui: needs a QApplication (offscreen platform)",
+    "slow: storage benchmarks and long-running scenarios",
+]
+
+[tool.coverage.run]
+source = ["concentrator"]
+branch = true
+omit = ["concentrator/__main__.py"]
+
+[tool.coverage.report]
+fail_under = 75  # overall threshold; per-layer thresholds live in scripts/coverage_gate.py
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "@overload",
+    "raise NotImplementedError",
+    "^\\s*\\.\\.\\.$",
+]
+
+[tool.coverage.json]
+output = "coverage.json"  # read by scripts/coverage_gate.py; git-ignored
