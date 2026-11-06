@@ -442,7 +442,8 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
   `<key>.other`; French uses "one" for 0 and 1, English only for 1). Missing key: fall back to English,
   then to the key itself, and log a WARNING once.
 - Date/time formats and month/day names are catalog entries (`format.date`, ...). Do not use the
-  `locale` module.
+  `locale` module. The formatter zero-pads day, month, hour and minute before filling the
+  `{day}`/`{month}`/`{year}`/`{hour}`/`{minute}` templates (`06/11/2026`, never `6/11/2026`).
 - Switching language updates the user settings, the translator, then `RenderCoordinator.request_all()`.
   No restart, no widget recreation. Window title and tray tooltip are part of the shell snapshot.
 - Tests: both catalogs have identical key sets and placeholders; every `ErrorCodeEnum` member, every

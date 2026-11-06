@@ -40,6 +40,10 @@ superseded.
   `extra="forbid"`. Pipeline: JSON5 text -> `json5.loads` -> `json.dumps` -> `model_validate_json`.
 - Consequences: structure/syntax errors (pydantic) and business errors (rules) are reported
   separately, both as error codes; the domain has no third-party dependency.
+- Amendment (phase 0): `concentrator.ini` values are all text, so `AppConfigSchema` is validated
+  with `model_validate_strings` (`strict=True`, `extra="forbid"`): `"100"` is an int, `"1.5"` is
+  not; `missing` maps to `CONFIG_KEY_MISSING`, `extra_forbidden` to `CONFIG_KEY_UNEXPECTED` (3005),
+  any other error to `CONFIG_VALUE_INVALID`.
 
 ## ADR-004 — MP3 playback with QtMultimedia
 
@@ -244,3 +248,41 @@ superseded.
   supports the optional tooltip.
 - Consequences: a new action must be added to the mapping (enforced by test); the catalog test checks
   one label per action.
+
+## ADR-024 — Startup failure modes and self-check
+
+- Status: accepted (phase 0).
+- Decisions:
+  - A broken `concentrator.ini` is reported before logging and catalogs exist, in a plain English
+    `QMessageBox` naming the file, the error codes and the keys; exit code 1. Its texts are `Final`
+    constants in `bootstrap/startup_errors.py` and are the only literal UI texts of the application.
+  - The global hooks are installed at step 3 with a `ForwardingErrorReporter`; it forwards to the
+    error dialog presenter once the window exists (errors before that are only logged).
+  - Single instance: another instance running gives exit code 0 before any window; a lock that cannot
+    be created is logged at ERROR and the application runs unguarded (open item for phase 1: two
+    instances could then write the same data file).
+  - Catalogs that cannot be loaded are logged at ERROR; every text then falls back to its key.
+  - `CONCENTRATOR_SELF_CHECK=1` runs steps 1-3 and 5, checks the required assets (ini, catalogs,
+    application and module icons), the Qt SVG image plugin and the rendering of the module icons,
+    logs the outcome and exits 0 or 1 without a window. With a broken ini it exits 1 without dialog
+    (logging is not configured yet).
+- Consequences: `scripts/build.py` validates the frozen bundle with the exit code only; the details
+  are in the log.
+
+## ADR-025 — Phase 0 naming and tooling details
+
+- Status: accepted (phase 0).
+- Decisions:
+  - Panels render with `render_snapshot(snapshot)`: `QWidget.render(target, ...)` already exists for
+    painting, and overriding it with another signature breaks type checking and Liskov substitution.
+  - Pages live in `ui/windows/*_page.py` (window tier); `*_page.py` is added to the ui naming list.
+  - The ui cannot import `AppConfig`: the window receives `presentation.shell.ShellLayout`, built by
+    bootstrap from the `[ui]` section.
+  - `scripts/build.py` runs `python -m PyInstaller` in a subprocess instead of calling
+    `PyInstaller.__main__.run`: PyInstaller ships no type information, and strict type checking would
+    need suppressions.
+  - The catalog test checks every plain string literal of `presentation/` and `ui/` that looks like a
+    key of a catalog family; keys built from enums (`error.<code>`, `action.<action>`) are checked
+    member by member.
+  - `ValidationResult` carries a `baseline` (`SUCCESS` or `SKIPPED`) so that `skipped()` needs no
+    issue and merging follows the worst-severity rule.
