@@ -1,8 +1,9 @@
 """Catalog parity and completeness (AGENTS.md section 9).
 
-Keys used in code are checked in two ways: every plain string literal of the source that looks like a
-key of a catalog family (``app.``, ``shell.``, ``error.`` ...) must exist, and keys built from enums
-(``error.<code>``, ``action.<action>``) are checked member by member.
+Keys used in code are checked in two ways: every plain string literal of the presentation and ui
+layers (the only ones that translate) that looks like a key of a catalog family (``app.``, ``shell.``,
+``error.`` ...) must exist, and keys built from enums (``error.<code>``, ``action.<action>``) are
+checked member by member. Other layers use dotted ini field paths such as ``app.name``.
 """
 
 import ast
@@ -21,6 +22,7 @@ from tests.architecture.source_tree import REPO_ROOT, parse, relative, source_fi
 
 CATALOG_DIR: Final = REPO_ROOT / "assets" / "i18n"
 CATALOG_NAMES: Final = ("en.json", "fr.json")
+TRANSLATING_LAYERS: Final = ("presentation", "ui")
 
 
 def _load(name: str) -> dict[str, str]:
@@ -84,6 +86,7 @@ def test_every_key_literal_in_code_exists() -> None:
     missing = [
         f"{relative(path)}:{line} {literal}"
         for path in source_files()
+        if path.relative_to(REPO_ROOT / "concentrator").parts[0] in TRANSLATING_LAYERS
         for literal, line in _key_literals(path, key_pattern)
         if literal not in ENGLISH
     ]
