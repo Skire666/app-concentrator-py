@@ -62,7 +62,7 @@ Also in the domain: `domain/settings/language_enum.py` with `LanguageEnum`
 | `system/windows_shell.py` | `set_app_user_model_id(app_id) -> ValidationResult` (ctypes, `win32` only, no-op elsewhere) |
 | `config/ini_config_loader.py` | `configparser` (interpolation off) -> pydantic `AppConfigSchema` (`extra="forbid"`) -> `AppConfig`; returns `DataResult[AppConfig]` |
 | `i18n/json_catalog_translator.py` | loads `en.json`, `fr.json`; `tr`, `tr_plural` (FR: count <= 1 is singular), fallback chain, single WARNING per missing key |
-| `logging/logging_setup.py` | root logger, rotating file handler, ring buffer handler, `captureWarnings`, `faulthandler` file |
+| `logging/logging_setup.py` | two stages (ADR-026): `configure_logging` installs the root level, the ring buffer handler, the optional stream handler, `captureWarnings` and a `MemoryHandler` without target (no folder, no file); `LoggingRuntime.attach_log_file()` then creates the rotating file handler, flushes the buffered records into it and opens the `faulthandler` file |
 | `logging/ring_buffer_handler.py` | thread-safe bounded buffer with sequence numbers; implements `LogFeedPort` |
 | `logging/exception_hooks.py` | `sys.excepthook`, `threading.excepthook` -> CRITICAL log + registered callback (error dialog) |
 | `qt/qt_scheduler.py` | `QtScheduler(SchedulerPort)` with single-shot `QTimer` handles |
@@ -106,9 +106,12 @@ Also in the domain: `domain/settings/language_enum.py` with `LanguageEnum`
 2. If the config loaded: `windows_shell.set_app_user_model_id(app.app_user_model_id)`. Then
    `QApplication(sys.argv)` with organization and application names and the application icon.
 3. If the config failed: logging is not available yet, so show a plain English `QMessageBox` with the
-   error codes and the ini path, exit code 1. Otherwise configure logging, exception hooks, Qt message
-   bridge, `faulthandler`.
-4. Single instance guard. If another instance answered: log INFO and exit 0 before any window.
+   error codes and the ini path, exit code 1. Otherwise configure logging stage 1 (ring buffer,
+   in-memory startup buffer, no log file), exception hooks, Qt message bridge.
+4. Single instance guard. If another instance answered: log INFO and exit 0 before any window,
+   without ever opening the log file. Otherwise (lock held, or running unguarded after a lock error)
+   attach the rotating log file, flush the buffered startup records into it, and enable
+   `faulthandler` into its file (ADR-026).
 5. Load catalogs; on failure fall back to English keys and log ERROR.
 6. Build adapters, `EventBus`, `RenderCoordinator`, `ActionGate`, presenters, `MainWindow`.
 7. Start the `QTimer` ticking `AppTicker.tick()` every `timer.tick_interval_ms`.
@@ -116,7 +119,8 @@ Also in the domain: `domain/settings/language_enum.py` with `LanguageEnum`
 9. On `aboutToQuit`: stop the ticker, save UI state, release the instance guard, flush logging.
 
 `CONCENTRATOR_SELF_CHECK=1` (environment variable, not a command-line option) runs steps 1-3 and 5
-(no single instance guard) plus an asset presence check, writes the result to the log and exits 0
+(no single instance guard; the log file is attached right after step 3) plus an asset presence check,
+writes the result to the log and exits 0
 or 1 without showing a window. `scripts/build.py` uses it to validate the frozen bundle.
 
 ## `concentrator.ini` (phase 0 keys)

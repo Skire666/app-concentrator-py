@@ -120,8 +120,30 @@ def _log_issues(step: str, validation: ValidationResult) -> None:
         _logger.warning("%s: %s", step, [code.name for code in validation.error_codes])
 
 
+def claim_instance(app: QApplication, config: AppConfig, paths: AppPaths, runtime: Runtime) -> InstanceCheck:
+    """Step 4, then the log file for the process that keeps running (ADR-026).
+
+    A launch that hands over to the running instance exits without opening the log file; otherwise
+    (lock held, or unguarded after a lock error) the rotating file is attached and receives the
+    buffered startup records.
+
+    Args:
+        app: The application.
+        config: Loaded configuration.
+        paths: Application paths.
+        runtime: Installed services (logging still in stage 1).
+
+    Returns:
+        The single-instance outcome.
+    """
+    instance = acquire_single_instance(app, config, paths)
+    if not instance.other_instance_running:
+        runtime.logging.attach_log_file()
+    return instance
+
+
 def _run_window(app: QApplication, config: AppConfig, paths: AppPaths, runtime: Runtime) -> int:
-    """Steps 4 to 9: single instance, catalogs, wiring, ticker, window, event loop, shutdown.
+    """Steps 4 to 9: single instance and log file, catalogs, wiring, ticker, window, event loop, shutdown.
 
     Args:
         app: The application.
@@ -132,7 +154,7 @@ def _run_window(app: QApplication, config: AppConfig, paths: AppPaths, runtime: 
     Returns:
         The process exit code.
     """
-    instance = acquire_single_instance(app, config, paths)
+    instance = claim_instance(app, config, paths, runtime)
     if instance.other_instance_running:
         return EXIT_OK
     shell = build_shell(app, config, paths, load_translator(paths, config), runtime.reporter)
@@ -178,6 +200,7 @@ def run(paths: AppPaths, *, self_check: bool) -> int:
         )
         _log_issues("AppUserModelID", model_id or ValidationResult.success())
         if self_check:
+            runtime.logging.attach_log_file()
             return EXIT_OK if run_self_check(paths, config.data) else EXIT_FAILURE
         exit_code = _run_window(app, config.data, paths, runtime)
         _logger.info("Exit code %d", exit_code)

@@ -62,7 +62,9 @@ class Runtime:
 
 
 def configure_runtime(config: AppConfig) -> Runtime:
-    """Configure logging, exception hooks, the Qt message bridge and ``faulthandler`` (startup step 3).
+    """Configure logging stage 1, exception hooks and the Qt message bridge (startup step 3).
+
+    The log file and ``faulthandler`` come with ``Runtime.logging.attach_log_file`` (ADR-026).
 
     Args:
         config: Loaded configuration.

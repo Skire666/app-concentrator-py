@@ -1,9 +1,18 @@
-"""Root logger configuration: rotating file, journal ring buffer, optional stream, warnings, faulthandler."""
+"""Root logger configuration in two stages (ADR-026).
+
+Stage 1 (``configure_logging``): journal ring buffer, optional stream, captured warnings and an in-memory
+startup buffer. No folder is created and no file is opened. Stage 2 (``LoggingRuntime.attach_log_file``),
+only in the process that keeps running: rotating log file, filled first with the buffered startup
+records, then ``faulthandler``. A second launch that hands over to the running instance never opens
+the log file, so it cannot make the rotation of the running instance fail (Windows refuses to rename
+a file another process holds open).
+"""
 
 import faulthandler
 import logging
 import sys
-from logging.handlers import RotatingFileHandler
+from dataclasses import dataclass
+from logging.handlers import MemoryHandler, RotatingFileHandler
 from pathlib import Path
 from typing import Final, TextIO
 
@@ -16,60 +25,38 @@ LOG_FORMAT: Final = "%(asctime)s | %(levelname)-8s | %(threadName)s | %(name)s |
 FAULTHANDLER_FILE_NAME: Final = "faulthandler.log"
 
 
-class LoggingRuntime:
-    """Handlers installed on the root logger; ``shutdown`` removes them and flushes the files."""
+@dataclass(frozen=True, slots=True)
+class _LogFileSettings:
+    """What stage 2 needs to open the files."""
 
-    def __init__(
-        self, ring_buffer: RingBufferHandler, handlers: tuple[logging.Handler, ...], fault_file: TextIO | None
-    ) -> None:
-        """Keep references to what was installed.
-
-        Args:
-            ring_buffer: Journal buffer (also in ``handlers``).
-            handlers: Every handler added to the root logger.
-            fault_file: File receiving ``faulthandler`` dumps, if it could be opened.
-        """
-        self.ring_buffer = ring_buffer
-        self._handlers = handlers
-        self._fault_file = fault_file
-
-    def shutdown(self) -> None:
-        """Flush and remove the handlers, stop capturing warnings, close the faulthandler file."""
-        root = logging.getLogger()
-        for handler in self._handlers:
-            handler.flush()
-            root.removeHandler(handler)
-            handler.close()
-        logging.captureWarnings(False)
-        if self._fault_file is not None:
-            faulthandler.disable()
-            self._fault_file.close()
-            self._fault_file = None
+    config: LoggingSection
+    log_dir: Path
+    formatter: logging.Formatter
+    enable_faulthandler: bool
 
 
-def _file_handler(config: LoggingSection, log_dir: Path, formatter: logging.Formatter) -> logging.Handler | None:
-    """Create the rotating file handler.
+def _file_handler(settings: _LogFileSettings) -> logging.Handler | None:
+    """Create the log folder and the rotating file handler.
 
     Args:
-        config: ``[logging]`` section.
-        log_dir: Folder of the log file (created if needed).
-        formatter: Line format.
+        settings: File settings.
 
     Returns:
         The handler, or ``None`` when the folder or the file cannot be created.
     """
+    config = settings.config
     try:
-        log_dir.mkdir(parents=True, exist_ok=True)
+        settings.log_dir.mkdir(parents=True, exist_ok=True)
         handler = RotatingFileHandler(
-            log_dir / config.file_name,
+            settings.log_dir / config.file_name,
             maxBytes=config.file_max_bytes,
             backupCount=config.file_backup_count,
             encoding="utf-8",
         )
     except OSError as error:
-        _logger.warning("Log file disabled, cannot open it in %s: %s", log_dir, error)
+        _logger.warning("Log file disabled, cannot open it in %s: %s", settings.log_dir, error)
         return None
-    handler.setFormatter(formatter)
+    handler.setFormatter(settings.formatter)
     return handler
 
 
@@ -91,21 +78,91 @@ def _open_fault_file(log_dir: Path) -> TextIO | None:
     return fault_file
 
 
+class LoggingRuntime:
+    """Handlers installed on the root logger; ``shutdown`` removes them and flushes the files."""
+
+    def __init__(
+        self,
+        ring_buffer: RingBufferHandler,
+        handlers: list[logging.Handler],
+        startup_buffer: MemoryHandler,
+        file_settings: _LogFileSettings,
+    ) -> None:
+        """Keep references to what stage 1 installed.
+
+        Args:
+            ring_buffer: Journal buffer (also in ``handlers``).
+            handlers: Every handler added to the root logger, except the startup buffer.
+            startup_buffer: Records waiting for the log file.
+            file_settings: What stage 2 needs.
+        """
+        self.ring_buffer = ring_buffer
+        self._handlers = handlers
+        self._startup_buffer: MemoryHandler | None = startup_buffer
+        self._file_settings = file_settings
+        self._fault_file: TextIO | None = None
+
+    @property
+    def has_log_file(self) -> bool:
+        """Whether stage 2 opened the rotating log file."""
+        return any(isinstance(handler, RotatingFileHandler) for handler in self._handlers)
+
+    def attach_log_file(self) -> bool:
+        """Stage 2: open the log file, write the buffered startup records into it, enable ``faulthandler``.
+
+        Called once this process holds the single-instance lock (or runs unguarded, or self-checks).
+        A folder that cannot be used only disables the file: the journal keeps working.
+
+        Returns:
+            Whether the log file is open (idempotent: later calls change nothing).
+        """
+        startup_buffer = self._startup_buffer
+        if startup_buffer is None:
+            return self.has_log_file
+        self._startup_buffer = None
+        logging.getLogger().removeHandler(startup_buffer)
+        file_handler = _file_handler(self._file_settings)
+        if file_handler is not None:
+            startup_buffer.setTarget(file_handler)
+            startup_buffer.flush()
+            logging.getLogger().addHandler(file_handler)
+            self._handlers.append(file_handler)
+            if self._file_settings.enable_faulthandler:
+                self._fault_file = _open_fault_file(self._file_settings.log_dir)
+        startup_buffer.close()
+        return file_handler is not None
+
+    def shutdown(self) -> None:
+        """Remove every handler (buffered records without log file are dropped), stop capturing warnings."""
+        root = logging.getLogger()
+        if self._startup_buffer is not None:
+            root.removeHandler(self._startup_buffer)
+            self._startup_buffer.close()
+            self._startup_buffer = None
+        for handler in self._handlers:
+            handler.flush()
+            root.removeHandler(handler)
+            handler.close()
+        logging.captureWarnings(False)
+        if self._fault_file is not None:
+            faulthandler.disable()
+            self._fault_file.close()
+            self._fault_file = None
+
+
 def configure_logging(
     config: LoggingSection, log_dir: Path, *, stream: TextIO | None = sys.stderr, enable_faulthandler: bool = True
 ) -> LoggingRuntime:
-    """Install the handlers on the root logger.
-
-    A log folder that cannot be created only disables the file handler (the journal still works).
+    """Stage 1: install the in-memory handlers on the root logger. Creates no folder, opens no file.
 
     Args:
         config: ``[logging]`` section.
-        log_dir: Resolved ``paths.log_dir``.
+        log_dir: Resolved ``paths.log_dir``, used by ``attach_log_file``.
         stream: Console stream; ``None`` in windowed and frozen runs (``sys.stderr`` is ``None``).
-        enable_faulthandler: Whether to dump fatal errors into ``faulthandler.log``.
+        enable_faulthandler: Whether stage 2 dumps fatal errors into ``faulthandler.log``.
 
     Returns:
-        The installed runtime, to be shut down on quit.
+        The installed runtime: call ``attach_log_file`` once this process keeps running, ``shutdown`` on quit.
     """
     formatter = logging.Formatter(LOG_FORMAT)
     root = logging.getLogger()
@@ -116,12 +173,9 @@ def configure_logging(
         stream_handler = logging.StreamHandler(stream)
         stream_handler.setFormatter(formatter)
         handlers.append(stream_handler)
-    for handler in handlers:
+    startup_buffer = MemoryHandler(config.journal_buffer_size, target=None, flushOnClose=False)
+    for handler in (*handlers, startup_buffer):
         root.addHandler(handler)
-    file_handler = _file_handler(config, log_dir, formatter)
-    if file_handler is not None:
-        root.addHandler(file_handler)
-        handlers.append(file_handler)
     logging.captureWarnings(True)
-    fault_file = _open_fault_file(log_dir) if enable_faulthandler and file_handler is not None else None
-    return LoggingRuntime(ring_buffer, tuple(handlers), fault_file)
+    settings = _LogFileSettings(config, log_dir, formatter, enable_faulthandler)
+    return LoggingRuntime(ring_buffer, handlers, startup_buffer, settings)

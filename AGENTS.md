@@ -364,6 +364,13 @@ silent code-level defaults for ini keys.
 - Handlers: `RotatingFileHandler` in `paths.log_dir` (UTF-8) and a thread-safe in-memory ring buffer
   (`logging.journal_buffer_size`) read by the journal page through `LogFeedPort`. No stream handler
   when frozen (`sys.stderr` is `None` in windowed builds).
+- Two-stage startup (ADR-026): until the single-instance decision, records go only to the ring
+  buffer, the optional stream and a `MemoryHandler` without target. The process that keeps running
+  (lock held, or unguarded after a lock error) then attaches the `RotatingFileHandler`, flushes the
+  buffered records into it and opens the `faulthandler` file. A second launch that hands over to the
+  running instance exits without opening the log file: rotation renames the file, which fails on
+  Windows while another process holds it open, and the failure would be lost (`sys.stderr` is
+  `None` in the frozen exe).
 - `sys.excepthook` and `threading.excepthook` log CRITICAL with traceback and show an error dialog.
   `logging.captureWarnings(True)`, Qt messages routed to the `qt` logger, `faulthandler` to a file.
 - Log messages are English, technical, and never contain the content of user tasks.

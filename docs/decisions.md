@@ -286,3 +286,22 @@ superseded.
     member by member.
   - `ValidationResult` carries a `baseline` (`SUCCESS` or `SKIPPED`) so that `skipped()` needs no
     issue and merging follows the worst-severity rule.
+
+## ADR-026 — Two-stage logging startup
+
+- Status: accepted (phase 0), owner decision (2026-11-06).
+- Context: the spec configured logging (step 3) before the single-instance decision (step 4), so a
+  second launch opened the same rotating log file as the running instance. Rotation renames the file;
+  on Windows that fails while another process holds it open, and with `sys.stderr = None` in the
+  frozen exe the failure would be lost.
+- Decision: logging starts in two stages. `configure_logging` installs the root level, the journal
+  ring buffer, the optional stream handler, `captureWarnings` and a `logging.handlers.MemoryHandler`
+  without target; it creates no folder and opens no file. Once this process holds the lock,
+  `LoggingRuntime.attach_log_file()` creates the `RotatingFileHandler`, flushes the buffered startup
+  records into it (oldest first), attaches it and opens the `faulthandler` file. A second launch that
+  hands over to the running instance exits without ever opening the log file; its few records live
+  only in its memory (and on the console when there is one). In unguarded mode (the lock cannot be
+  created) the file is attached as before; phase 1 adds a visible warning for that case. The
+  self-check attaches the file right after step 3.
+- Consequences: the running instance is the only writer of the log file, so rotation works; the
+  diagnostics of a second launch are not kept.
