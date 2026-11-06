@@ -11,8 +11,8 @@
       "Bash(uvx ruff:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
-      "Bash(git log:*)"
       "Bash(git commit:*)",
+      "Bash(git log:*)"
     ],
     "ask": [
       "Bash(git push:*)",
