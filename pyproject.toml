@@ -63,8 +63,8 @@ module-name = "concentrator"
 line-length = 120
 target-version = "py314"
 
-# Source, tests and scripts are linted; build artefacts are not.
-include = ["concentrator/**/*.py", "tests/**/*.py", "scripts/**/*.py", "pyproject.toml"]
+# Source, tests and scripts are linted; build artefacts and pyproject.toml are not (ADR-017).
+include = ["concentrator/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
 extend-exclude = ["build", "dist", ".venv"]
 
 [tool.ruff.format]

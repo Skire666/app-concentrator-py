@@ -171,6 +171,12 @@ superseded.
   `SLF`, `T20`; absolute imports only; basedpyright `pythonPlatform = "Windows"`,
   `reportImplicitOverride`, ignore-comment hygiene; pytest `filterwarnings = ["error"]`;
   `[project.gui-scripts]` entry point without console.
+- Amendment (phase 0, owner decision 2026-11-06): ruff 0.17 (preview) adds `rule-codes-in-selectors`,
+  which rejects rule codes in `per-file-ignores`, and `noqa-comments`, which replaces `# noqa` with
+  `# ruff: ignore[...]`. `pyproject.toml` is removed from ruff's `include` (the codes stay as
+  written); `AGENTS.md` rule 14 now names `# ruff: ignore[...]`.
+- Amendment (phase 0): `.gitattributes` forces LF on checkout (`* text=auto eol=lf`, binary assets
+  excluded), because Git for Windows defaults to `core.autocrlf=true` and ruff formats with LF.
 
 ## ADR-018 — Localization details
 

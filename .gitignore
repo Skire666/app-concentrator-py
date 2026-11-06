@@ -228,3 +228,6 @@ __marimo__/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Coverage report read by scripts/coverage_gate.py
+coverage.json

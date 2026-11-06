@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Concentrator",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "concentrator",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
+      "name": "Concentrator self-check",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "concentrator",
+      "cwd": "${workspaceFolder}",
+      "env": { "CONCENTRATOR_SELF_CHECK": "1" },
+      "justMyCode": true
+    },
+    {
+      "name": "pytest: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-q"],
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false
+    }
+  ]
+}

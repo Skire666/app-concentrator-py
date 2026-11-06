@@ -56,8 +56,8 @@ this file must be updated in the same change.
 12. No hard-coded tunables: read them from `AppConfig` (loaded from `concentrator.ini`). No
     user-visible literal strings: use i18n keys.
 13. No `print()`. Use `logging.getLogger(__name__)`.
-14. All gates green before every commit (§14). No `# noqa`, `# type: ignore` or `# pyright: ignore`
-    without a rule code and a one-line justification.
+14. All gates green before every commit (§14). No `# ruff: ignore[...]`, `# type: ignore` or
+    `# pyright: ignore` without a rule and a one-line justification (ruff >= 0.17 rejects `# noqa`).
 15. Work phase by phase. Never implement a later phase's feature. Stop at the phase review gate.
 
 ## 3. Repository layout
