@@ -1,0 +1,83 @@
+"""Application constants loaded from ``concentrator.ini`` (plain frozen dataclasses, no pydantic).
+
+Every field mirrors one ini key; there is no code-level default (ADR-009). Path tokens are already
+resolved by the loader.
+"""
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from concentrator.domain.settings.language_enum import LanguageEnum
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AppSection:
+    """``[app]``: identity of the application and of its single running instance."""
+
+    name: str
+    organization: str
+    app_user_model_id: str
+    single_instance_key: str
+    single_instance_timeout_ms: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PathsSection:
+    """``[paths]``: files and folders, with tokens resolved."""
+
+    default_data_file: Path
+    ui_state_file: Path
+    log_dir: Path
+    backup_dir: Path
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UiSection:
+    """``[ui]``: sizes and timings of the user interface."""
+
+    module_bar_width_px: int
+    zone1_ratio_percent: int
+    default_window_width_px: int
+    default_window_height_px: int
+    min_window_width_px: int
+    min_window_height_px: int
+    action_cooldown_ms: int
+    slow_action_threshold_ms: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TimerSection:
+    """``[timer]``: runtime engine settings."""
+
+    tick_interval_ms: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class LoggingSection:
+    """``[logging]``: log level, rotating file and journal buffer."""
+
+    level: int
+    file_name: str
+    file_max_bytes: int
+    file_backup_count: int
+    journal_buffer_size: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class I18nSection:
+    """``[i18n]``: UI languages."""
+
+    default_language: LanguageEnum
+    fallback_language: LanguageEnum
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class AppConfig:
+    """Every section of ``concentrator.ini``."""
+
+    app: AppSection
+    paths: PathsSection
+    ui: UiSection
+    timer: TimerSection
+    logging: LoggingSection
+    i18n: I18nSection

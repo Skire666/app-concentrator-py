@@ -198,3 +198,15 @@ superseded.
 - Context: the module bar must span the full height, while the status bar sits under the content.
   `QMainWindow`'s status bar always spans the full width.
 - Decision: a top-level `QWidget` with `QHBoxLayout[module bar, QVBoxLayout[pages, status bar]]`.
+
+## ADR-021 — EventBus isolates failing handlers
+
+- Status: accepted (phase 0), owner decision (2026-11-06).
+- Context: the phase 0 spec requires that a failing event handler does not stop the other
+  handlers, while `AGENTS.md` rule 4 allowed `except Exception` only in the global exception hooks.
+- Decision: `EventBus` dispatch catches `Exception` around each handler call, logs it with
+  `logger.exception` (ERROR with traceback) and forwards it to `ErrorReporterPort`, the same
+  reporter the global hooks use, so the user sees the error dialog. Rule 4 lists exactly two
+  places allowed to catch `Exception`: the global exception hooks and `EventBus` dispatch.
+- Consequences: a buggy subscriber cannot break unrelated features and its failure is never
+  silent. `BaseException` subclasses (`KeyboardInterrupt`, `SystemExit`) still propagate.

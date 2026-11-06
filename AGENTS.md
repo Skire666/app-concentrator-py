@@ -40,7 +40,9 @@ this file must be updated in the same change.
 3. Backend operations never return a bare entity and never raise for expected failures. They return
    `DataResult[T]` or `ValidationResult` carrying `ErrorCodeEnum` codes. No error strings.
 4. No silent exception. Catch the narrowest type, log the technical detail, convert to an error code.
-   `except Exception` is allowed only in the global exception hooks.
+   `except Exception` is allowed in exactly two places: the global exception hooks and `EventBus`
+   dispatch (handler isolation). Both log with the traceback and forward the error to the shared
+   `ErrorReporterPort`, so the user sees the error dialog (ADR-021).
 5. Every enum subclasses `BaseIntEnum` (an `IntEnum`), is named `*Enum`, lives in `*_enum.py`, and
    defines `UNKNOWN = -1` and `UNSET = 0`.
 6. Business rules live in domain `*Rules` classes that return a `ValidationResult`.
