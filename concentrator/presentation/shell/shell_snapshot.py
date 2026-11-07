@@ -56,8 +56,14 @@ class StatusBarSnapshot:
 
     Attributes:
         save_state_text: Translated state of the last save.
+        save_state_tooltip: Data file path and issues of the last save.
+        instance_warning_text: Unguarded single-instance indicator, ``""`` when protected (ADR-031).
+        instance_warning_tooltip: Its explanation.
         language_button: Shows the current language (``ENG``/``FRA``) and toggles it.
     """
 
     save_state_text: str
+    save_state_tooltip: str
+    instance_warning_text: str
+    instance_warning_tooltip: str
     language_button: ButtonSnapshot

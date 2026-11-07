@@ -1,6 +1,6 @@
 """Outcome of a validation or of an operation: a tuple of coded issues, never an error string."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final, Self
 
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
@@ -171,6 +171,22 @@ class ValidationResult:
             The matching issues, in order.
         """
         return tuple(issue for issue in self.issues if issue.field == field)
+
+    def prefixed(self, prefix: str) -> ValidationResult:
+        """Place every issue under a parent field (rules of a nested object).
+
+        Args:
+            prefix: Dotted path of the parent, for example ``settings``.
+
+        Returns:
+            The same result with ``field`` turned into ``<prefix>.<field>`` (``<prefix>`` for a global issue).
+        """
+        if not prefix:
+            return self
+        issues = tuple(
+            replace(issue, field=f"{prefix}.{issue.field}" if issue.field else prefix) for issue in self.issues
+        )
+        return ValidationResult(issues=issues, baseline=self.baseline)
 
     def merge(self, *others: ValidationResult) -> ValidationResult:
         """Combine results: issues are concatenated, the worst baseline wins.

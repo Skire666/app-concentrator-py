@@ -7,8 +7,11 @@ from pytestqt.qtbot import QtBot
 
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
+from concentrator.presentation.shell.shell_snapshot import StatusBarSnapshot
+from concentrator.ui.panels.status_bar_panel import StatusBarPanel
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.support.layout_codec import decode_blob, encode_blob
+from concentrator.ui.support.modal_host import ModalHost
 from concentrator.ui.support.qt_dialog_service import QtDialogService
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
 
@@ -62,14 +65,45 @@ def test_confirm_returns_the_user_choice_with_catalog_button_texts(qtbot: QtBot,
     qtbot.addWidget(parent)
     _click_in_next_message_box(clicked)
 
-    assert QtDialogService(parent).confirm("Title", "Question?", "Yes!", "No!") is expected
+    assert QtDialogService(ModalHost.create(parent, 10)).confirm("Title", "Question?", "Yes!", "No!") is expected
 
 
-@pytest.mark.parametrize("kind", ["inform", "error"])
+@pytest.mark.parametrize("kind", ["inform", "warn", "error"])
 def test_messages_close_with_their_catalog_button(qtbot: QtBot, kind: str) -> None:
     parent = QWidget()
     qtbot.addWidget(parent)
-    service = QtDialogService(parent)
+    service = QtDialogService(ModalHost.create(parent, 10))
     _click_in_next_message_box("Close!")
 
     getattr(service, kind)("Title", "Message", "Close!")
+
+
+def test_status_bar_shows_the_save_tooltip_and_the_instance_warning(qtbot: QtBot) -> None:
+    panel = StatusBarPanel()
+    qtbot.addWidget(panel)
+    button = ButtonSnapshot(
+        text="ENG", tooltip="", enabled=True, visible=True, action=ActionIdEnum.SHELL_TOGGLE_LANGUAGE
+    )
+    warned = StatusBarSnapshot(
+        save_state_text="Saved at 17:44:03",
+        save_state_tooltip="Data file: D:/x.toml",
+        instance_warning_text="Second launch not blocked",
+        instance_warning_tooltip="Explanation",
+        language_button=button,
+    )
+
+    panel.render_snapshot(warned)
+    shown = (panel.save_state_tooltip, panel.instance_warning.text(), panel.instance_warning.isHidden())
+    panel.render_snapshot(
+        StatusBarSnapshot(
+            save_state_text="Saved",
+            save_state_tooltip="",
+            instance_warning_text="",
+            instance_warning_tooltip="",
+            language_button=button,
+        )
+    )
+
+    assert shown == ("Data file: D:/x.toml", "Second launch not blocked", False)
+    assert panel.instance_warning.isHidden()
+    assert panel.instance_warning.property("warning") is True

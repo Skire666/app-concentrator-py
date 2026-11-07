@@ -66,27 +66,24 @@ New `RenderSectionEnum` values: `PRESETS`, `PRESET_EDIT`, `SPECIAL_OPTIONS`, `CH
 
 ## File format (sections added)
 
-```json5
-  timer_presets: [
-    {
-      id: "019a5c20-1111-7aaa-8bbb-1c2d3e4f5a6b",
-      created_at: "2026-11-06T16:40:00Z",
-      updated_at: "2026-11-06T16:40:00Z",
-      label: "",
-      duration_seconds: 900,
-      position: 0,
-    },
-  ],
-  hourly_chime: {
-    id: "019a5c20-2222-7ccc-8ddd-2d3e4f5a6b7c",
-    created_at: "2026-11-06T16:40:00Z",
-    updated_at: "2026-11-06T16:40:00Z",
-    enabled: false,
-    sound: { kind: 1, value: "chime" },
-    volume: 60,
-    start_hour: 8,
-    end_hour: 20,
-  },
+```toml
+[[timer_presets]]
+id = '019a5c20-1111-7aaa-8bbb-1c2d3e4f5a6b'
+created_at = '2026-11-06T16:40:00Z'
+updated_at = '2026-11-06T16:40:00Z'
+label = ''
+duration_seconds = 900
+position = 0
+
+[hourly_chime]
+id = '019a5c20-2222-7ccc-8ddd-2d3e4f5a6b7c'
+created_at = '2026-11-06T16:40:00Z'
+updated_at = '2026-11-06T16:40:00Z'
+enabled = false
+sound = { kind = 1, value = 'chime' }
+volume = 60
+start_hour = 8
+end_hour = 20
 ```
 
 ## `concentrator.ini` (new keys)

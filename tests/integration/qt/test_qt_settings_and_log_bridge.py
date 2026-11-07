@@ -27,12 +27,12 @@ def test_view_preferences_round_trip_through_a_new_file(qtbot: QtBot, tmp_path: 
     preferences = QSettingsViewPreferences(ini_file)
 
     preferences.set_text("layout/main_window/geometry", "AAEC/w==")
-    preferences.set_text("storage/data_file_path", "C:/Users/me/concentrator.json5")
+    preferences.set_text("storage/data_file_path", "C:/Users/me/concentrator.toml")
     assert preferences.sync()
 
     reopened = QSettingsViewPreferences(ini_file)
     assert reopened.get_text("layout/main_window/geometry") == "AAEC/w=="
-    assert reopened.get_text("storage/data_file_path") == "C:/Users/me/concentrator.json5"
+    assert reopened.get_text("storage/data_file_path") == "C:/Users/me/concentrator.toml"
     assert reopened.get_text("layout/absent") is None
 
 

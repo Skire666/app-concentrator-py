@@ -14,6 +14,7 @@ from concentrator.application.common.app_config import (
     I18nSection,
     LoggingSection,
     PathsSection,
+    StorageSection,
     TimerSection,
     UiSection,
 )
@@ -123,6 +124,7 @@ class IniConfigLoader:
                 app=AppSection(**schema.app.model_dump()),
                 paths=paths.data,
                 ui=UiSection(**schema.ui.model_dump()),
+                storage=StorageSection(**schema.storage.model_dump()),
                 timer=TimerSection(**schema.timer.model_dump()),
                 logging=LoggingSection(
                     level=logging.getLevelNamesMapping()[schema.logging.level],

@@ -24,13 +24,14 @@ build, and complete user documentation.
 
 | Scenario | Target |
 |---|---|
-| Startup to window shown, 2,000 tasks, 20 history events each | <= 2 s |
+| Startup to window shown, 1,000 tasks, 20 history events each | <= 2 s |
 | Save of the same file | off the UI thread, <= 1 s on the writer thread |
-| Task table snapshot, 2,000 rows | <= 100 ms |
-| Typing in the search box, 2,000 tasks | no visible lag (debounced, <= 50 ms per filter) |
+| Task table snapshot, 1,000 rows | <= 100 ms |
+| Typing in the search box, 1,000 tasks | no visible lag (debounced, <= 50 ms per filter) |
 
-If the JSON5 decoder misses the startup target, apply ADR-002: keep the JSON5 format and swap in a
-faster JSON5 decoder behind `Json5Codec`, after a decision at review.
+The TOML reader is the standard library `tomllib`; the phase 1 measurement (ADR-035) reads 1,000
+tasks in about 0.3 s. If the startup target is missed anyway, profile before changing anything and
+decide at review.
 
 ### Display and keyboard
 

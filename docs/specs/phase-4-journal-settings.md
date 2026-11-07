@@ -34,13 +34,13 @@ One form, sections in this order:
 
 | Section | Fields | Storage |
 |---|---|---|
-| General | language (combo); journal detail level (`LogLevelEnum`); notifications when the window is inactive (checkbox) | `UserSettings` (JSON5) |
-| Hourly chime | enabled, sound, volume + preview, start hour, end hour | `HourlyChime` (JSON5) |
+| General | language (combo); journal detail level (`LogLevelEnum`); notifications when the window is inactive (checkbox) | `UserSettings` (data file) |
+| Hourly chime | enabled, sound, volume + preview, start hour, end hour | `HourlyChime` (data file) |
 | Data file | current path (read-only), Open folder, Use another file..., Move file... | `ui-state.ini` + file operations |
 | Interface | Reset layout (window geometry, splitters, column widths, sorts, filters) | `ui-state.ini` |
 | About | version, paths of the app ini, UI state ini, log folder, backups folder (read-only, each with Open folder; a missing app folder is created before opening) | — |
 
-- `SettingsForm` (`FormState`) covers the JSON5-backed fields: inline errors, `is_dirty`, Save and
+- `SettingsForm` (`FormState`) covers the fields stored in the data file: inline errors, `is_dirty`, Save and
   Revert enabled only when dirty; leaving the page with a dirty form asks Save / Discard / Cancel.
 - Data file actions are immediate commands (not part of the form), each with confirmation:
   - Use another file: flush the current save, pick a file (open existing or create new), run the
@@ -80,13 +80,14 @@ New `RenderSectionEnum` values: `JOURNAL`, `SETTINGS`.
 
 ## File format (fields added to `settings`)
 
-```json5
-  settings: {
-    id: "...", created_at: "...", updated_at: "...",
-    language: 2,
-    log_level: 2,
-    notify_when_inactive: true,
-  },
+```toml
+[settings]
+id = '...'
+created_at = '...'
+updated_at = '...'
+language = 2
+log_level = 2
+notify_when_inactive = true
 ```
 
 ## `concentrator.ini` (new keys)

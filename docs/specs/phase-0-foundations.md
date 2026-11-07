@@ -133,7 +133,7 @@ app_user_model_id = skire666.Concentrator
 single_instance_key = concentrator
 
 [paths]
-default_data_file = {appdata}/Concentrator/concentrator.json5
+default_data_file = {appdata}/Concentrator/concentrator.toml
 ui_state_file = {appdata}/Concentrator/ui-state.ini
 log_dir = {localappdata}/Concentrator/logs
 backup_dir = {appdata}/Concentrator/backups

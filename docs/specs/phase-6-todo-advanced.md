@@ -80,7 +80,8 @@ does not exist or fails to open, the user is responsible.
     end of the line, spaces included; elsewhere it runs to the next whitespace unless quoted with
     `"..."` or `<...>`.
 - Normalization happens in the domain when a task is created or updated: detected paths in the text
-  are rewritten with `/`, so the JSON5 file stores flat, unescaped paths and the UI shows the same.
+  are rewritten with `/`, so the TOML file stores flat paths in literal strings and the UI shows the
+  same.
 - Display, styled as hyperlinks (underlined, link color from the palette, pointing-hand cursor):
   - details pane: `QTextBrowser` with anchors built from escaped text (`html.escape`) and
     index-based hrefs (`link:<n>`), `setOpenLinks(False)`, `anchorClicked` -> presenter;
@@ -116,20 +117,18 @@ New `ActionIdEnum` values: `TODO_FILTER_DUE`, `TODO_TOGGLE_RECURRING_ONLY`, `TOD
 
 ## File format (task fields added)
 
-```json5
-      text: ["Weekly backup", "Copy D:/Projects/Concentrator to //nas/backup/projects", "See https://example.org/backup-guide"],
-      due_date: "2026-11-13",
-      recurrence: {
-        frequency: 2,
-        interval: 1,
-        weekdays: [5],
-        anchor_date: "2026-11-06",
-        end_kind: 3,
-        end_date: null,
-        end_count: 10,
-      },
-      occurrences_done: 1,
+```toml
+text = [
+  'Weekly backup',
+  'Copy D:/Projects/Concentrator to //nas/backup/projects',
+  'See https://example.org/backup-guide',
+]
+due_date = '2026-11-13'
+recurrence = { frequency = 2, interval = 1, weekdays = [5], anchor_date = '2026-11-06', end_kind = 3, end_count = 10 }
+occurrences_done = 1
 ```
+
+`end_date` is not set, so it is absent: TOML has no `null` (ADR-035).
 
 ## `concentrator.ini` (new keys)
 

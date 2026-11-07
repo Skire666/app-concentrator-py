@@ -135,19 +135,18 @@ values: `TIMER`, `TIMER_EDIT`, `TRAY`.
 
 ## File format (section added)
 
-```json5
-  timer: {
-    id: "019a5c1f-0b2e-7d4a-8c61-2a3b4c5d6e7f",
-    created_at: "2026-11-06T16:40:00Z",
-    updated_at: "2026-11-06T16:50:12Z",
-    duration_seconds: 1500,
-    sound: { kind: 2, value: "D:/Music/Alarms/long alarm.mp3" },
-    volume: 80,
-    loop_count: 3,
-    loop_forever: false,
-    auto_stop_seconds: 120,
-    auto_restart: false,
-  },
+```toml
+[timer]
+id = '019a5c1f-0b2e-7d4a-8c61-2a3b4c5d6e7f'
+created_at = '2026-11-06T16:40:00Z'
+updated_at = '2026-11-06T16:50:12Z'
+duration_seconds = 1500
+sound = { kind = 2, value = 'D:/Music/Alarms/long alarm.mp3' }
+volume = 80
+loop_count = 3
+loop_forever = false
+auto_stop_seconds = 120
+auto_restart = false
 ```
 
 ## `concentrator.ini` (new keys)

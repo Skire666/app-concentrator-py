@@ -30,6 +30,16 @@ class DialogPort(Protocol):
         """
         ...
 
+    def warn(self, title: str, message: str, button_text: str) -> None:
+        """Show a warning message.
+
+        Args:
+            title: Window title.
+            message: Message.
+            button_text: Label of the closing button.
+        """
+        ...
+
     def error(self, title: str, message: str, button_text: str) -> None:
         """Show an error message.
 
@@ -46,7 +56,7 @@ class DialogPort(Protocol):
         Args:
             title: Window title.
             directory: Initial folder.
-            name_filter: Qt filter such as ``Concentrator data (*.json5)``.
+            name_filter: Qt filter such as ``Concentrator data (*.toml)``.
 
         Returns:
             The chosen path with ``/`` separators, or ``None`` when cancelled.

@@ -220,8 +220,8 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Local runtime files created while developing
-*.json5.tmp
-*.json5.bak
+*.toml.tmp
+*.toml.bak
 *.corrupt-*
 
 # OS / editors

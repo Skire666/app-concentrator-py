@@ -3,9 +3,10 @@
 A local, single-window desktop application for Windows 11 that combines a countdown timer with alarms,
 timer favorites, an hourly chime, a focus queue and a TODO list manager. Python 3.14, PySide6.
 
-Status: phase 0 (foundations and walking skeleton). The window shell, configuration, logging,
-localization (English and French), single instance and packaging work; the features arrive phase by
-phase (see [docs/specs/README.md](docs/specs/README.md)).
+Status: phase 1 (user data persistence). On top of the phase 0 shell (configuration, logging, English
+and French, single instance, packaging), the TOML data file is chosen at first launch, saved
+atomically, recovered after a crash or damage, and watched for outside edits; the features arrive
+phase by phase (see [docs/specs/README.md](docs/specs/README.md)).
 
 ## Quick start
 

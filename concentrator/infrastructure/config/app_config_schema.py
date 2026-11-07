@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 _STRICT: Final = ConfigDict(strict=True, extra="forbid", frozen=True)
 _MIN_WINDOW_ABOVE_DEFAULT: Final = "min_window size must not exceed default_window size"
+_MAX_DELAY_BELOW_DEBOUNCE: Final = "save_max_delay_ms must not be lower than save_debounce_ms"
 
 type Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 type FileName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=r"^[^/\\:*?\"<>|]+$")]
@@ -55,6 +56,7 @@ class UiSectionSchema(BaseModel):
     min_window_height_px: WindowSide
     action_cooldown_ms: Annotated[int, Field(ge=100, le=5_000)]
     slow_action_threshold_ms: Annotated[int, Field(ge=1, le=60_000)]
+    dialog_overlay_opacity_percent: Annotated[int, Field(ge=0, le=50)]
 
     @model_validator(mode="after")
     def _check_min_window(self) -> Self:
@@ -62,6 +64,28 @@ class UiSectionSchema(BaseModel):
             raise ValueError(_MIN_WINDOW_ABOVE_DEFAULT)
         if self.min_window_height_px > self.default_window_height_px:
             raise ValueError(_MIN_WINDOW_ABOVE_DEFAULT)
+        return self
+
+
+class StorageSectionSchema(BaseModel):
+    """``[storage]``."""
+
+    model_config = _STRICT
+
+    save_debounce_ms: Annotated[int, Field(ge=50, le=10_000)]
+    save_max_delay_ms: Annotated[int, Field(ge=500, le=60_000)]
+    replace_retry_count: Annotated[int, Field(ge=0, le=20)]
+    replace_retry_delay_ms: Annotated[int, Field(ge=10, le=5_000)]
+    failed_save_retry_ms: Annotated[int, Field(ge=1_000, le=600_000)]
+    shutdown_flush_timeout_ms: Annotated[int, Field(ge=500, le=60_000)]
+    blocking_write_timeout_ms: Annotated[int, Field(ge=500, le=60_000)]
+    daily_backup_enabled: bool
+    daily_backup_retention_days: Annotated[int, Field(ge=1, le=365)]
+
+    @model_validator(mode="after")
+    def _check_max_delay(self) -> Self:
+        if self.save_max_delay_ms < self.save_debounce_ms:
+            raise ValueError(_MAX_DELAY_BELOW_DEBOUNCE)
         return self
 
 
@@ -102,6 +126,7 @@ class AppConfigSchema(BaseModel):
     app: AppSectionSchema
     paths: PathsSectionSchema
     ui: UiSectionSchema
+    storage: StorageSectionSchema
     timer: TimerSectionSchema
     logging: LoggingSectionSchema
     i18n: I18nSectionSchema

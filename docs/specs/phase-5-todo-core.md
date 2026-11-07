@@ -98,33 +98,36 @@ New `RenderSectionEnum` values: `TODO_TABS`, `TODO_TOOLBAR`, `TODO_TABLE`, `TODO
 
 ## File format (sections added)
 
-```json5
-  task_lists: [
-    {
-      id: "019a5c21-aaaa-7bbb-8ccc-3e4f5a6b7c8d",
-      created_at: "2026-11-06T16:41:00Z",
-      updated_at: "2026-11-06T16:41:00Z",
-      name: "Work",
-      description: ["Client projects", "and admin"],
-      priority: 3,
-      position: 0,
-    },
-  ],
-  tasks: [
-    {
-      id: "019a5c22-bbbb-7ccc-8ddd-4f5a6b7c8d9e",
-      created_at: "2026-11-06T16:45:00Z",
-      updated_at: "2026-11-06T16:45:00Z",
-      list_id: "019a5c21-aaaa-7bbb-8ccc-3e4f5a6b7c8d",
-      text: ["Prepare the quarterly report", "Sources in D:/Reports/2026/Q4"],
-      due_date: "2026-11-10",
-      due_time: null,
-      state: 1,
-      completed_at: null,
-      history: [{ at: "2026-11-06T16:45:00Z", kind: 1, details: {} }],
-    },
-  ],
+```toml
+[[task_lists]]
+id = '019a5c21-aaaa-7bbb-8ccc-3e4f5a6b7c8d'
+created_at = '2026-11-06T16:41:00Z'
+updated_at = '2026-11-06T16:41:00Z'
+name = 'Work'
+description = [
+  'Client projects',
+  'and admin',
+]
+priority = 3
+position = 0
+
+[[tasks]]
+id = '019a5c22-bbbb-7ccc-8ddd-4f5a6b7c8d9e'
+created_at = '2026-11-06T16:45:00Z'
+updated_at = '2026-11-06T16:45:00Z'
+list_id = '019a5c21-aaaa-7bbb-8ccc-3e4f5a6b7c8d'
+text = [
+  'Prepare the quarterly report',
+  '''Sources in D:/Reports/2026/Q4 (the client's folder)''',
+]
+due_date = '2026-11-10'
+state = 1
+history = [
+  { at = '2026-11-06T16:45:00Z', kind = 1, details = {} },
+]
 ```
+
+`due_time` and `completed_at` are not set, so they are absent: TOML has no `null` (ADR-035).
 
 Load-time rules: every `list_id` must reference an existing list (`TASK_LIST_NOT_FOUND`).
 
@@ -170,7 +173,7 @@ default_list_priority = NORMAL
 - Persistence: round trip with several lists and tasks; dangling `list_id` -> error.
 - UI smoke: table with 3 rows renders; clicking the checkbox emits the toggle with the right id;
   tab bar renders names and badges.
-- Performance (`slow` marker): building the table snapshot for 2,000 tasks takes < 100 ms.
+- Performance (`slow` marker): building the table snapshot for 1,000 tasks takes < 100 ms.
 
 ## Acceptance criteria
 
@@ -180,7 +183,7 @@ default_list_priority = NORMAL
 - [ ] The checkbox column toggles done without opening the task.
 - [ ] Show done / Show archived toggles, sort by any column; everything is restored after restart
       (selected tab, sort, columns, splitter).
-- [ ] 2,000 tasks in a list: scrolling and selection stay fluid.
+- [ ] 1,000 tasks in a list: scrolling and selection stay fluid.
 - [ ] FRA/ENG switch updates headers, buttons, dates and confirmations live.
 
 ## Manual test script
@@ -190,7 +193,7 @@ default_list_priority = NORMAL
 2. Quick add 5 tasks, edit one with 3 lines and a due date yesterday (overdue display).
 3. Select 3 tasks, Done; Show done off; Show archived on; archive one; unarchive it.
 4. Resize and reorder columns, sort by Due descending, restart.
-5. Generate 2,000 tasks with `scripts/bench_storage.py --seed-tasks 2000 --into <copy of your file>`
+5. Generate 1,000 tasks with `scripts/bench_storage.py --seed-tasks 1000 --into <copy of your file>`
    and open that copy with "Use another file".
 
 ## Review gate questions

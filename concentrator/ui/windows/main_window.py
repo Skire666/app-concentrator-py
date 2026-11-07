@@ -15,6 +15,8 @@ from concentrator.presentation.common.render_section_enum import RenderSectionEn
 from concentrator.presentation.shell.shell_layout import ShellLayout
 from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.shell_snapshot import ShellSnapshot
+from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
+from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
 from concentrator.ui.panels.module_bar_panel import ModuleBarPanel
 from concentrator.ui.panels.status_bar_panel import StatusBarPanel
 from concentrator.ui.support.icon_loader import IconLoader
@@ -27,12 +29,14 @@ _logger = logging.getLogger(__name__)
 
 
 class MainWindow(QWidget):
-    """Composes the shell panels, wires them to the presenter and persists the layout."""
+    """Composes the shell panels, wires them to the presenters and persists the layout."""
 
     def __init__(
         self,
         *,
         presenter: ShellPresenter,
+        status_bar: StatusBarPresenter,
+        shutdown: ShutdownPresenter,
         renderer: RenderCoordinator,
         layout_keeper: LayoutStateKeeper,
         shell_layout: ShellLayout,
@@ -42,7 +46,9 @@ class MainWindow(QWidget):
         """Build the window (not shown).
 
         Args:
-            presenter: Shell presenter.
+            presenter: Shell presenter (module bar, pages, title).
+            status_bar: Status bar presenter.
+            shutdown: Decides whether the window may close (pending changes, ADR-032).
             renderer: Render coordinator the panels are registered with.
             layout_keeper: Store of the layout blobs.
             shell_layout: Sizes from the ini.
@@ -51,6 +57,7 @@ class MainWindow(QWidget):
         """
         super().__init__(None)
         self._presenter = presenter
+        self._shutdown = shutdown
         self._layout_keeper = layout_keeper
         self._shell_layout = shell_layout
         self.setWindowIcon(app_icon)
@@ -63,11 +70,9 @@ class MainWindow(QWidget):
         self._settings_page = SettingsPage(self._pages)
         self._build_layout()
         self._module_bar.action_requested.connect(presenter.on_action_requested)
-        self._status_bar.action_requested.connect(presenter.on_action_requested)
+        self._status_bar.action_requested.connect(status_bar.on_action_requested)
         renderer.register(RenderSectionEnum.SHELL, presenter.build_shell_snapshot, self.render_shell)
-        renderer.register(
-            RenderSectionEnum.STATUS_BAR, presenter.build_status_bar_snapshot, self._status_bar.render_snapshot
-        )
+        renderer.register(RenderSectionEnum.STATUS_BAR, status_bar.build_snapshot, self._status_bar.render_snapshot)
 
     @property
     def module_bar(self) -> ModuleBarPanel:
@@ -126,6 +131,9 @@ class MainWindow(QWidget):
 
     @override
     def closeEvent(self, event: QCloseEvent) -> None:
+        if not self._shutdown.can_close():
+            event.ignore()
+            return
         self.save_layout()
         super().closeEvent(event)
 

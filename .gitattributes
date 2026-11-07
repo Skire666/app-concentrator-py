@@ -1,4 +1,4 @@
-# The repository uses LF everywhere (ruff format, JSON5 user file, catalogs); keep it on checkout.
+# The repository uses LF everywhere (ruff format, TOML user file, catalogs); keep it on checkout.
 * text=auto eol=lf
 *.bat text eol=crlf
 *.cmd text eol=crlf

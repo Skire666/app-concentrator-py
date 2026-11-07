@@ -7,7 +7,7 @@ TODO list manager last, as requested.
 | Phase | Title | Main outcome | Depends on |
 |---|---|---|---|
 | 0 | [Foundations](phase-0-foundations.md) | Tooling, layers, shell window, i18n, logging, single instance, build | — |
-| 1 | [Persistence](phase-1-persistence.md) | JSON5 user file, first launch, atomic save, recovery | 0 |
+| 1 | [Persistence](phase-1-persistence.md) | TOML user file, first launch, atomic save, recovery | 0 |
 | 2 | [Timer core](phase-2-timer-core.md) | Countdown, state machine, alarm MP3, background alert, snooze, edit dialog | 1 |
 | 3 | [Timer extras](phase-3-timer-extras.md) | Favorites (presets) and hourly chime | 2 |
 | 4 | [Journal and settings](phase-4-journal-settings.md) | Menu B log viewer, Menu C editable settings | 1 |

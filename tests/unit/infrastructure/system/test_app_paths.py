@@ -56,7 +56,7 @@ def test_frozen_layout_without_bundle_dir_uses_exe_folder() -> None:
         ("{localappdata}/Concentrator/logs", Path("C:/Users/me/AppData/Local/Concentrator/logs")),
         ("{app_dir}/data", Path("D:/src/app/data")),
         ("relative/logs", Path("D:/src/app/relative/logs")),
-        ("F:/absolute/file.json5", Path("F:/absolute/file.json5")),
+        ("F:/absolute/file.toml", Path("F:/absolute/file.toml")),
     ],
 )
 def test_resolve_replaces_tokens(template: str, expected: Path) -> None:

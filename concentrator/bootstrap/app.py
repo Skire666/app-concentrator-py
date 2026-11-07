@@ -1,4 +1,4 @@
-"""Startup and shutdown sequence (phase 0 spec, "Bootstrap")."""
+"""Startup and shutdown sequence (phase 0 spec "Bootstrap", phase 1 storage steps, ADR-027, ADR-032)."""
 
 import logging
 import os
@@ -7,20 +7,24 @@ from dataclasses import dataclass
 from importlib import metadata
 from typing import Final
 
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QSessionManager
 from PySide6.QtWidgets import QApplication
 
 from concentrator.application.common.app_config import AppConfig
+from concentrator.bootstrap.core import build_core
 from concentrator.bootstrap.runtime import Runtime, configure_runtime
 from concentrator.bootstrap.self_check import run_self_check
-from concentrator.bootstrap.shell import build_shell
+from concentrator.bootstrap.shell import Shell, build_shell
+from concentrator.bootstrap.startup import open_data_file
 from concentrator.bootstrap.startup_errors import show_config_error
+from concentrator.bootstrap.storage import build_storage
 from concentrator.bootstrap.translator_loader import load_translator
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.infrastructure.config.ini_config_loader import IniConfigLoader
 from concentrator.infrastructure.qt.qt_single_instance_guard import QtSingleInstanceGuard
 from concentrator.infrastructure.system import windows_shell
 from concentrator.infrastructure.system.app_paths import AppPaths
+from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
 
 _logger = logging.getLogger(__name__)
 
@@ -142,8 +146,36 @@ def claim_instance(app: QApplication, config: AppConfig, paths: AppPaths, runtim
     return instance
 
 
+def _run_shell(app: QApplication, shell: Shell, guard: QtSingleInstanceGuard | None) -> int:
+    """Steps 7 to 9: show the window, run the event loop; flush on session end and on quit (ADR-032).
+
+    Args:
+        app: The application.
+        shell: Wired window.
+        guard: Instance guard, ``None`` when unguarded.
+
+    Returns:
+        The event loop exit code.
+    """
+    if guard is not None:
+        guard.set_activation_handler(shell.window.bring_to_front)
+
+    def on_commit_data(_manager: QSessionManager) -> None:
+        _logger.info("Windows session ending")
+        shell.shutdown_presenter.flush_without_dialog()
+
+    def on_about_to_quit() -> None:
+        shell.shutdown()
+        _logger.info("Shutting down")
+
+    app.commitDataRequest.connect(on_commit_data)
+    app.aboutToQuit.connect(on_about_to_quit)
+    shell.start()
+    return app.exec()
+
+
 def _run_window(app: QApplication, config: AppConfig, paths: AppPaths, runtime: Runtime) -> int:
-    """Steps 4 to 9: single instance and log file, catalogs, wiring, ticker, window, event loop, shutdown.
+    """Steps 4 to 9: instance and log file, catalogs, data file (ADR-027), window, event loop, shutdown.
 
     Args:
         app: The application.
@@ -152,25 +184,26 @@ def _run_window(app: QApplication, config: AppConfig, paths: AppPaths, runtime: 
         runtime: Installed services; its reporter receives the unexpected errors.
 
     Returns:
-        The process exit code.
+        The process exit code (0 also when the user quits the startup dialogs).
     """
     instance = claim_instance(app, config, paths, runtime)
     if instance.other_instance_running:
         return EXIT_OK
-    shell = build_shell(app, config, paths, load_translator(paths, config), runtime.reporter)
-    guard = instance.guard
-    if guard is not None:
-        guard.set_activation_handler(shell.window.bring_to_front)
-
-    def on_about_to_quit() -> None:
-        shell.shutdown()
-        if guard is not None:
-            guard.release()
-        _logger.info("Shutting down")
-
-    app.aboutToQuit.connect(on_about_to_quit)
-    shell.start()
-    return app.exec()
+    translator = load_translator(paths, config)
+    core = build_core(app, config, runtime.reporter)
+    storage = build_storage(core, config, translator, runtime.reporter, _version())
+    protection = InstanceProtectionPresenter(translator, protected=instance.guard is not None)
+    try:
+        if not open_data_file(core, storage, translator, protection, QIcon(str(paths.app_icon_file))):
+            return EXIT_OK
+        shell = build_shell(
+            app, config, paths, translator, runtime.reporter, core=core, storage=storage, instance=protection
+        )
+        return _run_shell(app, shell, instance.guard)
+    finally:
+        storage.writer.shutdown()
+        if instance.guard is not None:
+            instance.guard.release()
 
 
 def run(paths: AppPaths, *, self_check: bool) -> int:
@@ -201,7 +234,7 @@ def run(paths: AppPaths, *, self_check: bool) -> int:
         _log_issues("AppUserModelID", model_id or ValidationResult.success())
         if self_check:
             runtime.logging.attach_log_file()
-            return EXIT_OK if run_self_check(paths, config.data) else EXIT_FAILURE
+            return EXIT_OK if run_self_check(paths, config.data, _version()) else EXIT_FAILURE
         exit_code = _run_window(app, config.data, paths, runtime)
         _logger.info("Exit code %d", exit_code)
         return exit_code

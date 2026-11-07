@@ -3,19 +3,29 @@ import shutil
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication, QMessageBox
 from pytestqt.qtbot import QtBot
 
 from concentrator.application.common.app_config import AppConfig
 from concentrator.bootstrap.app import acquire_single_instance, run
+from concentrator.bootstrap.core import Core, build_core
 from concentrator.bootstrap.runtime import ForwardingErrorReporter
+from concentrator.bootstrap.self_check import storage_failures
 from concentrator.bootstrap.shell import build_shell
+from concentrator.bootstrap.startup import apply_language_hint, open_data_file
 from concentrator.bootstrap.startup_errors import format_config_error
+from concentrator.bootstrap.storage import Storage, build_storage
 from concentrator.bootstrap.translator_loader import load_translator
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.infrastructure.config.ini_config_loader import IniConfigLoader
+from concentrator.infrastructure.i18n.json_catalog_translator import JsonCatalogTranslator
 from concentrator.infrastructure.system.app_paths import AppPaths
+from concentrator.presentation.common.action_id_enum import ActionIdEnum
+from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
 
 pytestmark = pytest.mark.ui
@@ -111,22 +121,109 @@ def test_config_error_text_names_the_file_the_codes_and_the_keys() -> None:
     assert "- CONFIG_FILE_NOT_FOUND (3001)\n" in text
 
 
-def test_built_shell_starts_ticks_and_saves_its_state_on_shutdown(qtbot: QtBot, install: _Install) -> None:
+def _storage(config: AppConfig, install: _Install) -> tuple[Core, Storage, JsonCatalogTranslator]:
+    translator = load_translator(install.paths, config)
+    core = build_core(_app(), config, ForwardingErrorReporter())
+    return core, build_storage(core, config, translator, ForwardingErrorReporter(), "0.1.0-test"), translator
+
+
+def test_built_shell_starts_ticks_saves_and_flushes_on_shutdown(qtbot: QtBot, install: _Install) -> None:
     config = install.config()
-    reporter = ForwardingErrorReporter()
-    shell = build_shell(_app(), config, install.paths, load_translator(install.paths, config), reporter)
+    core, storage, translator = _storage(config, install)
+    assert storage.startup.create_at(config.paths.default_data_file, LanguageEnum.ENGLISH).is_success
+    protection = InstanceProtectionPresenter(translator, protected=True)
+    shell = build_shell(
+        _app(),
+        config,
+        install.paths,
+        translator,
+        ForwardingErrorReporter(),
+        core=core,
+        storage=storage,
+        instance=protection,
+    )
     qtbot.addWidget(shell.window)
 
     shell.start()
     qtbot.waitExposed(shell.window)
+    shell.window.status_bar.language_button.click()
+    qtbot.waitUntil(lambda: not core.gate.is_busy(ActionIdEnum.SHELL_TOGGLE_LANGUAGE), timeout=2000)
 
     assert shell.window.windowTitle() == "Concentrator"
     assert shell.window.module_bar.width() == config.ui.module_bar_width_px
     assert shell.tick_timer.isActive()
     assert shell.tick_timer.interval() == config.timer.tick_interval_ms
     shell.shutdown()
+    core.renderer.flush()  # renders the final save state while the window still exists
+    storage.writer.shutdown()
     assert not shell.tick_timer.isActive()
     assert "layout" in config.paths.ui_state_file.read_text(encoding="utf-8")
+    assert "language = 2" in config.paths.default_data_file.read_text(encoding="utf-8")
+
+
+def test_reopening_a_remembered_file_needs_no_dialog_and_follows_its_language(qtbot: QtBot, install: _Install) -> None:
+    del qtbot
+    config = install.config()
+    _core, first, _translator = _storage(config, install)
+    first.startup.create_at(config.paths.default_data_file, LanguageEnum.FRENCH)
+    first.writer.shutdown()
+    core, storage, translator = _storage(config, install)
+    protection = InstanceProtectionPresenter(translator, protected=True)
+
+    opened = open_data_file(core, storage, translator, protection, QIcon())
+
+    storage.writer.shutdown()
+    assert opened
+    assert translator.language is LanguageEnum.FRENCH
+    assert storage.hint.read() is LanguageEnum.FRENCH
+
+
+def test_language_hint_is_applied_before_the_startup_dialogs(qtbot: QtBot, install: _Install) -> None:
+    del qtbot
+    config = install.config()
+    core, storage, translator = _storage(config, install)
+    storage.hint.write(LanguageEnum.FRENCH)
+    core.preferences.set_text("shell/language_hint", "de")
+
+    apply_language_hint(storage, translator)
+    assert translator.language is LanguageEnum.ENGLISH
+    storage.hint.write(LanguageEnum.FRENCH)
+    apply_language_hint(storage, translator)
+    storage.writer.shutdown()
+
+    assert translator.language is LanguageEnum.FRENCH
+
+
+def test_unguarded_startup_warns_before_opening_the_file(
+    qtbot: QtBot, install: _Install, caplog: pytest.LogCaptureFixture
+) -> None:
+    del qtbot
+    config = install.config()
+    _core, first, _translator = _storage(config, install)
+    first.startup.create_at(config.paths.default_data_file, LanguageEnum.ENGLISH)
+    first.writer.shutdown()
+    core, storage, translator = _storage(config, install)
+    protection = InstanceProtectionPresenter(translator, protected=False)
+    titles: list[str] = []
+
+    def accept_warning() -> None:
+        box = QApplication.activeModalWidget()
+        assert isinstance(box, QMessageBox)
+        titles.append(box.windowTitle())
+        box.buttons()[0].click()
+
+    QTimer.singleShot(0, accept_warning)
+    with caplog.at_level(logging.INFO):
+        opened = open_data_file(core, storage, translator, protection, QIcon())
+    storage.writer.shutdown()
+
+    assert opened
+    assert titles == ["Single-instance check unavailable"]
+    assert "Unguarded single-instance warning shown" in caplog.text
+
+
+def test_self_check_round_trips_the_user_data() -> None:
+    assert storage_failures("0.1.0") == []
 
 
 def test_second_instance_check_in_the_same_session_asks_to_exit(install: _Install) -> None:

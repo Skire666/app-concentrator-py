@@ -21,7 +21,7 @@ superseded.
 
 ## ADR-002 — JSON5 for the user data file
 
-- Status: accepted, owner decision (2026-11-06). Not to be reopened.
+- Status: superseded by ADR-035 (owner decision, 2026-11-07). Accepted, owner decision (2026-11-06).
 - Context: the brief requires JSON5, with flat Windows paths and multi-line text.
 - Decision: JSON5 stays because it is clearer for a user who reads or edits the file (unquoted keys,
   trailing commas, arrays of lines, flat paths). Alternatives (plain JSON, SQLite) are rejected.
@@ -31,13 +31,18 @@ superseded.
 - Safeguards: codec isolated behind `Json5Codec` and `UserDataFilePort`; history capped
   (`todo.max_history_events`); throughput measured in phase 1 and startup time in phase 8. If a
   target is missed, the remedy is a faster JSON5 decoder behind `Json5Codec`, never another format.
+- Measurement (phase 1, `scripts/bench_storage.py`, 5.06 MB task-shaped document, `json5` 0.17.3):
+  `json5.loads` 30.6 s (0.17 MB/s), `json5.dumps` 0.63 s (8.0 MB/s); the same data as plain JSON
+  loads with `json.loads` at about 290 MB/s. Reading is the bottleneck; the choice of a faster JSON5
+  decoder is a phase 1 review question.
 
 ## ADR-003 — Pydantic only for persistence and config DTOs
 
 - Status: accepted.
 - Decision: domain entities are frozen dataclasses validated by `*Rules`; pydantic models live in
   `infrastructure/persistence/schemas` and `infrastructure/config` only, `strict=True`,
-  `extra="forbid"`. Pipeline: JSON5 text -> `json5.loads` -> `json.dumps` -> `model_validate_json`.
+  `extra="forbid"`. Pipeline: JSON5 text -> `json5.loads` -> `json.dumps` -> `model_validate_json`
+  (since ADR-035: TOML text -> `tomllib.loads` -> `json.dumps` -> `model_validate_json`).
 - Consequences: structure/syntax errors (pydantic) and business errors (rules) are reported
   separately, both as error codes; the domain has no third-party dependency.
 - Amendment (phase 0): `concentrator.ini` values are all text, so `AppConfigSchema` is validated
@@ -75,7 +80,10 @@ superseded.
   are debounced and executed by a single `ThreadPoolExecutor(max_workers=1)` on immutable snapshots;
   results return through a queued Qt signal. Flush on quit with a timeout.
 - Consequences: no locks in business code; the UI never waits for the disk; at most
-  `storage.save_debounce_ms` of changes can be lost on a hard crash.
+  `storage.save_debounce_ms` of changes can be lost on a hard crash (superseded by the amendment).
+- Amendment (phase 1, owner decision 2026-11-06): the debounce is trailing with a maximum delay
+  (ADR-029). At most `storage.save_max_delay_ms` of changes can be lost on a hard crash. Startup
+  writes also run on the writer thread (ADR-028).
 
 ## ADR-007 — Single instance with QLockFile and QLocalServer
 
@@ -268,6 +276,8 @@ superseded.
     (logging is not configured yet).
 - Consequences: `scripts/build.py` validates the frozen bundle with the exit code only; the details
   are in the log.
+- Amendment (phase 1): the open item of unguarded mode is closed by ADR-031 (visible warning) and
+  ADR-033 (external modification check).
 
 ## ADR-025 — Phase 0 naming and tooling details
 
@@ -305,3 +315,280 @@ superseded.
   self-check attaches the file right after step 3.
 - Consequences: the running instance is the only writer of the log file, so rotation works; the
   diagnostics of a second launch are not kept.
+
+## ADR-027 — Data file startup resolution and recovery
+
+- Status: accepted (phase 1), owner decisions (2026-11-06).
+- Context: the phase 1 spec names the startup steps (`READY`, `NEEDS_LOCATION`, `NEEDS_RECOVERY`,
+  `FATAL`) without the full matrix. Three cases had no fitting action: a valid main file with a newer
+  `.tmp` ("start empty" would be wrong), a remembered file that is missing (a removable or network
+  drive may not be connected yet), and a file that is locked or written by a newer version (it must
+  never be quarantined).
+- Decision:
+  - The storage startup runs after the catalogs (phase 0 step 5), not right after step 4, because
+    its dialogs are translated. Until the data file is loaded they use the language hint
+    `shell/language_hint` of `ui-state.ini` (an ISO code written at every language change, outside
+    the `layout/` prefix), else `i18n.default_language`. Once loaded, the data file is the source of
+    truth and the hint follows it.
+  - `resolve_startup` inspects the main file, `<file>.tmp` and `<file>.bak`:
+
+    | Situation | Step | Actions |
+    |---|---|---|
+    | no remembered path | `NEEDS_LOCATION` | use the file found at the default location (only if it exists), create at the default location, create elsewhere, open existing, quit |
+    | remembered file absent, no valid `.tmp`/`.bak` | `NEEDS_LOCATION` + "file not found" notice | the same, plus Retry; the file is never recreated silently |
+    | main valid, valid `.tmp` with a newer `saved_at` | `NEEDS_RECOVERY` | restore the `.tmp`, keep the current file, quit |
+    | main valid, otherwise | `READY` | — |
+    | main damaged (encoding, syntax, structure or rule errors), or absent with a valid `.tmp`/`.bak` | `NEEDS_RECOVERY` | restore a candidate (newest `saved_at` first, `.tmp` first on a tie), choose another file, start with an empty file, quit; Retry too when the main file is absent |
+    | main unreadable (2002) | `FATAL` | Retry, choose another file, quit |
+    | main written by a newer version (2009) | `FATAL` | choose another file, quit |
+
+  - Restore quarantines a damaged main first (`<file>.corrupt-YYYYMMDD-HHMMSS`), then writes the
+    candidate as the new main through the atomic writer, so the `.bak` being restored is never
+    overwritten by the damaged file. Restoring a newer `.tmp` over a valid main is a normal save
+    (the main file goes to `.bak`).
+  - "Keep the current file" renames the stale `.tmp` to `<file>.tmp.discarded-YYYYMMDD-HHMMSS`;
+    otherwise the same question would come back at every start.
+  - "Retry" runs the resolution again (a lock released, a drive connected, a file put back).
+    Amendment (phase 1 review, 2026-11-07): Retry is also offered when the main file is absent
+    but a `.tmp` or `.bak` remains (a file renamed, moved or being restored by a sync client);
+    the manual test found it missing.
+  - Renamed files carry the local date and time. A `FATAL` file is never renamed or written.
+  - The remembered path `storage/data_file_path` is written only after a successful open or create.
+- Consequences: phase 4 "Use another file" reuses the same inspection for any path.
+
+## ADR-028 — Every user-data write on the writer thread
+
+- Status: accepted (phase 1).
+- Context: rule 11 puts every user-data disk write on the single writer thread, and startup writes
+  (create, restore, quarantine, discard the `.tmp`) happen before the event loop runs.
+- Decision: every write, including the startup ones, is a job of the single writer thread
+  (`ThreadPoolExecutor(max_workers=1, thread_name_prefix="writer")`). Debounced saves return through
+  `MainThreadDispatcherPort`. Synchronous writes (startup, shutdown flush) block the main thread for at
+  most `storage.blocking_write_timeout_ms` (new key) or `storage.shutdown_flush_timeout_ms`, then
+  report `STORAGE_FLUSH_TIMEOUT`. A job that raises unexpectedly is read from `future.exception()`
+  (no `except Exception`), logged CRITICAL with its traceback, forwarded to `ErrorReporterPort` and
+  converted to `STORAGE_WRITE_FAILED`. Reads (load, probe) run on the main thread.
+- Consequences: two writes never race on the same file, at startup as well.
+
+## ADR-029 — Save debounce with a maximum delay
+
+- Status: accepted (phase 1), owner decision (2026-11-06).
+- Decision: each change restarts a `storage.save_debounce_ms` timer; a second timer, started by the
+  first unsaved change and never restarted, forces the save after `storage.save_max_delay_ms` even if
+  changes keep coming. The configuration rejects `save_max_delay_ms < save_debounce_ms`
+  (`CONFIG_VALUE_INVALID`). One save is in flight at a time; if the revision changed meanwhile,
+  another save follows. A failed save keeps the data in memory, sets `FAILED` and retries every
+  `storage.failed_save_retry_ms`, except for `STORAGE_FILE_CHANGED_EXTERNALLY` (ADR-033).
+- Alternatives: a fixed window (one write per period: more writes for a burst of changes); a pure
+  trailing debounce (no bound on the delay under continuous changes).
+- Consequences: a burst of 20 toggles gives one to three writes; at most `save_max_delay_ms` of
+  changes are lost on a hard crash (ADR-006 amendment).
+
+## ADR-030 — Whole-second wall-clock timestamps
+
+- Status: accepted (phase 1), owner decision (2026-11-06).
+- Context: the file stores `YYYY-MM-DDTHH:MM:SSZ`. With microseconds in memory, a save and reload
+  would change every entity, and an `is_dirty` comparison against reloaded data would always fail.
+- Decision: `SystemClock.now_utc()` and `now_local()` drop the microseconds; `monotonic()` keeps full
+  precision (timer engine, action gate). `ClockPort.to_local(moment)` converts a UTC instant to local
+  time, so presenters format "Saved at" through the port and stay deterministic in tests. The writer
+  always writes whole seconds; the reader accepts any ISO 8601 instant and the rules require UTC.
+- Consequences: timestamps created in the same second are equal; ordering ties fall back to ids
+  (UUIDv7 ids are time-ordered).
+
+## ADR-031 — Visible warning when single-instance protection is off
+
+- Status: accepted (phase 1), owner decision (2026-11-06). Closes the ADR-024 open item.
+- Decision: when the instance lock cannot be created (unguarded mode), the user sees a modal warning
+  right after the catalogs load, before any data file is opened, and a status bar indicator with an
+  explanatory tooltip for the whole session. Nothing is shown when only the local server fails: the
+  lock still protects, and that case stays a WARNING in the log. The external modification check
+  (ADR-033) also detects the saves of a second instance.
+
+## ADR-032 — Flushing pending changes on close, quit and session end
+
+- Status: accepted (phase 1), owner decisions (2026-11-06).
+- Context: the spec asks for "Quit without saving?" / "Retry" when the shutdown flush fails, but
+  `aboutToQuit` cannot cancel the quit. On Windows logoff or shutdown, `aboutToQuit` can arrive too
+  late, and Qt 6 has no fallback session management that would close the windows first.
+- Decision: `MainWindow.closeEvent` asks the shutdown presenter, which flushes synchronously
+  (`storage.shutdown_flush_timeout_ms`); on failure it asks "Quit without saving" / "Retry", and
+  Retry keeps the window open. `QGuiApplication.commitDataRequest` (session end) and `aboutToQuit`
+  (fallback) run the same synchronous flush without dialog when changes are still pending.
+- Consequences: a failed save on the normal quit path is never silent; on session end the result
+  is only logged.
+
+## ADR-033 — External modification of the data file
+
+- Status: accepted (phase 1), owner decision (2026-11-06).
+- Context: JSON5 was chosen so that users read and edit the file (ADR-002; TOML since ADR-035, same
+  reason). A hand edit while the
+  application runs is therefore an expected case, in guarded mode too; so is the save of a second,
+  unguarded instance. A blind save would erase it silently.
+- Decision:
+  - The file adapter keeps a fingerprint of the main file (size, `mtime_ns`, SHA-256) after each load
+    and each save.
+  - On the writer thread, right before the `.bak` copy and the replace, it compares the fingerprint
+    with the file on disk. Another size is a change. With the same size the SHA-256 decides:
+    `mtime_ns` is never trusted to prove the file unchanged, because an edit made within the timestamp
+    granularity of the previous save can keep the same value (found by a flaky test during phase 1).
+    A sync client or antivirus touching the file without changing it is therefore not a conflict (the
+    fingerprint is refreshed). The cost is one read and hash of the file per save, on the writer
+    thread.
+  - If the content changed, nothing is written (the verified `.tmp` is deleted) and the save fails
+    with `STORAGE_FILE_CHANGED_EXTERNALLY` (2021). The save state is `FAILED` without automatic retry;
+    later changes in Concentrator stay in memory and no save is attempted until the user decides.
+  - A dialog asks: "Reload the file (changes made in Concentrator since the last save are lost)" or
+    "Keep Concentrator's version (overwrite the file)". Reload runs the read pipeline; a damaged file
+    shows the field-level errors and asks again. Keep saves once without the check; that save copies
+    the externally changed file to `.bak` (step 3) before replacing it. Escape keeps Concentrator's
+    version.
+  - A main file deleted while the application runs is not a conflict: the next save recreates it and
+    logs a WARNING.
+- Accepted limit: a change made between the check and `os.replace` (milliseconds) is not detected.
+
+## ADR-034 — Phase 1 persistence details
+
+- Status: accepted (phase 1).
+- Decisions:
+  - Duplicate keys are rejected (`json5.loads(allow_duplicate_keys=False)`) with
+    `STORAGE_DUPLICATE_KEY` (2020, parameter `key`): by default `json5` keeps the last value silently.
+    Codes 2018 and 2019 stay reserved for phase 4. Superseded by ADR-035: TOML forbids duplicate keys,
+    they are syntax errors (2004) and 2020 is retired.
+  - The reader accepts a leading UTF-8 BOM (some editors add one); the writer never writes one.
+  - `schema_version` is checked before pydantic runs, so a file written by a newer version reports
+    `STORAGE_SCHEMA_VERSION_UNSUPPORTED` rather than a list of unexpected fields.
+  - `domain/common/entity_collection.py` provides `EntityCollection[E]` (tuple plus id index and the
+    shared operations); every `*Collection` subclasses it. Entities that support `copy_business`
+    implement the `BusinessCopyable` protocol (`business_copy(new_id, now)`).
+  - `DialogPort.warn(title, message, button_text)` shows a warning message.
+  - The self-check also round-trips an in-memory `UserData` through codec, schemas and mappers (no
+    file written), so a bundle missing `json5` or `pydantic` pieces fails the build (`tomllib` since
+    ADR-035).
+  - Daily backups are named `<stem>-YYYY-MM-DD.json5` (`.toml` since ADR-035; local date of the save). Retention deletes only
+    files of the backup folder whose name matches that pattern exactly for the current file's stem;
+    any other file is left alone.
+  - New `[storage]` keys beyond the spec: `save_max_delay_ms` (ADR-029) and
+    `blocking_write_timeout_ms` (ADR-028).
+- Decided during the build (approved at the phase 1 review, 2026-11-07):
+  - `UserDataFilePort.load`, `create` and `restore` return `StoredUserData` (the data and the file's
+    `saved_at`) instead of a bare `UserData`, so the status bar shows when the file was last saved.
+    The port also has a blocking `save(...)` (the shutdown flush needs the outcome while the main
+    thread waits, ADR-032) and `discard_temporary(path)` (ADR-027).
+  - The generic store is `StoreCollectionReader[E]` / `StoreCollectionWriter[E]` (one type parameter,
+    as `AGENTS.md` section 6.2 writes it), working on `EntityCollection[E]` through a
+    `CollectionSlot[E]`. The spec's `[E, C]` cannot be typed: a type parameter bound cannot refer to
+    another one ("TypeVar bound type cannot be generic"). `EntityCollection` operations return
+    `Self`, so the concrete collection survives, and an aggregate port may narrow `all_items()`.
+  - The status bar has its own `StatusBarPresenter`; `ShellPresenter` keeps the module bar and title.
+    `LanguageSwitcher` is the single place that changes the UI language (settings, translator,
+    startup hint, full re-render).
+  - The shutdown questions use a dialog service without parent: the shutdown presenter is built
+    before the main window it guards. Superseded by ADR-036: the presenter receives a dialog service
+    parented to the main window once the window exists.
+  - The catalog key scan accepts the base of a plural key (`storage.issue.more`) when both
+    `<base>.one` and `<base>.other` exist.
+
+## ADR-035 — TOML with literal strings for the user data file
+
+- Status: accepted, owner decisions (2026-11-07), including the quoting fallback and the
+  `furryp.json` change. Supersedes ADR-002.
+- Context: the phase 1 benchmark measured the `json5` decoder at 0.13 to 0.17 MB/s: 20.7 s to read
+  1,000 tasks with 20 history events each (2.68 MB). ADR-002 allowed only a faster JSON5 decoder; the
+  owner chose another format. TOML literal strings (`'...'`) have no escape sequences, so paths, URLs,
+  backslashes and double quotes in user text are written exactly as typed.
+- Decision:
+  - The data file is TOML 1.0, UTF-8 without BOM, LF, extension `.toml`; the default is
+    `%APPDATA%/Concentrator/concentrator.toml`. Side files keep their patterns: `<file>.tmp`,
+    `<file>.bak`, `<file>.corrupt-YYYYMMDD-HHMMSS`, `<file>.tmp.discarded-YYYYMMDD-HHMMSS`, daily copies
+    `<stem>-YYYY-MM-DD.toml`.
+  - Reading uses the standard library `tomllib` (TOML 1.0). Writing uses our own emitter in
+    `toml_codec.py`, the only module that imports `tomllib`. No dependency is added and `json5` is
+    removed. `tomli-w` writes only `"..."` strings; `tomlkit` is a style-preserving document model, a
+    dependency, and leaves the choice of quotes to the caller.
+  - Quoting (TOML 1.0 literal strings cannot contain `'`, a newline or a control character):
+    1. `'...'` by default;
+    2. `'''...'''` when the value contains `'` (`'''Voir l'arborescence'''`): still one line, still no
+       escapes;
+    3. `"..."` with escapes only when the value contains `'''` or a control character other than tab.
+       Multi-line text is stored as arrays of lines and paths and URLs are single-line, so this case
+       is rare.
+    The owner asked for single quotes everywhere and approved cases 2 and 3: they are the only ways to
+    keep such values intact.
+  - Layout written by the emitter: the header comment; the root keys whose values are scalars or empty
+    arrays (TOML puts them before any table header); then, in schema order, one `[section]` per object
+    and one `[[section]]` per element of a collection. Inside a table, a nested object is an inline
+    table `{ key = value }` on one line (its arrays too); other arrays have one element per line and a
+    trailing comma. Keys are bare snake_case words. Enums are integers, booleans `true`/`false`,
+    timestamps and dates quoted strings (`'2026-11-06T16:44:03Z'`, `'2026-11-10'`).
+  - TOML has no `null`: an optional value that is not set is an absent key (the writer omits `None`,
+    the schemas give optional fields the default `None`). An empty collection is `key = []`.
+  - Read pipeline: text -> leading BOM removed (`tomllib` rejects it) -> `tomllib.loads` -> schema
+    version check -> native TOML dates and times, typed by hand (`due_date = 2026-11-10`), turned into
+    ISO text -> `json.dumps` -> `model_validate_json` (strict JSON mode, unchanged) -> mapper -> rules.
+    The next save writes those values quoted.
+  - Errors: `tomllib.TOMLDecodeError` -> `STORAGE_SYNTAX_INVALID` (2004) with `line` and `column`
+    (`lineno` and `colno`, Python 3.14). TOML forbids duplicate keys and `tomllib` reports them as
+    syntax errors without naming the key, so `STORAGE_DUPLICATE_KEY` (2020) is retired; 2020 is never
+    reused.
+  - Tests round-trip every quoting case through `tomllib`: apostrophes at either end, `''`, `'''`,
+    tab, newline, CR, NUL, DEL, backslashes, double quotes, non-ASCII text, emoji, a BOM inside a value.
+  - No migration and `schema_version` stays 1: Concentrator is not released, and no JSON5 data file
+    exists outside development.
+  - `furryp.json` (change approved by the owner): the six contracts that forbid `json5` forbid
+    `tomllib` instead, and `json5-only-in-persistence` becomes
+    `tomllib-only-in-persistence`. `tomllib` is in the standard library, so without these contracts
+    any layer could import it.
+- Measurement (`scripts/bench_storage.py`, 1,000 tasks x 20 history events, 4 lines of text each):
+  the TOML file is 1.74 MB; `TomlCodec.decode` takes 0.34 s (5.1 MB/s), the whole read pipeline with
+  pydantic 0.39 s, `TomlCodec.encode` 0.13 s and the whole write pipeline 0.15 s. The same data as
+  JSON5 (2.68 MB) takes 20.7 s to read with `json5.loads`. The phase 8 startup target (2 s) is within
+  reach.
+- Benchmark volume (owner decision): 1,000 tasks are enough. `scripts/bench_storage.py --tasks 1000`
+  (20 history events per task) replaces the 5 MB document, and the phase 5 and phase 8 checks use
+  1,000 tasks.
+- Alternatives: a compiled JSON5 decoder (the ADR-002 remedy: one more dependency, quotes and
+  escapes unchanged); plain JSON (escaped quotes and backslashes, no comments); SQLite (not readable
+  by hand).
+- Consequences: no dependency for the file format; hand-written comments are still lost at the next
+  save (the header says so); the file is about a third smaller than the JSON5 one; specs, `AGENTS.md`,
+  `concentrator.ini`, the catalogs (file dialog filter), `.gitignore` and `USAGE.md` follow the new
+  extension.
+
+## ADR-036 — Modal dialogs over the main window
+
+- Status: accepted, owner decisions (2026-11-07). Supersedes the "dialogs without parent" item of
+  ADR-034.
+- Context: the shutdown questions opened centered on the screen, without parent. The owner set one
+  rule for every dialog.
+- Decision:
+  - Every modal dialog opened while the main window exists (messages, questions, file pickers, the
+    unexpected error dialog, the forms of later phases) goes through one `ModalHost` in `ui/support/`:
+    1. A dimming layer covers the whole client area of the main window (module bar, pages, status
+       bar) while the dialog is open: the palette's shadow color (black) at
+       `ui.dialog_overlay_opacity_percent` (new ini key, 0..50, default 10, i.e. 10 % darker). It
+       follows the window's resizes.
+    2. The dialog opens centered on the main window (Qt centers a dialog on its parent; the host never
+       moves a dialog before it is visible, which would cancel that).
+    3. The dialog cannot leave the main window's frame. On Windows, every move of the dialog (title
+       bar drag, keyboard, another monitor) is clamped before it happens, in `WM_WINDOWPOSCHANGING`,
+       seen by a native event filter (`ctypes`, `ui/support/`); Qt does not hand `WM_MOVING` to the
+       filters. The rectangles are the native ones (`GetWindowRect`, physical pixels), so mixed
+       display scaling stays consistent. When the main window moves or is resized, the dialog is
+       moved back inside. Along an axis where the dialog is larger than the window, it stays
+       centered. Off Windows (the `offscreen` tests), a dialog is moved back right after its `Move`
+       event.
+    4. A minimized main window is restored before the dialog opens.
+  - The shutdown presenter receives its dialog service after the main window is built (`attach`), as
+    the error and external change presenters already do.
+  - Limit: the title bar of the main window is drawn by Windows and is not dimmed.
+  - Dialogs shown before the main window exists (configuration error, unguarded instance
+    warning, first-run and recovery dialogs and their messages and pickers) have no window to dim or
+    to stay in; they open centered on the screen.
+  - The Windows file picker (native `IFileDialog`) stays. It is its own window: it gets the dimming
+    layer, but Windows places it and lets it move freely. Qt's own file dialog (`DontUseNativeDialog`)
+    would obey the rule but loses the Explorer navigation pane (Quick access, OneDrive, network
+    locations), so it was rejected.
+- Consequences: one code path for every dialog; a Windows-specific native event filter with a
+  portable fallback; manual checks at each phase review (dimming, centering, dragging to the edges,
+  display scaling).

@@ -1,3 +1,16 @@
+TODO : Langue, cliquer sur une liste
+pas de JSON5, faire un toml.
+1000 taches pour le benchmark, et 100 pré-régalge de réveil.
+Chauqe taches, à un historique de 5 (surtout pour les ccyclique)
+Langue apr défaut = FR-FR
+toml est save lorqu'une tache set créer, MAJ, 
+
+rajoute les couleurs la prochaine fois.
+Theme sombre, them clair.
+
+Si la save échoue, mettre un bouton manuel qui retry
+
+
 Aide moi à planifier un futur projet que je veux développer.
 
 Objectif :

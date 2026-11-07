@@ -11,7 +11,7 @@ Concentrator is a local, single-user, single-window desktop application for **Wi
 **favorites**, an **hourly chime**, a **focus queue** (quick TODO) and a full **TODO list manager**.
 
 - No network, no console window, no command-line options, one instance only.
-- User data: one JSON5 file chosen by the user at first launch (default proposed).
+- User data: one TOML file chosen by the user at first launch (default proposed).
 - Qt-only UI state (geometry, splitters, column widths, sorts): QSettings `.ini`.
 - Application constants: shipped `concentrator.ini` (editable without redeploying).
 - UI languages: English and French, switchable live from the status bar.
@@ -95,10 +95,11 @@ concentrator/
 ├── application/
 │   ├── ports/            Protocols implemented by infrastructure (readers, writers, clock, ...)
 │   ├── common/           EventBus, events, AppConfig (plain frozen dataclasses)
-│   ├── storage/          load/recover/save coordination (SaveCoordinator, RecoveryService)
+│   ├── storage/          load/recover/save coordination (SaveCoordinator, StartupCommands,
+│   │                     ExternalChangeCommands, startup plan, storage events)
 │   └── timer/ todo/ focus/ settings/ journal/   *_commands.py (writes), *_queries.py (reads)
 ├── infrastructure/
-│   ├── persistence/      JSON5 codec, pydantic schemas, mappers, atomic writer, writer thread,
+│   ├── persistence/      TOML codec, pydantic schemas, mappers, atomic writer, writer thread,
 │   │                     in-memory UserDataStore, readers/writers
 │   ├── config/           concentrator.ini loader -> AppConfig
 │   ├── i18n/             JSON catalog loader, Translator
@@ -130,7 +131,7 @@ and `infrastructure -> application -> domain`. `bootstrap` wires everything.
 |---|---|---|
 | `domain` | Entities, value objects, enums, `*Rules`, `*Collection`, results, error codes | Pure stdlib. Deterministic: time and ids are passed in. No I/O, no logging. |
 | `application` | Use cases (`*Commands`, `*Queries`), ports, events, runtime engines (timer, chime), save coordination | Depends on domain and its own ports only. Synchronous. |
-| `infrastructure` | Driven adapters: JSON5 persistence, ini config, i18n, logging, clock, ids, Qt-backed system services | Implements `application.ports`. Converts exceptions to error codes. |
+| `infrastructure` | Driven adapters: TOML persistence, ini config, i18n, logging, clock, ids, Qt-backed system services | Implements `application.ports`. Converts exceptions to error codes. |
 | `presentation` | Presenters, snapshots, forms, render coordination, action gating, formatting | Qt-free, fully unit-testable. Builds translated, display-ready snapshots. |
 | `ui` | Qt widgets in three tiers: window, panel, widget | Renders snapshots, emits signals. Implements `presentation.ports`. |
 | `bootstrap` | Composition root, startup and shutdown sequences | The only place that instantiates adapters and knows every layer. |
@@ -139,12 +140,12 @@ and `infrastructure -> application -> domain`. `bootstrap` wires everything.
 
 | Importing layer | May import from | Must NEVER import from |
 |---|---|---|
-| `domain` | stdlib, `domain` | `application`, `infrastructure`, `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6`, `pydantic`, `json5` |
-| `application` | stdlib, `domain`, `application` | `infrastructure`, `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6`, `pydantic`, `json5` |
-| `presentation` | stdlib, `domain`, `application` | `infrastructure`, `ui`, `bootstrap`, `PySide6`, `shiboken6`, `pydantic`, `json5` |
-| `infrastructure` (except `qt`) | stdlib, `domain`, `application`, `pydantic` (persistence, config), `json5` (persistence only) | `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6` |
-| `infrastructure.qt` | stdlib, `domain`, `application`, `PySide6` | `presentation`, `ui`, `bootstrap`, `pydantic`, `json5` |
-| `ui` | stdlib, `presentation`, `PySide6` | `domain`, `application`, `infrastructure`, `bootstrap`, `pydantic`, `json5` |
+| `domain` | stdlib, `domain` | `application`, `infrastructure`, `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6`, `pydantic`, `tomllib` |
+| `application` | stdlib, `domain`, `application` | `infrastructure`, `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6`, `pydantic`, `tomllib` |
+| `presentation` | stdlib, `domain`, `application` | `infrastructure`, `ui`, `bootstrap`, `PySide6`, `shiboken6`, `pydantic`, `tomllib` |
+| `infrastructure` (except `qt`) | stdlib, `domain`, `application`, `pydantic` (persistence, config), `tomllib` (persistence only) | `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6` |
+| `infrastructure.qt` | stdlib, `domain`, `application`, `PySide6` | `presentation`, `ui`, `bootstrap`, `pydantic`, `tomllib` |
+| `ui` | stdlib, `presentation`, `PySide6` | `domain`, `application`, `infrastructure`, `bootstrap`, `pydantic`, `tomllib` |
 | `ui.widgets` | + `ui.support` | `ui.panels`, `ui.windows` |
 | `ui.panels` | + `ui.widgets`, `ui.support` | `ui.windows` |
 | `bootstrap` | everything | — (only `__main__` imports it) |
@@ -161,7 +162,7 @@ Ports live in the layer that consumes them. Adapters explicitly subclass the Pro
 click ─► Panel signal ─► (wired by Window) ─► Presenter.on_xxx()
       ─► ActionGate.run(ActionIdEnum.X, op) ─► *Commands use case ─► domain Rules + entity
       ─► Writer (in-memory UserDataStore) ─► EventBus.publish(event) ─► SaveCoordinator (debounce)
-      │                                                               └► writer thread ─► JSON5 file
+      │                                                               └► writer thread ─► TOML file
       └► Presenter handles event ─► RenderCoordinator.request(section)
          ─► next event-loop turn: build snapshot once, compare with last, Panel.render_snapshot(snapshot)
 ```
@@ -245,7 +246,8 @@ class DataResult[T]:
 
 ### 6.1 Ports (Protocols in `application/ports/`, suffix `Port`)
 
-`ClockPort` (`now_utc()`, `now_local()`, `monotonic()`), `IdGeneratorPort`, `SchedulerPort`
+`ClockPort` (`now_utc()` and `now_local()` in whole seconds, `monotonic()` at full precision,
+`to_local(moment)`; ADR-030), `IdGeneratorPort`, `SchedulerPort`
 (`call_soon`, `call_later` returning a cancellable handle), `MainThreadDispatcherPort`,
 `TranslatorPort`, `LogFeedPort`, `SoundPlayerPort`, `AttentionPort`, `LinkOpenerPort`,
 `ViewPreferencesPort` (string key-value), `UserDataFilePort`, and one `*ReaderPort` / `*WriterPort`
@@ -284,28 +286,38 @@ Singleton aggregates (`UserSettings`, `TimerConfig`, `HourlyChime`) expose only 
 - Main thread: Qt event loop, use cases, in-memory store, presenters. Use cases must stay fast
   (in-memory only).
 - One writer thread (`concurrent.futures.ThreadPoolExecutor(max_workers=1)`): serialization and file
-  I/O of immutable `UserData` snapshots. Results come back through `MainThreadDispatcherPort`.
+  I/O of immutable `UserData` snapshots, and every other user-data write (startup create, restore,
+  quarantine). Results come back through `MainThreadDispatcherPort`; synchronous writes wait with a
+  timeout (ADR-028).
 - No other threads without an approved decision in `docs/decisions.md`.
 
 ## 7. Infrastructure
 
-### 7.1 User data file (JSON5)
+### 7.1 User data file (TOML)
 
-- JSON5 is a deliberate choice: the file must stay clear for a user who reads or edits it.
+- TOML is a deliberate choice: the file must stay clear for a user who reads or edits it, and literal
+  strings `'...'` need no escapes (ADR-035, which replaced JSON5).
 - Location chosen at first launch: open an existing file, create at the default location
-  (`paths.default_data_file`, i.e. `%APPDATA%/Concentrator/concentrator.json5`), or create elsewhere.
+  (`paths.default_data_file`, i.e. `%APPDATA%/Concentrator/concentrator.toml`), or create elsewhere.
   The chosen path is stored in the UI state `.ini`.
 - Content: user settings, timer config, presets, chime, lists, tasks, focus queue, `schema_version`.
   Running timer state is not persisted.
-- Read pipeline: text -> `json5.loads` -> `json.dumps` -> `Schema.model_validate_json` (pydantic,
+- Read pipeline: text -> leading BOM removed -> `tomllib.loads` -> schema version check -> native TOML
+  dates and times turned into ISO text -> `json.dumps` -> `Schema.model_validate_json` (pydantic,
   `strict=True`, `extra="forbid"`) -> mapper -> domain `*Rules` -> `UserData`. Pydantic only runs on
-  JSON, after the JSON5 transformation.
-- Write pipeline (writer thread): `UserData` -> mapper -> schema -> `model_dump(mode="json")` ->
-  `json5.dumps(indent=2, quote_keys=False, trailing_commas=True, ensure_ascii=False)` -> header
-  comment -> atomic write.
-- Format: UTF-8 without BOM, LF, stable key order, enums as ints, UTC timestamps
-  `YYYY-MM-DDTHH:MM:SSZ`, local dates `YYYY-MM-DD`, multi-line text as arrays of lines, paths and URLs
-  as one flat string with `/` separators. Comments written by hand are ignored and lost on next save.
+  JSON, after the TOML transformation. `toml_codec.py` is the only module that imports `tomllib`.
+- Write pipeline (writer thread): `UserData` -> mapper -> schema -> `model_dump(mode="json")` (unset
+  optional values omitted) -> `TomlCodec.encode` -> header comment -> atomic write.
+- Format: TOML 1.0, UTF-8 without BOM, LF, stable key order, enums as ints, UTC timestamps
+  `'YYYY-MM-DDTHH:MM:SSZ'` and local dates `'YYYY-MM-DD'` as strings, multi-line text as arrays of
+  lines, paths and URLs as one flat string with `/` separators. No `null`: an unset optional value is
+  an absent key; an empty collection is `key = []`. Comments written by hand are ignored and lost on
+  next save.
+- Strings are literal: `'...'`; `'''...'''` (still one line) when the value contains `'`; `"..."` with
+  escapes only when it contains `'''` or a control character other than tab.
+- Layout: root scalar keys first, then one `[section]` per object and one `[[section]]` per collection
+  element in schema order; nested objects are one-line inline tables; other arrays have one element
+  per line and a trailing comma.
 - Pydantic models are persistence DTOs only (`infrastructure/persistence/schemas/`); never pass them
   outside the adapter. `ValidationError` is caught immediately and converted: one `ValidationIssue`
   per error, `field` = joined `loc`, code from the pydantic error type (`missing` ->
@@ -318,26 +330,35 @@ Singleton aggregates (`UserSettings`, `TimerConfig`, `HourlyChime`) expose only 
 
 1. Write the full content to `<file>.tmp`, `flush()`, `os.fsync()`.
 2. Re-read the temporary file and compare its SHA-256 with the bytes written.
-3. If `<file>` exists, copy it to `<file>.bak` (`shutil.copy2`).
-4. `os.replace(<file>.tmp, <file>)` (atomic on NTFS). Retry `storage.replace_retry_count` times with
+3. Check that `<file>` was not changed by someone else since the last load or save (fingerprint:
+   size, `mtime_ns`, SHA-256). If it was, delete the `.tmp`, write nothing and fail with
+   `STORAGE_FILE_CHANGED_EXTERNALLY`; the user chooses between reloading the file and keeping
+   Concentrator's version (ADR-033).
+4. If `<file>` exists, copy it to `<file>.bak` (`shutil.copy2`).
+5. `os.replace(<file>.tmp, <file>)` (atomic on NTFS). Retry `storage.replace_retry_count` times with
    `storage.replace_retry_delay_ms` on `PermissionError` (antivirus, indexer, sync clients).
-5. Optional daily copy into `paths.backup_dir`, keeping `storage.daily_backup_retention_days`.
+6. Optional daily copy into `paths.backup_dir` (`<stem>-YYYY-MM-DD.toml`), keeping
+   `storage.daily_backup_retention_days`; retention deletes only files matching that name exactly.
 
-Startup recovery: load `<file>`; if a valid `<file>.tmp` newer than `<file>` exists, offer to restore
-it; if `<file>` is invalid, show the translated error and offer the newest valid of `.tmp`/`.bak`;
-otherwise offer: choose another file, start empty (the damaged file is renamed
-`<file>.corrupt-YYYYMMDD-HHMMSS`), or quit. Never overwrite a damaged file silently.
+Startup recovery (matrix in ADR-027): load `<file>`; if a valid `<file>.tmp` newer than `<file>`
+exists, offer to restore it or keep the current file (the `.tmp` is then renamed
+`<file>.tmp.discarded-YYYYMMDD-HHMMSS`); if `<file>` is invalid, show the translated error and offer
+the valid `.tmp`/`.bak` candidates, newest first; otherwise offer: choose another file, start empty
+(the damaged file is renamed `<file>.corrupt-YYYYMMDD-HHMMSS`), or quit. A locked file or a file
+written by a newer version is never renamed or written. Never overwrite a damaged file silently.
 
-Saves are debounced (`storage.save_debounce_ms`), carry a revision number, and are flushed
-synchronously on quit (`storage.shutdown_flush_timeout_ms`). The status bar shows the save state.
+Saves use a trailing debounce (`storage.save_debounce_ms`) capped by `storage.save_max_delay_ms`
+after the first unsaved change (ADR-029), carry a revision number, and are flushed synchronously on
+close, quit and Windows session end (`storage.shutdown_flush_timeout_ms`, ADR-032). The status bar
+shows the save state.
 
 ### 7.3 Configuration files
 
 | File | Owner | Content | Access |
 |---|---|---|---|
 | `concentrator.ini` | application (next to the exe; `assets/config/` in dev) | constants and defaults | read-only, validated by pydantic into `AppConfig` at startup |
-| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path | read-write only through `ViewPreferencesPort`; Qt blobs (geometry, splitter and header states) cross the presentation layer as opaque base64 strings via `LayoutStateKeeper`, under `layout/*` keys (ADR-022) |
-| user JSON5 file | user | business data and personal settings | `UserDataFilePort` only |
+| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path (`storage/data_file_path`), language hint for the startup dialogs (`shell/language_hint`, ADR-027) | read-write only through `ViewPreferencesPort`; Qt blobs (geometry, splitter and header states) cross the presentation layer as opaque base64 strings via `LayoutStateKeeper`, under `layout/*` keys (ADR-022) |
+| user TOML file | user | business data and personal settings | `UserDataFilePort` only |
 
 `AppConfig` values support the tokens `{appdata}`, `{localappdata}` and `{app_dir}`, resolved by
 `AppPaths`. A missing or invalid key is a fatal startup error with an explicit message; there are no
@@ -436,6 +457,10 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
 
 - Presenters ask for confirmations, file pickers and forms through `presentation.ports.DialogPort`;
   `ui.support.QtDialogService` implements it. Dialog buttons use catalog texts.
+- Every modal dialog opened while the main window exists runs through `ui.support.ModalHost`
+  (ADR-036): a dimming layer covers the window's client area (`ui.dialog_overlay_opacity_percent`),
+  the dialog opens centered on the window and cannot be moved outside it. Never call `exec()` on a
+  dialog directly.
 - Qt rules: new-style signals only; `@override` on overridden Qt methods; parents set for every
   `QObject`; no `processEvents()`; no `QTimer` in ui except purely visual effects.
 - Sizes and timings come from `AppConfig` (`ui.module_bar_width_px`, `ui.timer_font_size_px`, ...).
@@ -459,7 +484,7 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
 ## 10. Error handling
 
 Example (damaged data file):
-1. Pydantic raises `ValidationError` inside the JSON5 adapter.
+1. Pydantic raises `ValidationError` inside the TOML adapter.
 2. The adapter logs the technical detail (WARNING, with file path and error list).
 3. It returns `DataResult.fail(...)` with one issue per field, e.g.
    `ValidationIssue(STORAGE_FIELD_INVALID_TYPE, ERROR, field="task_lists.0.name")`.
@@ -529,8 +554,9 @@ VS Code: extensions `ms-python.python`, `charliermarsh.ruff`, `detachhead.basedp
 Pylance (`"python.languageServer": "None"`) to avoid two type checkers; interpreter
 `.venv\Scripts\python.exe`; ruff as formatter on save; pytest enabled. Keep `.vscode/` committed.
 
-Dependencies: runtime `pyside6`, `pydantic`, `json5`; dev `ruff`, `basedpyright`, `pytest`,
-`pytest-cov`, `pytest-qt`, `pyinstaller`. Add a dependency only with an entry in `docs/decisions.md`.
+Dependencies: runtime `pyside6`, `pydantic` (the TOML reader is the standard library `tomllib`); dev
+`ruff`, `basedpyright`, `pytest`, `pytest-cov`, `pytest-qt`, `pyinstaller`. Add a dependency only with an
+entry in `docs/decisions.md`.
 
 ## 14. Commands and gates
 
@@ -580,7 +606,7 @@ updated, no TODO comments left without an issue reference.
 - A widget computing an enabled state, formatting a date, or calling a service.
 - A presenter importing PySide6, or a domain object importing logging.
 - `except Exception: pass`, `except: ...`, returning `None` to signal an error, error strings.
-- Pydantic models or JSON5 dicts leaking out of `infrastructure/persistence/`.
+- Pydantic models or TOML dicts leaking out of `infrastructure/persistence/`.
 - Reading `concentrator.ini` or `QSettings` from anywhere other than their adapters.
 - Several `render_snapshot()` calls for one user action; timers polling from widgets.
 - Mutable entities, public mutable attributes, lists of entities passed around without a

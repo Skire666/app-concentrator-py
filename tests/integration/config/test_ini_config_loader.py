@@ -43,6 +43,11 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
     assert config.ui.module_bar_width_px == 100
     assert config.ui.zone1_ratio_percent == 70
     assert config.timer.tick_interval_ms == 100
+    assert config.storage.save_debounce_ms == 500
+    assert config.storage.save_max_delay_ms == 1500
+    assert config.storage.blocking_write_timeout_ms == 5000
+    assert config.storage.daily_backup_enabled is True
+    assert config.storage.daily_backup_retention_days == 7
     assert config.logging.level == logging.INFO
     assert config.i18n.default_language is LanguageEnum.ENGLISH
     assert config.paths.ui_state_file == tmp_path / "roaming" / "Concentrator" / "ui-state.ini"
@@ -108,6 +113,12 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("level = INFO", "level = VERBOSE", "logging.level"),
         ("default_language = en", "default_language = de", "i18n.default_language"),
         ("file_name = concentrator.log", "file_name = logs/concentrator.log", "logging.file_name"),
+        ("save_max_delay_ms = 1500", "save_max_delay_ms = 499", "storage.save_max_delay_ms"),
+        ("save_debounce_ms = 500", "save_debounce_ms = 2000", "storage"),
+        ("replace_retry_count = 5", "replace_retry_count = 21", "storage.replace_retry_count"),
+        ("blocking_write_timeout_ms = 5000", "blocking_write_timeout_ms = 60001", "storage.blocking_write_timeout_ms"),
+        ("daily_backup_enabled = true", "daily_backup_enabled = maybe", "storage.daily_backup_enabled"),
+        ("daily_backup_retention_days = 7", "daily_backup_retention_days = 0", "storage.daily_backup_retention_days"),
     ],
 )
 def test_invalid_value_is_reported(paths: AppPaths, tmp_path: Path, old: str, new: str, field: str) -> None:
@@ -128,3 +139,19 @@ def test_unresolvable_path_tokens_are_all_reported(paths: AppPaths, tmp_path: Pa
 
     assert result.validation.error_codes == (ErrorCodeEnum.CONFIG_VALUE_INVALID, ErrorCodeEnum.CONFIG_VALUE_INVALID)
     assert [issue.field for issue in result.validation.issues] == ["paths.log_dir", "paths.backup_dir"]
+
+
+@pytest.mark.parametrize(("text", "expected"), [("false", False), ("TRUE", True), ("0", False)])
+def test_storage_boolean_accepts_ini_spellings(paths: AppPaths, tmp_path: Path, text: str, expected: bool) -> None:
+    ini = _write_ini(tmp_path, {"daily_backup_enabled = true": f"daily_backup_enabled = {text}"})
+
+    config = IniConfigLoader(paths).load(ini).data
+
+    assert config is not None
+    assert config.storage.daily_backup_enabled is expected
+
+
+def test_max_delay_equal_to_debounce_is_accepted(paths: AppPaths, tmp_path: Path) -> None:
+    ini = _write_ini(tmp_path, {"save_max_delay_ms = 1500": "save_max_delay_ms = 500"})
+
+    assert IniConfigLoader(paths).load(ini).is_success

@@ -54,6 +54,12 @@ def _key_literals(path: Path, key_pattern: re.Pattern[str]) -> list[tuple[str, i
 
 ENGLISH: Final = _load("en.json")
 FRENCH: Final = _load("fr.json")
+PLURAL_FORMS: Final = ("one", "other")
+
+
+def _exists(literal: str) -> bool:
+    """A key, or the base of a plural key (``tr_plural`` reads ``<base>.one`` and ``<base>.other``)."""
+    return literal in ENGLISH or all(f"{literal}.{form}" in ENGLISH for form in PLURAL_FORMS)
 
 
 def test_catalogs_have_identical_key_sets() -> None:
@@ -88,7 +94,7 @@ def test_every_key_literal_in_code_exists() -> None:
         for path in source_files()
         if path.relative_to(REPO_ROOT / "concentrator").parts[0] in TRANSLATING_LAYERS
         for literal, line in _key_literals(path, key_pattern)
-        if literal not in ENGLISH
+        if not _exists(literal)
     ]
 
     assert missing == []
@@ -97,8 +103,14 @@ def test_every_key_literal_in_code_exists() -> None:
 def test_key_literal_scan_sees_the_shell_texts() -> None:
     families = "|".join(sorted({re.escape(key.split(".", 1)[0]) for key in ENGLISH}))
     key_pattern = re.compile(rf"(?:{families})\.[a-z0-9_]+(?:\.[a-z0-9_]+)*")
-    presenter = REPO_ROOT / "concentrator" / "presentation" / "shell" / "shell_presenter.py"
+    shell = REPO_ROOT / "concentrator" / "presentation" / "shell"
+    presenters = (shell / "shell_presenter.py", shell / "status_bar_presenter.py")
 
-    literals = {literal for literal, _line in _key_literals(presenter, key_pattern)}
+    literals = {literal for presenter in presenters for literal, _line in _key_literals(presenter, key_pattern)}
 
     assert {"app.title", "shell.language.button.fr", "placeholder.journal"} <= literals
+
+
+def test_plural_base_needs_both_forms() -> None:
+    assert _exists("storage.issue.more")
+    assert not _exists("storage.issue")

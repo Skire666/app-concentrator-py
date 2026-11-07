@@ -43,6 +43,22 @@ class UiSection:
     min_window_height_px: int
     action_cooldown_ms: int
     slow_action_threshold_ms: int
+    dialog_overlay_opacity_percent: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class StorageSection:
+    """``[storage]``: saving the user data file (ADR-028, ADR-029)."""
+
+    save_debounce_ms: int
+    save_max_delay_ms: int
+    replace_retry_count: int
+    replace_retry_delay_ms: int
+    failed_save_retry_ms: int
+    shutdown_flush_timeout_ms: int
+    blocking_write_timeout_ms: int
+    daily_backup_enabled: bool
+    daily_backup_retention_days: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -78,6 +94,7 @@ class AppConfig:
     app: AppSection
     paths: PathsSection
     ui: UiSection
+    storage: StorageSection
     timer: TimerSection
     logging: LoggingSection
     i18n: I18nSection

@@ -10,7 +10,10 @@ LOCAL_ZONE: Final = timezone(timedelta(hours=1))
 
 
 class FakeClock(ClockPort):
-    """Clock that only moves when ``advance`` is called; local time is UTC+1."""
+    """Clock that only moves when ``advance`` is called; local time is UTC+1.
+
+    Like ``SystemClock``, wall-clock instants are whole seconds and the monotonic time is not rounded.
+    """
 
     def __init__(self, start: datetime = DEFAULT_START) -> None:
         self._now = start
@@ -24,11 +27,15 @@ class FakeClock(ClockPort):
 
     @override
     def now_utc(self) -> datetime:
-        return self._now
+        return self._now.replace(microsecond=0)
 
     @override
     def now_local(self) -> datetime:
-        return self._now.astimezone(LOCAL_ZONE)
+        return self.to_local(self.now_utc())
+
+    @override
+    def to_local(self, moment: datetime) -> datetime:
+        return moment.astimezone(LOCAL_ZONE)
 
     @override
     def monotonic(self) -> float:

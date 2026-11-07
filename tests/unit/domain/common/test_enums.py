@@ -42,6 +42,8 @@ def test_severity_is_failure(member: SeverityEnum, expected: bool) -> None:
         (ErrorCodeEnum.UNKNOWN, ErrorCategoryEnum.UNKNOWN),
         (ErrorCodeEnum.UNSET, ErrorCategoryEnum.UNSET),
         (ErrorCodeEnum.REQUIRED_VALUE_MISSING, ErrorCategoryEnum.COMMON),
+        (ErrorCodeEnum.STORAGE_FILE_NOT_FOUND, ErrorCategoryEnum.STORAGE),
+        (ErrorCodeEnum.STORAGE_FILE_CHANGED_EXTERNALLY, ErrorCategoryEnum.STORAGE),
         (ErrorCodeEnum.CONFIG_KEY_UNEXPECTED, ErrorCategoryEnum.CONFIG),
         (ErrorCodeEnum.CATALOG_KEY_MISSING, ErrorCategoryEnum.CONFIG),
         (ErrorCodeEnum.APP_USER_MODEL_ID_FAILED, ErrorCategoryEnum.SYSTEM),

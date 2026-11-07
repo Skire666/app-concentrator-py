@@ -17,7 +17,7 @@
     },
     "too-many-instance-attributes": { "max-instance-attributes": 20 },
     "layer-violation": {
-      "source-roots": ["concentrator"],
+      "source-roots": ["."],
       "include-type-checking": true,
       "contracts": [
         {
@@ -34,7 +34,7 @@
             "shiboken6",
             "pydantic",
             "pydantic_core",
-            "json5"
+            "tomllib"
           ]
         },
         {
@@ -73,7 +73,7 @@
             "shiboken6",
             "pydantic",
             "pydantic_core",
-            "json5"
+            "tomllib"
           ]
         },
         {
@@ -88,7 +88,7 @@
             "shiboken6",
             "pydantic",
             "pydantic_core",
-            "json5"
+            "tomllib"
           ]
         },
         {
@@ -111,7 +111,7 @@
         },
         {
           "type": "forbidden",
-          "name": "json5-only-in-persistence",
+          "name": "tomllib-only-in-persistence",
           "source": [
             "concentrator.infrastructure.config",
             "concentrator.infrastructure.i18n",
@@ -119,7 +119,7 @@
             "concentrator.infrastructure.system",
             "concentrator.infrastructure.qt"
           ],
-          "forbidden": ["json5"]
+          "forbidden": ["tomllib"]
         },
         {
           "type": "forbidden",
@@ -143,7 +143,7 @@
             "concentrator.bootstrap",
             "pydantic",
             "pydantic_core",
-            "json5"
+            "tomllib"
           ]
         },
         {

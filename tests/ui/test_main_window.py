@@ -4,9 +4,13 @@ import pytest
 from PySide6.QtWidgets import QSplitter
 from pytestqt.qtbot import QtBot
 
+from concentrator.domain.common.error_code_enum import ErrorCodeEnum
+from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.layout_keys import LAYOUT_FOCUS_PAGE_SPLITTER, LAYOUT_MAIN_WINDOW_GEOMETRY
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
+from tests.fakes.storage_stack import DATA_PATH
+from tests.fakes.user_data_factory import SAVED_AT, make_user_data
 from tests.ui.shell_harness import ShellHarness
 
 pytestmark = pytest.mark.ui
@@ -27,7 +31,8 @@ def test_main_window_builds_with_the_first_render(harness: ShellHarness) -> None
     assert window.current_page_index == 0
     assert window.focus_page.zone_texts == ("en:placeholder.focus.zone1", "en:placeholder.focus.zone2")
     assert window.status_bar.language_button.text() == "en:shell.language.button.en"
-    assert window.status_bar.save_state_text == "en:status.save.none"
+    assert window.status_bar.save_state_text == "en:status.save.no_file"
+    assert window.status_bar.instance_warning.isHidden()
     assert window.module_bar.button(ActionIdEnum.SHELL_SHOW_FOCUS).isChecked()
     assert not window.module_bar.button(ActionIdEnum.SHELL_SHOW_FOCUS).icon().isNull()
 
@@ -136,3 +141,30 @@ def test_bring_to_front_shows_a_minimized_window(qtbot: QtBot, harness: ShellHar
 
     assert harness.window.isVisible()
     assert not harness.window.isMinimized()
+
+
+def test_close_with_unsaved_changes_that_fail_keeps_the_window_open(qtbot: QtBot, harness: ShellHarness) -> None:
+    stack = harness.stack
+    stack.session.reset(make_user_data())
+    stack.coordinator.attach(DATA_PATH, SAVED_AT)
+    stack.session.change()
+    stack.file.blocking_validation = ValidationResult.failure(ErrorCodeEnum.STORAGE_REPLACE_FAILED)
+    stack.dialogs.confirm_answer = False
+    harness.window.show()
+    qtbot.waitExposed(harness.window)
+
+    harness.window.close()
+
+    assert harness.window.isVisible()
+    assert stack.dialogs.texts("confirm")[0][0] == "en:shutdown.failed.title"
+    stack.dialogs.confirm_answer = True
+    harness.window.close()
+    assert not harness.window.isVisible()
+
+
+def test_unguarded_mode_shows_the_indicator(qtbot: QtBot) -> None:
+    harness = ShellHarness(protected=False)
+    qtbot.addWidget(harness.window)
+
+    assert harness.window.status_bar.instance_warning.text() == "en:status.instance.unguarded"
+    assert not harness.window.status_bar.instance_warning.isHidden()

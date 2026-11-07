@@ -138,3 +138,25 @@ def test_merge_skipped_with_failure_is_failure() -> None:
 def test_constructor_rejects_impossible_baseline() -> None:
     with pytest.raises(ValueError, match="baseline"):
         ValidationResult(baseline=SeverityEnum.ERROR)
+
+
+def test_prefixed_places_issues_under_the_parent_field() -> None:
+    result = ValidationResult.of(
+        _issue(SeverityEnum.ERROR, field="language"),
+        _issue(SeverityEnum.WARNING),
+        _issue(SeverityEnum.ERROR, field="a.b"),
+    )
+
+    prefixed = result.prefixed("settings")
+
+    assert [issue.field for issue in prefixed.issues] == ["settings.language", "settings", "settings.a.b"]
+    assert prefixed.error_codes == result.error_codes
+    assert [issue.severity for issue in prefixed.issues] == [issue.severity for issue in result.issues]
+
+
+def test_prefixed_keeps_the_baseline_and_ignores_an_empty_prefix() -> None:
+    skipped = ValidationResult.skipped()
+    failure = ValidationResult.failure(ErrorCodeEnum.FORMAT_INVALID, field="x")
+
+    assert skipped.prefixed("settings").is_skipped
+    assert failure.prefixed("") is failure

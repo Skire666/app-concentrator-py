@@ -17,6 +17,16 @@ ACTION_SECTIONS: Final = MappingProxyType(
         ActionIdEnum.SHELL_SHOW_JOURNAL: (RenderSectionEnum.SHELL,),
         ActionIdEnum.SHELL_SHOW_SETTINGS: (RenderSectionEnum.SHELL,),
         ActionIdEnum.SHELL_TOGGLE_LANGUAGE: (RenderSectionEnum.STATUS_BAR,),
+        ActionIdEnum.STARTUP_USE_DEFAULT_FILE: (RenderSectionEnum.FIRST_RUN,),
+        ActionIdEnum.STARTUP_CREATE_DEFAULT_FILE: (RenderSectionEnum.FIRST_RUN,),
+        ActionIdEnum.STARTUP_CREATE_FILE_ELSEWHERE: (RenderSectionEnum.FIRST_RUN,),
+        ActionIdEnum.STARTUP_OPEN_EXISTING_FILE: (RenderSectionEnum.FIRST_RUN,),
+        ActionIdEnum.STARTUP_RETRY: (RenderSectionEnum.FIRST_RUN, RenderSectionEnum.RECOVERY),
+        ActionIdEnum.STARTUP_QUIT: (RenderSectionEnum.FIRST_RUN, RenderSectionEnum.RECOVERY),
+        ActionIdEnum.STARTUP_RESTORE: (RenderSectionEnum.RECOVERY,),
+        ActionIdEnum.STARTUP_KEEP_CURRENT_FILE: (RenderSectionEnum.RECOVERY,),
+        ActionIdEnum.STARTUP_CHOOSE_ANOTHER_FILE: (RenderSectionEnum.RECOVERY,),
+        ActionIdEnum.STARTUP_START_EMPTY: (RenderSectionEnum.RECOVERY,),
     }
 )
 

@@ -1,5 +1,7 @@
 import uuid
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.infrastructure.system import windows_shell
@@ -24,6 +26,33 @@ def test_system_clock_monotonic_never_goes_backwards() -> None:
     first = clock.monotonic()
 
     assert clock.monotonic() >= first
+
+
+def test_system_clock_truncates_wall_clock_to_whole_seconds_but_not_monotonic() -> None:
+    precise = datetime(2026, 11, 6, 16, 44, 3, 987_654, tzinfo=UTC)
+    precise_monotonic = 1234.567_891_234
+    clock = SystemClock(wall_clock=lambda: precise, monotonic_clock=lambda: precise_monotonic)
+
+    assert clock.now_utc() == datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)
+    assert clock.now_local().microsecond == 0
+    assert clock.now_local() == clock.now_utc()
+    assert clock.monotonic() == pytest.approx(precise_monotonic, rel=0, abs=1e-9)
+
+
+def test_system_clock_real_sources_give_whole_seconds() -> None:
+    clock = SystemClock()
+
+    assert clock.now_utc().microsecond == 0
+    assert clock.now_local().microsecond == 0
+
+
+def test_system_clock_to_local_keeps_the_instant() -> None:
+    moment = datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)
+
+    local = SystemClock().to_local(moment)
+
+    assert local == moment
+    assert local.utcoffset() is not None
 
 
 def test_uuid7_ids_are_version_7_unique_and_ordered() -> None:

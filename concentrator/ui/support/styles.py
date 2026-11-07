@@ -3,6 +3,11 @@
 from typing import Final
 
 HIGHLIGHTED_PROPERTY: Final = "highlighted"
+WARNING_PROPERTY: Final = "warning"
+
+WARNING_TEXT_STYLE: Final = """
+QLabel[warning="true"] { font-weight: bold; }
+"""
 
 MODULE_BAR_STYLE: Final = """
 QToolButton { border: none; border-radius: 6px; padding: 6px 2px; }

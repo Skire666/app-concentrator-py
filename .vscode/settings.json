@@ -19,7 +19,6 @@
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
   "files.associations": {
-    "*.json5": "json5",
     "concentrator.ini": "ini"
   },
   "files.exclude": {

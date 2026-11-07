@@ -10,3 +10,5 @@ class RenderSectionEnum(BaseIntEnum):
     UNSET = 0
     SHELL = 1
     STATUS_BAR = 2
+    FIRST_RUN = 3
+    RECOVERY = 4

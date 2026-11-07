@@ -65,16 +65,13 @@ first list named like the translated "Inbox" is used, or a new Inbox list is cre
 
 ## File format (section added)
 
-```json5
-  focus_queue: [
-    {
-      id: "019a5c30-cccc-7ddd-8eee-5a6b7c8d9e0f",
-      created_at: "2026-11-06T17:10:00Z",
-      updated_at: "2026-11-06T17:10:00Z",
-      task_id: "019a5c22-bbbb-7ccc-8ddd-4f5a6b7c8d9e",
-      position: 0,
-    },
-  ],
+```toml
+[[focus_queue]]
+id = '019a5c30-cccc-7ddd-8eee-5a6b7c8d9e0f'
+created_at = '2026-11-06T17:10:00Z'
+updated_at = '2026-11-06T17:10:00Z'
+task_id = '019a5c22-bbbb-7ccc-8ddd-4f5a6b7c8d9e'
+position = 0
 ```
 
 On load, an item whose `task_id` does not exist is dropped with a WARNING (`FOCUS_TASK_MISSING`)

@@ -26,3 +26,19 @@ def test_every_source_directory_is_a_package() -> None:
     missing = sorted(relative(directory) for directory in directories if not (directory / "__init__.py").is_file())
 
     assert missing == []
+
+
+def _imported_modules(tree: ast.Module) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            names.add(node.module)
+    return names
+
+
+def test_only_the_toml_codec_imports_tomllib() -> None:
+    importers = sorted(relative(path) for path in source_files() if "tomllib" in _imported_modules(parse(path)))
+
+    assert importers == ["concentrator/infrastructure/persistence/toml_codec.py"]

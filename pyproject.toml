@@ -25,7 +25,6 @@ classifiers = [
 dependencies = [
     "pyside6>=6.11",  # Qt Widgets + QtMultimedia (MP3 playback through the FFmpeg backend)
     "pydantic>=2.12,<3",  # 2.12 is the first release supporting Python 3.14
-    "json5>=0.12",  # JSON5 read/write, user data file only
 ]
 
 # Windows launcher without console window: `uv run concentrator`.
@@ -189,7 +188,7 @@ max-statements = 35  # default: 50
 max-returns = 8  # default: 6
 
 # Maximum number of public methods for a class
-max-public-methods = 30  # default: 20
+max-public-methods = 25  # default: 20
 
 # Maximum number of local variables in a function/method
 max-locals = 12  # default: 15

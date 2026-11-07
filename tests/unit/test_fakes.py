@@ -53,6 +53,12 @@ def test_fake_clock_advances_wall_and_monotonic_time_together() -> None:
 
     clock.advance(ms=250, seconds=1)
 
-    assert (clock.now_utc() - start_utc).total_seconds() == pytest.approx(1.25)
+    assert (clock.now_utc() - start_utc).total_seconds() == pytest.approx(1.0)
     assert clock.monotonic() - start_monotonic == pytest.approx(1.25)
     assert clock.now_local().utcoffset() is not None
+
+    clock.advance(ms=750)
+
+    assert (clock.now_utc() - start_utc).total_seconds() == pytest.approx(2.0)
+    assert clock.to_local(start_utc) == start_utc
+    assert clock.to_local(start_utc).utcoffset() is not None
