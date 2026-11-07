@@ -345,7 +345,9 @@ exists, offer to restore it or keep the current file (the `.tmp` is then renamed
 `<file>.tmp.discarded-YYYYMMDD-HHMMSS`); if `<file>` is invalid, show the translated error and offer
 the valid `.tmp`/`.bak` candidates, newest first; otherwise offer: choose another file, start empty
 (the damaged file is renamed `<file>.corrupt-YYYYMMDD-HHMMSS`), or quit. A locked file or a file
-written by a newer version is never renamed or written. Never overwrite a damaged file silently.
+written by a newer version is never renamed or written. Never overwrite a damaged file silently;
+creating a data file renames a leftover `.tmp`/`.bak` to `<side file>.discarded-YYYYMMDD-HHMMSS`
+first (ADR-037).
 
 Saves use a trailing debounce (`storage.save_debounce_ms`) capped by `storage.save_max_delay_ms`
 after the first unsaved change (ADR-029), carry a revision number, and are flushed synchronously on

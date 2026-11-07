@@ -47,7 +47,8 @@ status bar shows the state; hover over it to see the file path and any problem:
 
 Closing the window saves pending changes first. If that fails, you choose **Quit without saving** or
 **Retry**; Retry keeps Concentrator open and it keeps trying. When Windows logs off or shuts down,
-pending changes are saved without asking.
+pending changes are saved without asking; if the logoff is cancelled, Concentrator goes on saving
+normally.
 
 Each save is safe: the new content is written to `<file>.tmp`, checked, then swapped in. If Concentrator
 or Windows stops in the middle, the data file is either the old or the new complete version, never a
@@ -66,7 +67,8 @@ language) and offers what makes sense:
   The newer version is renamed `<file>.tmp.discarded-YYYYMMDD-HHMMSS`, so the question does not come
   back.
 - **Start with an empty file**: the damaged file is renamed `<file>.corrupt-YYYYMMDD-HHMMSS` (never
-  deleted) and a new empty file takes its place.
+  deleted) and a new empty file takes its place. The versions listed above are kept too: they are
+  renamed `<file>.tmp.discarded-...` and `<file>.bak.discarded-...`.
 - **Choose another file...**, **Retry** (when the file is locked by another program, or missing: put
   it back, then choose Retry) and **Quit**.
 
@@ -118,7 +120,7 @@ save.
 | `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings now, timer favorites, lists and tasks later. |
 | `concentrator.toml.bak` | next to the data file | The version before the last save. |
 | `concentrator.toml.tmp` | next to the data file | Only while saving, or after an interrupted save. |
-| `*.corrupt-*`, `*.tmp.discarded-*` | next to the data file | Files put aside by the recovery dialog; delete them when you no longer need them. |
+| `*.corrupt-*`, `*.tmp.discarded-*`, `*.bak.discarded-*` | next to the data file | Files put aside by the recovery dialog; delete them when you no longer need them. |
 | `backups\concentrator-YYYY-MM-DD.toml` | `%APPDATA%\Concentrator\` | One copy per day, last 7 days. |
 | `concentrator.ini` | next to `Concentrator.exe` | Application constants: sizes, timings, paths, log level. Edit it with a text editor and restart; every key is documented in the file. |
 | `ui-state.ini` | `%APPDATA%\Concentrator\` | Window layout, the path of your data file and the last language. Delete it to get the default layout back; the first-launch dialog then asks for the data file again. |

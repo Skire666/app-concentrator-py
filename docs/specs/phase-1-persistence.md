@@ -62,7 +62,7 @@ the data file from the settings page (phase 4).
   (`READY`, `NEEDS_LOCATION`, `NEEDS_RECOVERY`, `FATAL`) with the data needed by the dialogs (matrix
   in `docs/decisions.md`, ADR-027); `create_at(path)`, `open_existing(path)`, `restore(source)`,
   `keep_current()` (renames the stale `.tmp` to `<file>.tmp.discarded-YYYYMMDD-HHMMSS`),
-  `start_empty()`, `retry()`.
+  `start_empty()`, `retry()`. Creating a file puts aside a leftover `.tmp`/`.bak` (ADR-037).
 - `storage/save_coordinator.py`: subscribes to `UserDataChangedEvent`; trailing debounce
   `storage.save_debounce_ms`, capped by `storage.save_max_delay_ms` after the first unsaved change
   (ADR-029); one save in flight; if the revision changed meanwhile, saves again; on failure keeps data
@@ -167,6 +167,8 @@ default_data_file = {appdata}/Concentrator/concentrator.toml
 
 [ui]
 dialog_overlay_opacity_percent = 10
+startup_dialog_min_width_px = 560
+dialog_spacing_px = 10
 
 [storage]
 save_debounce_ms = 500

@@ -351,7 +351,8 @@ superseded.
   - "Retry" runs the resolution again (a lock released, a drive connected, a file put back).
     Amendment (phase 1 review, 2026-11-07): Retry is also offered when the main file is absent
     but a `.tmp` or `.bak` remains (a file renamed, moved or being restored by a sync client);
-    the manual test found it missing.
+    the manual test found it missing. Creating a data file puts aside a leftover `.tmp`/`.bak`, and
+    restore refuses a main file that became `FATAL` (ADR-037).
   - Renamed files carry the local date and time. A `FATAL` file is never renamed or written.
   - The remembered path `storage/data_file_path` is written only after a successful open or create.
 - Consequences: phase 4 "Use another file" reuses the same inspection for any path.
@@ -368,7 +369,8 @@ superseded.
   report `STORAGE_FLUSH_TIMEOUT`. A job that raises unexpectedly is read from `future.exception()`
   (no `except Exception`), logged CRITICAL with its traceback, forwarded to `ErrorReporterPort` and
   converted to `STORAGE_WRITE_FAILED`. Reads (load, probe) run on the main thread.
-- Consequences: two writes never race on the same file, at startup as well.
+- Consequences: two writes never race on the same file, at startup as well. Amendment (ADR-037):
+  shutting the writer down waits for its jobs, so the instance lock is released after the last write.
 
 ## ADR-029 — Save debounce with a maximum delay
 
@@ -416,7 +418,8 @@ superseded.
   Retry keeps the window open. `QGuiApplication.commitDataRequest` (session end) and `aboutToQuit`
   (fallback) run the same synchronous flush without dialog when changes are still pending.
 - Consequences: a failed save on the normal quit path is never silent; on session end the result
-  is only logged.
+  is only logged. Amendment (ADR-037): the session end flush keeps saving on, in case the session
+  end is cancelled.
 
 ## ADR-033 — External modification of the data file
 
@@ -446,6 +449,8 @@ superseded.
   - A main file deleted while the application runs is not a conflict: the next save recreates it and
     logs a WARNING.
 - Accepted limit: a change made between the check and `os.replace` (milliseconds) is not detected.
+- Amendment (ADR-037): "Keep Concentrator's version" holds until a save succeeds, and the close
+  flush does not trigger this dialog on top of the shutdown question.
 
 ## ADR-034 — Phase 1 persistence details
 
@@ -592,3 +597,39 @@ superseded.
 - Consequences: one code path for every dialog; a Windows-specific native event filter with a
   portable fallback; manual checks at each phase review (dimming, centering, dragging to the edges,
   display scaling).
+
+## ADR-037 — Fixes from the phase 1 code review
+
+- Status: accepted (2026-11-07), owner approval of the review recommendations. Amends ADR-027,
+  ADR-028, ADR-032 and ADR-033.
+- Context: a code review of the accepted phase 1 (`phase-0-accepted..phase-1-accepted`) found 14
+  defects, three of them silent losses of changes. Each fix started with a failing test.
+- Decisions:
+  - Session end (ADR-032): the `commitDataRequest` flush no longer stops saving, because another
+    application can cancel the session end and Concentrator then keeps running. `aboutToQuit` still
+    flushes and stops saving.
+  - Overwrite choice (ADR-033): "Keep Concentrator's version", from the conflict dialog or from the
+    shutdown question, clears the conflict and holds until a save succeeds; a transient failure is
+    retried with the overwrite, never asked again. A failed save with a change waiting keeps the
+    `storage.failed_save_retry_ms` delay.
+  - Close flush: the statuses it publishes carry `interactive_shutdown`, and the external
+    modification dialog leaves them to the shutdown question (no stacked questions). A conflict found
+    by the session end flush is still asked if the session goes on.
+  - Creating a data file (first launch, "Start with an empty file"; ADR-027) puts aside a `.tmp` or
+    `.bak` left at that path (`<file>.tmp.discarded-YYYYMMDD-HHMMSS`,
+    `<file>.bak.discarded-YYYYMMDD-HHMMSS`); if one cannot be renamed, nothing is written.
+  - Restore never renames a main file that became unreadable or newer-version after the probe
+    (ADR-027: a `FATAL` file is never renamed or written).
+  - A valid `.tmp` with the same `saved_at` as the main file (whole seconds, ADR-030) is offered when
+    its data differs.
+  - Startup reads the `.bak` only when the main file is not valid (`FileStateEnum.NOT_INSPECTED`, new
+    value 4), so a normal start parses the data once.
+  - TOML keys (ADR-035) are bare, `'...'` or `"..."`; never `'''...'''`, which TOML forbids for keys.
+  - `WriterThread.shutdown` waits for the queued jobs, so the instance lock is released after the
+    last write (ADR-028); the interpreter waited for the thread at exit anyway.
+  - A second launch while a startup dialog is open brings that dialog to the front.
+  - The save picker no longer asks whether to replace an existing file; creating the data file
+    refuses an existing path with its own message.
+  - The minimum width and the spacing of the first-run and recovery dialogs come from
+    `ui.startup_dialog_min_width_px` (560) and `ui.dialog_spacing_px` (10).
+- Not changed: errors raised during the startup dialogs are still only logged (ADR-024).
