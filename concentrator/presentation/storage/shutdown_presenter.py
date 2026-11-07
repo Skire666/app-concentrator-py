@@ -66,11 +66,22 @@ class ShutdownPresenter:
         return False
 
     def flush_without_dialog(self) -> None:
-        """Flush on Windows session end or ``aboutToQuit``: no dialog can be shown, the result is logged."""
+        """Flush on ``aboutToQuit``: no dialog can be shown, the result is logged, saving stops."""
         result = self._coordinator.flush_for_shutdown()
         if result.is_failure:
             _logger.error("Pending changes not saved at shutdown: %s", [code.name for code in result.error_codes])
         self._coordinator.close()
+
+    def flush_on_session_end(self) -> None:
+        """Flush on Windows session end (``commitDataRequest``): no dialog, the result is logged.
+
+        Saving goes on: another application can cancel the session end, and Concentrator then keeps
+        running. ``aboutToQuit`` stops saving if the session really ends.
+        """
+        result = self._coordinator.flush_for_shutdown()
+        if result.is_failure:
+            codes = [code.name for code in result.error_codes]
+            _logger.error("Pending changes not saved at the end of the Windows session: %s", codes)
 
     def _ask_external_change(self) -> ValidationResult:
         """Ask about a file changed outside Concentrator while changes are pending.

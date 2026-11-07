@@ -122,6 +122,26 @@ def test_flush_without_dialog_logs_a_failure(setup: Setup, caplog: pytest.LogCap
     assert setup.stack.dialogs.calls == []
 
 
+def test_session_end_flush_saves_and_keeps_saving_if_the_session_end_is_cancelled(setup: Setup) -> None:
+    setup.changed()
+
+    setup.presenter.flush_on_session_end()
+
+    assert len(setup.stack.file.blocking) == 1
+    assert setup.stack.dialogs.calls == []
+    assert setup.still_saving()
+
+
+def test_session_end_flush_logs_a_failure(setup: Setup, caplog: pytest.LogCaptureFixture) -> None:
+    setup.changed()
+    setup.stack.file.blocking_validation = REPLACE_FAILED
+
+    setup.presenter.flush_on_session_end()
+
+    assert "not saved at the end of the Windows session" in caplog.text
+    assert setup.stack.dialogs.calls == []
+
+
 def test_a_question_without_attached_dialogs_is_a_wiring_error() -> None:
     stack = StorageStack()
     presenter = ShutdownPresenter(stack.coordinator, stack.translator)

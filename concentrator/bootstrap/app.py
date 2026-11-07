@@ -162,7 +162,7 @@ def _run_shell(app: QApplication, shell: Shell, guard: QtSingleInstanceGuard | N
 
     def on_commit_data(_manager: QSessionManager) -> None:
         _logger.info("Windows session ending")
-        shell.shutdown_presenter.flush_without_dialog()
+        shell.shutdown_presenter.flush_on_session_end()
 
     def on_about_to_quit() -> None:
         shell.shutdown()
