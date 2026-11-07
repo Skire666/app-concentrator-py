@@ -230,6 +230,40 @@ def test_keep_local_version_overwrites_once(setup: Setup) -> None:
     assert [save.overwrite_external for save in setup.file.pending] == [False]
 
 
+def test_keep_local_version_survives_a_transient_failure(setup: Setup) -> None:
+    setup.attach()
+    setup.session.change()
+    setup.scheduler.advance(500)
+    setup.file.complete(CHANGED)
+    setup.coordinator.keep_local_version()
+
+    setup.file.complete(REPLACE_FAILED)
+    setup.scheduler.advance(10_000)
+
+    assert [save.overwrite_external for save in setup.file.pending] == [True]
+    setup.file.complete()
+    assert setup.state is SaveStateEnum.SAVED
+    setup.session.change()
+    setup.scheduler.advance(500)
+    assert [save.overwrite_external for save in setup.file.pending] == [False]
+
+
+def test_failed_save_with_a_change_waiting_retries_after_the_delay(setup: Setup) -> None:
+    setup.attach()
+    setup.session.change()
+    setup.scheduler.advance(500)
+    setup.session.change()
+    setup.scheduler.advance(500)
+
+    setup.file.complete(REPLACE_FAILED)
+
+    assert setup.file.pending == []
+    assert setup.state is SaveStateEnum.FAILED
+    setup.scheduler.advance(10_000)
+    assert len(setup.file.pending) == 1
+    assert setup.file.pending[0].revision == setup.session.revision()
+
+
 def test_keep_local_version_without_conflict_does_nothing(setup: Setup) -> None:
     setup.attach()
 
@@ -320,6 +354,23 @@ def test_flush_for_shutdown_can_overwrite_an_external_change(setup: Setup) -> No
     setup.coordinator.flush_for_shutdown(overwrite_external=True)
 
     assert setup.file.blocking == [(setup.session.revision(), True)]
+
+
+def test_failed_overwrite_at_shutdown_clears_the_conflict_and_keeps_retrying(setup: Setup) -> None:
+    setup.attach()
+    setup.session.change()
+    setup.file.blocking_validations.extend([CHANGED, REPLACE_FAILED])
+    assert setup.coordinator.flush_for_shutdown().error_codes == (ErrorCodeEnum.STORAGE_FILE_CHANGED_EXTERNALLY,)
+
+    result = setup.coordinator.flush_for_shutdown(overwrite_external=True)
+    setup.scheduler.advance(10_000)
+
+    assert result.error_codes == (ErrorCodeEnum.STORAGE_REPLACE_FAILED,)
+    assert [save.overwrite_external for save in setup.file.pending] == [True]
+    setup.file.complete()
+    setup.session.change()
+    setup.scheduler.advance(500)
+    assert [save.overwrite_external for save in setup.file.pending] == [False]
 
 
 def test_close_ignores_late_results_and_stops_saving(setup: Setup) -> None:

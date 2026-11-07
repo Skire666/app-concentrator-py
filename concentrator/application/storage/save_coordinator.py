@@ -132,7 +132,7 @@ class SaveCoordinator:
         self._publish(SaveStateEnum.SAVED, ValidationResult.success(), saved_at)
 
     def keep_local_version(self) -> None:
-        """Resolve an external modification by overwriting the file with the session data (ADR-033)."""
+        """Resolve an external modification by overwriting the file (ADR-033), until a save succeeds."""
         if not self._conflict:
             return
         _logger.info("Keeping Concentrator's version over the externally changed file")
@@ -144,13 +144,17 @@ class SaveCoordinator:
         """Save pending changes synchronously (close, quit, Windows session end; ADR-032).
 
         Args:
-            overwrite_external: Overwrite a file changed outside Concentrator.
+            overwrite_external: Overwrite a file changed outside Concentrator; this resolves the
+                conflict like ``keep_local_version`` and holds until a save succeeds.
 
         Returns:
             Success when nothing is pending or the save succeeded, else the failure (a retry is then
             scheduled, unless the file was changed externally).
         """
         self._timers.cancel_all()
+        if overwrite_external:
+            self._conflict = False
+            self._overwrite_next = True
         path = self._path
         revision = self._session.revision()
         if path is None or self._closed or (revision == self._saved_revision and self._in_flight is None):
@@ -160,10 +164,10 @@ class SaveCoordinator:
             self._session.current(),
             revision,
             timeout_ms=self._storage.shutdown_flush_timeout_ms,
-            overwrite_external=overwrite_external or self._overwrite_next,
+            overwrite_external=self._overwrite_next,
         )
         self._in_flight = None
-        self._save_again = self._overwrite_next = False
+        self._save_again = False
         self._apply_outcome(outcome)
         return outcome.validation
 
@@ -198,10 +202,11 @@ class SaveCoordinator:
             if self._status.state is not SaveStateEnum.SAVED:
                 self._publish(SaveStateEnum.SAVED, ValidationResult.success(), self._status.saved_at)
             return
-        overwrite, self._overwrite_next = self._overwrite_next, False
         self._in_flight = revision
         self._publish(SaveStateEnum.SAVING, ValidationResult.success(), self._status.saved_at)
-        self._file.save_async(path, self._session.current(), revision, self._on_saved, overwrite_external=overwrite)
+        self._file.save_async(
+            path, self._session.current(), revision, self._on_saved, overwrite_external=self._overwrite_next
+        )
 
     def _on_saved(self, outcome: SaveOutcome) -> None:
         """Handle the result of an asynchronous save (main thread).
@@ -216,7 +221,8 @@ class SaveCoordinator:
         self._apply_outcome(outcome)
         if self._save_again:
             self._save_again = False
-            self._save_now()
+            if outcome.validation.is_success:
+                self._save_now()
 
     def _apply_outcome(self, outcome: SaveOutcome) -> None:
         """Update the state after a save.
@@ -226,6 +232,7 @@ class SaveCoordinator:
         """
         if outcome.validation.is_success:
             self._saved_revision = outcome.revision
+            self._overwrite_next = False
             pending = self._session.revision() != self._saved_revision
             state = SaveStateEnum.PENDING if pending else SaveStateEnum.SAVED
             self._publish(state, outcome.validation, outcome.saved_at or self._status.saved_at)
