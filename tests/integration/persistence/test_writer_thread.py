@@ -83,3 +83,25 @@ def test_run_sync_and_flush_time_out_while_a_job_blocks(writer: WriterThread) ->
     finally:
         release.set()
     assert writer.flush(TIMEOUT_MS).is_success
+
+
+def test_shutdown_waits_for_the_running_job(reporter: RecordingErrorReporter) -> None:
+    writer = WriterThread(ImmediateDispatcher(), reporter)
+    release = threading.Event()
+    finished: list[bool] = []
+    writer.submit(lambda: release.wait(TIMEOUT_MS / 1000), False, finished.append)
+    returned = threading.Event()
+
+    def stop() -> None:
+        writer.shutdown()
+        returned.set()
+
+    stopper = threading.Thread(target=stop)
+    stopper.start()
+    returned_while_busy = returned.wait(0.2)
+    release.set()
+    stopper.join(TIMEOUT_MS / 1000)
+
+    assert not returned_while_busy
+    assert returned.is_set()
+    assert finished == [True]

@@ -1,4 +1,5 @@
 import ctypes
+import logging
 from collections.abc import Callable
 from ctypes import wintypes
 from pathlib import Path
@@ -22,6 +23,7 @@ from concentrator.ui.support.position_clamp_filter import (
     WindowPos,
 )
 from concentrator.ui.support.qt_dialog_service import QtDialogService
+from concentrator.ui.support.window_activation import bring_modal_dialog_to_front
 from concentrator.ui.support.window_rects import SWP_NOSIZE, QtWindowRects, WindowRects
 
 pytestmark = pytest.mark.ui
@@ -301,3 +303,20 @@ def test_native_filter_forgets_an_untracked_dialog(qtbot: QtBot) -> None:
     native.send(position)
 
     assert (position.x, position.y) == (-500, -500)
+
+
+def test_second_launch_brings_the_open_startup_dialog_to_the_front(
+    qtbot: QtBot, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+    dialog = QDialog()
+    qtbot.addWidget(dialog)
+    _while_open(dialog, bring_modal_dialog_to_front)
+
+    dialog.exec()
+    bring_modal_dialog_to_front()
+
+    assert [record.message.split(":")[0] for record in caplog.records] == [
+        "Second launch",
+        "Second launch before the main window",
+    ]

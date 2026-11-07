@@ -85,8 +85,13 @@ class WriterThread:
         return ValidationResult.success()
 
     def shutdown(self) -> None:
-        """Stop accepting jobs; a job still running finishes in the background."""
-        self._executor.shutdown(wait=False)
+        """Stop accepting jobs and wait for the queued ones to finish.
+
+        The instance lock is released after this call, so a new instance never writes while this one
+        still does. Waiting costs nothing extra: the interpreter would wait for the writer thread at
+        exit anyway.
+        """
+        self._executor.shutdown(wait=True)
 
     def _result[T](self, future: Future[T], fallback: T) -> T:
         """Return a completed job's result, reporting its exception.
