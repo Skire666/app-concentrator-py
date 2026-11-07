@@ -100,6 +100,43 @@ def test_every_key_literal_in_code_exists() -> None:
     assert missing == []
 
 
+TRANSLATE_METHODS: Final = frozenset({"tr", "tr_plural"})
+
+
+def _translated_literals(path: Path) -> list[tuple[str, int]]:
+    """Return (key, line) for every literal first argument of a ``tr`` or ``tr_plural`` call."""
+    return [
+        (node.args[0].value, node.lineno)
+        for node in ast.walk(parse(path))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in TRANSLATE_METHODS
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and isinstance(node.args[0].value, str)
+    ]
+
+
+def test_every_literal_translated_in_any_layer_exists() -> None:
+    missing = [
+        f"{relative(path)}:{line} {key}"
+        for path in source_files()
+        for key, line in _translated_literals(path)
+        if not _exists(key)
+    ]
+
+    assert missing == []
+
+
+def test_translated_literal_scan_sees_the_application_texts() -> None:
+    alarm = REPO_ROOT / "concentrator" / "application" / "timer" / "alarm_coordinator.py"
+
+    assert {key for key, _line in _translated_literals(alarm)} == {
+        "timer.notification.title",
+        "timer.notification.message",
+    }
+
+
 def test_key_literal_scan_sees_the_shell_texts() -> None:
     families = "|".join(sorted({re.escape(key.split(".", 1)[0]) for key in ENGLISH}))
     key_pattern = re.compile(rf"(?:{families})\.[a-z0-9_]+(?:\.[a-z0-9_]+)*")

@@ -152,5 +152,7 @@
   "field.timer.loop_forever": "Répéter jusqu'à l'arrêt",
   "field.timer.auto_stop_seconds": "Arrêt automatique",
   "field.timer.auto_restart": "Redémarrage automatique",
-  "format.time_with_seconds": "{hour}:{minute}:{second}"
+  "format.time_with_seconds": "{hour}:{minute}:{second}",
+  "timer.notification.title": "Temps écoulé",
+  "timer.notification.message": "Le décompte de {duration} est terminé."
 }
