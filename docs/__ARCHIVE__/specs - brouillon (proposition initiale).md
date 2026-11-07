@@ -8,6 +8,12 @@ toml est save lorqu'une tache set créer, MAJ,
 rajoute les couleurs la prochaine fois.
 Theme sombre, them clair.
 
+Dans les options, rendre la taille de police confiugrable
+faire une taille de base.
+
+
+
+
 Si la save échoue, mettre un bouton manuel qui retry
 
 
