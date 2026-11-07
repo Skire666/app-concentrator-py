@@ -147,3 +147,22 @@ def test_encode_without_root_scalars_starts_with_the_first_section() -> None:
 def test_encode_refuses_values_toml_cannot_hold(value: object) -> None:
     with pytest.raises(TypeError, match="as TOML"):
         TomlCodec.encode({"v": value})
+
+
+@pytest.mark.parametrize(
+    ("key", "written"),
+    [
+        ("plain_key-1", "plain_key-1"),
+        ("odd key", "'odd key'"),
+        ("l'été", '"l\'été"'),
+        ("a'''b", "\"a'''b\""),
+        ('quote "x" \\', "'quote \"x\" \\'"),
+        ("line\nbreak", '"line\\nbreak"'),
+        ("", "''"),
+    ],
+)
+def test_keys_are_bare_or_single_line_quoted_and_round_trip(key: str, written: str) -> None:
+    text = TomlCodec.encode({"table": {key: 1}})
+
+    assert text == f"[table]\n{written} = 1"
+    assert tomllib.loads(text) == {"table": {key: 1}}

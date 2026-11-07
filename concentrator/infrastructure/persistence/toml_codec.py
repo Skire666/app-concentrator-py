@@ -70,14 +70,28 @@ def _string(text: str) -> str:
         ``'...'``, ``'''...'''`` or ``"..."``.
     """
     if _NOT_LITERAL.search(text) is not None:
-        return '"' + _TO_ESCAPE.sub(_escape, text) + '"'
+        return _basic(text)
     if _QUOTE in text:
         return _TRIPLE_QUOTE + text + _TRIPLE_QUOTE
     return _QUOTE + text + _QUOTE
 
 
+def _basic(text: str) -> str:
+    """Write a basic string ``"..."`` with escapes.
+
+    Args:
+        text: Value.
+
+    Returns:
+        The quoted text.
+    """
+    return '"' + _TO_ESCAPE.sub(_escape, text) + '"'
+
+
 def _key(key: str) -> str:
-    """Write a key: bare when it is a plain word, quoted otherwise.
+    """Write a key: bare when it is a plain word, else ``'...'``, else ``"..."``.
+
+    TOML keys cannot be multi-line strings, so a key with an apostrophe is a basic string.
 
     Args:
         key: Key.
@@ -85,7 +99,11 @@ def _key(key: str) -> str:
     Returns:
         The TOML key.
     """
-    return key if _BARE_KEY.fullmatch(key) else _string(key)
+    if _BARE_KEY.fullmatch(key):
+        return key
+    if _QUOTE in key or _NOT_LITERAL.search(key) is not None:
+        return _basic(key)
+    return _QUOTE + key + _QUOTE
 
 
 def _scalar(value: object) -> str:
