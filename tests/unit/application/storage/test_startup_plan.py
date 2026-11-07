@@ -12,6 +12,7 @@ from concentrator.application.storage.startup_plan import RecoveryCandidate, Sta
 from concentrator.application.storage.startup_reason_enum import StartupReasonEnum
 from concentrator.application.storage.startup_step_enum import StartupStepEnum
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
+from concentrator.domain.settings.language_enum import LanguageEnum
 from tests.fakes.fake_user_data_file import absent, invalid, report, valid
 from tests.fakes.user_data_factory import SAVED_AT, make_stored
 
@@ -70,7 +71,7 @@ def test_tmp_older_than_main_is_ignored() -> None:
     assert plan.default_exists
 
 
-def test_tmp_saved_at_the_same_second_as_main_is_ignored() -> None:
+def test_tmp_saved_at_the_same_second_with_the_same_content_is_ignored() -> None:
     assert (
         _plan(valid(make_stored(saved_at=MAIN_AT)), valid(make_stored(saved_at=MAIN_AT))).step is StartupStepEnum.READY
     )
@@ -139,3 +140,27 @@ def test_report_probe_of_each_source() -> None:
     assert inspected.probe_of(RecoverySourceEnum.UNSET) is None
     assert inspected.main.saved_at is None
     assert temporary.saved_at == TMP_AT
+
+
+@pytest.mark.parametrize(
+    ("tmp_language", "expected"),
+    [(LanguageEnum.ENGLISH, StartupReasonEnum.NEWER_TEMPORARY), (LanguageEnum.FRENCH, StartupReasonEnum.OPENED)],
+)
+def test_tmp_saved_in_the_same_second_counts_as_newer_when_its_content_differs(
+    tmp_language: LanguageEnum, expected: StartupReasonEnum
+) -> None:
+    main = valid(make_stored(LanguageEnum.FRENCH, saved_at=MAIN_AT))
+    tmp = valid(make_stored(tmp_language, saved_at=MAIN_AT))
+
+    plan = classify(report(PATH, main, tmp), default_path=DEFAULT, default_exists=False)
+
+    assert plan.reason is expected
+
+
+def test_older_tmp_is_never_offered() -> None:
+    main = valid(make_stored(LanguageEnum.FRENCH, saved_at=MAIN_AT))
+    tmp = valid(make_stored(LanguageEnum.ENGLISH, saved_at=BAK_AT))
+
+    plan = classify(report(PATH, main, tmp), default_path=DEFAULT, default_exists=False)
+
+    assert plan.reason is StartupReasonEnum.OPENED

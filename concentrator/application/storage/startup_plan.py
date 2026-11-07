@@ -130,6 +130,26 @@ def _classify_invalid_main(report: RecoveryReport) -> tuple[StartupStepEnum, Sta
     return StartupStepEnum.NEEDS_RECOVERY, StartupReasonEnum.FILE_DAMAGED
 
 
+def _temporary_is_newer(report: RecoveryReport) -> bool:
+    """Whether a valid ``.tmp`` holds a newer version than a valid main file.
+
+    ``saved_at`` has whole seconds (ADR-030): a ``.tmp`` written in the same second as the main file
+    is newer when its content differs.
+
+    Args:
+        report: Inspection of the data file.
+
+    Returns:
+        ``True`` when the ``.tmp`` should be offered.
+    """
+    main, temporary = report.main.stored, report.temporary.stored
+    if main is None or temporary is None:
+        return False
+    if temporary.saved_at != main.saved_at:
+        return temporary.saved_at > main.saved_at
+    return temporary.data != main.data
+
+
 type _Verdict = tuple[StartupStepEnum, StartupReasonEnum, tuple[RecoveryCandidate, ...]]
 
 
@@ -145,15 +165,8 @@ def _verdict(report: RecoveryReport) -> _Verdict:
     main = report.main
     candidates = _candidates(report)
     if main.is_valid:
-        main_saved_at = main.saved_at
-        newer = tuple(
-            item
-            for item in candidates
-            if item.source is RecoverySourceEnum.TEMPORARY
-            and main_saved_at is not None
-            and item.saved_at > main_saved_at
-        )
-        if newer:
+        if _temporary_is_newer(report):
+            newer = tuple(item for item in candidates if item.source is RecoverySourceEnum.TEMPORARY)
             return StartupStepEnum.NEEDS_RECOVERY, StartupReasonEnum.NEWER_TEMPORARY, newer
         return StartupStepEnum.READY, StartupReasonEnum.OPENED, ()
     if main.state is FileStateEnum.ABSENT:
