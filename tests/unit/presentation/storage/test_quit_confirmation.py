@@ -46,6 +46,17 @@ def test_a_running_countdown_is_mentioned() -> None:
     assert stack.dialogs.texts("confirm")[0][1] == "en:shutdown.confirm.message.countdown"
 
 
+def test_no_question_once_the_windows_session_is_ending() -> None:
+    stack = StorageStack()
+    presenter = _presenter(stack, countdown=True)
+    stack.session.change()
+
+    presenter.flush_on_session_end()
+
+    assert presenter.may_close()
+    assert stack.dialogs.calls == []
+
+
 def test_without_a_countdown_source_no_countdown_is_assumed() -> None:
     stack = StorageStack()
     presenter = ShutdownPresenter(stack.coordinator, stack.translator)

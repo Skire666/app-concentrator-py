@@ -44,6 +44,7 @@ class ShutdownPresenter:
         self._coordinator = coordinator
         self._translator = translator
         self._countdown_active = countdown_active
+        self._session_ending = False
         self._messages = StorageMessages(translator)
         self._dialogs: DialogPort | None = None
 
@@ -58,11 +59,15 @@ class ShutdownPresenter:
     def may_close(self) -> bool:
         """Ask whether to quit, then flush (``closeEvent``: close button, notification area "Quit").
 
-        Escape keeps Concentrator open. The Windows session end never asks (ADR-032).
+        Escape keeps Concentrator open. Once Windows announced the end of the session, Qt closes the
+        windows itself: nothing is asked then (ADR-032, ADR-038).
 
         Returns:
             Whether the window may close.
         """
+        if self._session_ending:
+            _logger.info("Windows session ending: closing without the quit question")
+            return self.can_close()
         tr = self._translator.tr
         message = (
             tr("shutdown.confirm.message.countdown") if self._countdown_active() else tr("shutdown.confirm.message")
@@ -112,8 +117,10 @@ class ShutdownPresenter:
         """Flush on Windows session end (``commitDataRequest``): no dialog, the result is logged.
 
         Saving goes on: another application can cancel the session end, and Concentrator then keeps
-        running. ``aboutToQuit`` stops saving if the session really ends.
+        running. ``aboutToQuit`` stops saving if the session really ends. From now on, closing the
+        window no longer asks "Quit Concentrator?".
         """
+        self._session_ending = True
         result = self._coordinator.flush_for_shutdown()
         if result.is_failure:
             codes = [code.name for code in result.error_codes]
