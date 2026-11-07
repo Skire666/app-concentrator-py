@@ -22,6 +22,7 @@ ASSETS_DIR_NAME: Final = "assets"
 CONFIG_DIR_NAME: Final = "config"
 I18N_DIR_NAME: Final = "i18n"
 ICONS_DIR_NAME: Final = "icons"
+SOUNDS_DIR_NAME: Final = "sounds"
 APP_ICON_FILE_NAME: Final = "concentrator.ico"
 APPDATA_TOKEN: Final = "appdata"
 LOCALAPPDATA_TOKEN: Final = "localappdata"
@@ -97,6 +98,11 @@ class AppPaths:
     def icons_dir(self) -> Path:
         """Folder of the application and module icons."""
         return self.assets_dir / ICONS_DIR_NAME
+
+    @property
+    def sounds_dir(self) -> Path:
+        """Folder of the built-in alarm sounds."""
+        return self.assets_dir / SOUNDS_DIR_NAME
 
     @property
     def app_icon_file(self) -> Path:
