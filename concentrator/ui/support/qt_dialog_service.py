@@ -71,7 +71,9 @@ class QtDialogService(DialogPort):
     def choose_save_file(self, title: str, directory: str, name_filter: str) -> str | None:
         parent = self._runner.parent
         path, _selected = self._runner.dimmed(
-            lambda: QFileDialog.getSaveFileName(parent, title, directory, name_filter)
+            lambda: QFileDialog.getSaveFileName(
+                parent, title, directory, name_filter, options=QFileDialog.Option.DontConfirmOverwrite
+            )
         )
         return _normalized(path)
 

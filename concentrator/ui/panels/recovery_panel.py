@@ -9,7 +9,6 @@ from concentrator.presentation.storage.startup_snapshots import RecoverySnapshot
 from concentrator.ui.support.styles import WARNING_PROPERTY
 from concentrator.ui.widgets.button_column_widget import ButtonColumnWidget
 
-_SPACING_PX: Final = 10
 _LINE_BREAK: Final = "\n"
 
 
@@ -34,10 +33,11 @@ class RecoveryPanel(QWidget):
     action_requested = Signal(int)
     candidate_selected = Signal(int)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, spacing_px: int, parent: QWidget | None = None) -> None:
         """Build the panel.
 
         Args:
+            spacing_px: ``ui.dialog_spacing_px``.
             parent: Parent widget.
         """
         super().__init__(parent)
@@ -51,7 +51,7 @@ class RecoveryPanel(QWidget):
         self._candidates.currentRowChanged.connect(self.candidate_selected)
         self._buttons = ButtonColumnWidget(self)
         self._buttons.action_requested.connect(self.action_requested)
-        self._build_layout()
+        self._build_layout(spacing_px)
 
     @property
     def candidates(self) -> QListWidget:
@@ -99,9 +99,13 @@ class RecoveryPanel(QWidget):
         self._candidates.setVisible(bool(snapshot.candidates))
         blocker.unblock()
 
-    def _build_layout(self) -> None:
-        """Stack the widgets vertically."""
+    def _build_layout(self, spacing_px: int) -> None:
+        """Stack the widgets vertically.
+
+        Args:
+            spacing_px: ``ui.dialog_spacing_px``.
+        """
         layout = QVBoxLayout(self)
-        layout.setSpacing(_SPACING_PX)
+        layout.setSpacing(spacing_px)
         for widget in (self._intro, self._path, self._problems, self._caption, self._candidates, self._buttons):
             layout.addWidget(widget)

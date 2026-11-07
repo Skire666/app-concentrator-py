@@ -44,6 +44,8 @@ class UiSection:
     action_cooldown_ms: int
     slow_action_threshold_ms: int
     dialog_overlay_opacity_percent: int
+    startup_dialog_min_width_px: int
+    dialog_spacing_px: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

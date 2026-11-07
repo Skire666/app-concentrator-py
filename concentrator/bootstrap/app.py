@@ -25,6 +25,7 @@ from concentrator.infrastructure.qt.qt_single_instance_guard import QtSingleInst
 from concentrator.infrastructure.system import windows_shell
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
+from concentrator.presentation.storage.startup_dialog_layout import StartupDialogLayout
 from concentrator.ui.support.window_activation import bring_modal_dialog_to_front
 
 _logger = logging.getLogger(__name__)
@@ -197,7 +198,10 @@ def _run_window(app: QApplication, config: AppConfig, paths: AppPaths, runtime: 
     if instance.guard is not None:
         instance.guard.set_activation_handler(bring_modal_dialog_to_front)
     try:
-        if not open_data_file(core, storage, translator, protection, QIcon(str(paths.app_icon_file))):
+        icon = QIcon(str(paths.app_icon_file))
+        if not open_data_file(
+            core, storage, translator, protection, icon, StartupDialogLayout.from_ui_section(config.ui)
+        ):
             return EXIT_OK
         shell = build_shell(
             app, config, paths, translator, runtime.reporter, core=core, storage=storage, instance=protection

@@ -1,15 +1,11 @@
 """Content of the first-run dialog: explanation, notice, default location, action buttons."""
 
-from typing import Final
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from concentrator.presentation.storage.startup_snapshots import FirstRunSnapshot
 from concentrator.ui.support.styles import WARNING_PROPERTY
 from concentrator.ui.widgets.button_column_widget import ButtonColumnWidget
-
-_SPACING_PX: Final = 10
 
 
 def _wrapped_label(parent: QWidget) -> QLabel:
@@ -32,10 +28,11 @@ class FirstRunPanel(QWidget):
 
     action_requested = Signal(int)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, spacing_px: int, parent: QWidget | None = None) -> None:
         """Build the panel.
 
         Args:
+            spacing_px: ``ui.dialog_spacing_px``.
             parent: Parent widget.
         """
         super().__init__(parent)
@@ -47,7 +44,7 @@ class FirstRunPanel(QWidget):
         self._buttons = ButtonColumnWidget(self)
         self._buttons.action_requested.connect(self.action_requested)
         layout = QVBoxLayout(self)
-        layout.setSpacing(_SPACING_PX)
+        layout.setSpacing(spacing_px)
         for widget in (self._intro, self._notice, self._default_location, self._buttons):
             layout.addWidget(widget)
         layout.addStretch(1)

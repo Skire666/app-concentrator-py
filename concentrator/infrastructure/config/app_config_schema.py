@@ -57,6 +57,8 @@ class UiSectionSchema(BaseModel):
     action_cooldown_ms: Annotated[int, Field(ge=100, le=5_000)]
     slow_action_threshold_ms: Annotated[int, Field(ge=1, le=60_000)]
     dialog_overlay_opacity_percent: Annotated[int, Field(ge=0, le=50)]
+    startup_dialog_min_width_px: WindowSide
+    dialog_spacing_px: Annotated[int, Field(ge=0, le=50)]
 
     @model_validator(mode="after")
     def _check_min_window(self) -> Self:

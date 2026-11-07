@@ -9,6 +9,7 @@ from concentrator.bootstrap.core import Core
 from concentrator.bootstrap.storage import Storage
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
+from concentrator.presentation.storage.startup_dialog_layout import StartupDialogLayout
 from concentrator.presentation.storage.startup_flow_presenter import StartupFlowPresenter
 from concentrator.ui.support.modal_host import ScreenDialogRunner
 from concentrator.ui.support.qt_dialog_service import QtDialogService
@@ -33,7 +34,12 @@ def apply_language_hint(storage: Storage, translator: TranslatorPort) -> None:
 
 
 def open_data_file(
-    core: Core, storage: Storage, translator: TranslatorPort, instance: InstanceProtectionPresenter, icon: QIcon
+    core: Core,
+    storage: Storage,
+    translator: TranslatorPort,
+    instance: InstanceProtectionPresenter,
+    icon: QIcon,
+    layout: StartupDialogLayout,
 ) -> bool:
     """Warn when unguarded, then resolve the data file through the startup dialogs.
 
@@ -43,6 +49,7 @@ def open_data_file(
         translator: Current-language translator.
         instance: Unguarded single-instance warning.
         icon: Window icon of the dialogs.
+        layout: Sizes of the dialogs (``[ui]``).
 
     Returns:
         Whether a data file is open (``False``: the user quit).
@@ -58,7 +65,7 @@ def open_data_file(
         translator=translator,
         formatter=DateTimeFormatter(translator, core.clock),
     )
-    flow.attach(StartupDialogs(flow, core.renderer, icon))
+    flow.attach(StartupDialogs(flow, core.renderer, icon, layout))
     if not flow.run():
         return False
     settings = storage.settings_queries.current_settings()

@@ -320,3 +320,27 @@ def test_second_launch_brings_the_open_startup_dialog_to_the_front(
         "Second launch",
         "Second launch before the main window",
     ]
+
+
+def test_save_picker_never_asks_to_replace_an_existing_file(qtbot: QtBot, tmp_path: Path) -> None:
+    window = _shown_window(qtbot)
+    service = QtDialogService(ModalHost.create(window, 10))
+    existing = tmp_path / "data.toml"
+    existing.write_text("", encoding="utf-8")
+    confirms: list[bool] = []
+
+    def answer() -> None:
+        dialog = QApplication.activeModalWidget()
+        assert isinstance(dialog, QFileDialog)
+        confirms.append(not dialog.testOption(QFileDialog.Option.DontConfirmOverwrite))
+        if confirms[-1]:
+            dialog.reject()  # a "Replace?" question would block the test
+            return
+        dialog.selectFile(str(existing))
+        dialog.accept()
+
+    QTimer.singleShot(0, answer)
+    chosen = service.choose_save_file("Create", str(tmp_path), "*.toml")
+
+    assert confirms == [False]
+    assert chosen == existing.as_posix()

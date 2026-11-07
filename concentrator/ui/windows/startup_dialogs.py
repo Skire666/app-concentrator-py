@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QDialog
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
 from concentrator.presentation.ports.startup_dialogs_port import StartupDialogsPort
+from concentrator.presentation.storage.startup_dialog_layout import StartupDialogLayout
 from concentrator.presentation.storage.startup_flow_presenter import StartupFlowPresenter
 from concentrator.ui.windows.first_run_dialog import FirstRunDialog
 from concentrator.ui.windows.recovery_dialog import RecoveryDialog
@@ -16,17 +17,20 @@ from concentrator.ui.windows.recovery_dialog import RecoveryDialog
 class StartupDialogs(StartupDialogsPort):
     """Builds both dialogs once, wires them to the flow presenter and registers their sections."""
 
-    def __init__(self, presenter: StartupFlowPresenter, renderer: RenderCoordinator, icon: QIcon) -> None:
+    def __init__(
+        self, presenter: StartupFlowPresenter, renderer: RenderCoordinator, icon: QIcon, layout: StartupDialogLayout
+    ) -> None:
         """Create the dialogs (not shown).
 
         Args:
             presenter: Startup flow.
             renderer: Render coordinator the dialogs are registered with.
             icon: Window icon.
+            layout: Sizes from ``concentrator.ini``.
         """
         self._renderer = renderer
-        self._first_run = FirstRunDialog(icon)
-        self._recovery = RecoveryDialog(icon)
+        self._first_run = FirstRunDialog(icon, layout)
+        self._recovery = RecoveryDialog(icon, layout)
         self._current: QDialog | None = None
         self._first_run.panel.action_requested.connect(presenter.on_action_requested)
         self._recovery.panel.action_requested.connect(presenter.on_action_requested)

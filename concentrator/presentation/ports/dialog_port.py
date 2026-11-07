@@ -64,7 +64,10 @@ class DialogPort(Protocol):
         ...
 
     def choose_save_file(self, title: str, directory: str, name_filter: str) -> str | None:
-        """Pick a file to create or overwrite.
+        """Pick the path of a file to create.
+
+        The picker never asks whether to replace an existing file: the caller decides (creating a data
+        file refuses an existing path with ``STORAGE_FILE_ALREADY_EXISTS``).
 
         Args:
             title: Window title.

@@ -28,6 +28,8 @@ def make_ui_section(**changes: int) -> UiSection:
         action_cooldown_ms=100,
         slow_action_threshold_ms=200,
         dialog_overlay_opacity_percent=10,
+        startup_dialog_min_width_px=560,
+        dialog_spacing_px=10,
     )
     return replace(section, **changes)
 

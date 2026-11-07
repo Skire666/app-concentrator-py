@@ -10,6 +10,7 @@ from concentrator.application.storage.startup_commands import DATA_FILE_PATH_KEY
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
+from concentrator.presentation.storage.startup_dialog_layout import StartupDialogLayout
 from concentrator.presentation.storage.startup_flow_presenter import StartupFlowPresenter
 from concentrator.ui.widgets.button_column_widget import ButtonColumnWidget
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
@@ -32,7 +33,9 @@ class Setup:
             translator=self.stack.translator,
             formatter=self.stack.formatter,
         )
-        self.dialogs = StartupDialogs(self.presenter, self.stack.renderer, QIcon())
+        self.dialogs = StartupDialogs(
+            self.presenter, self.stack.renderer, QIcon(), StartupDialogLayout(min_width_px=560, spacing_px=10)
+        )
         self.presenter.attach(self.dialogs)
         self.checks: list[Callable[[], None]] = []
 

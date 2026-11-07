@@ -26,6 +26,7 @@ from concentrator.infrastructure.i18n.json_catalog_translator import JsonCatalog
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
+from concentrator.presentation.storage.startup_dialog_layout import StartupDialogLayout
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
 
 pytestmark = pytest.mark.ui
@@ -170,7 +171,9 @@ def test_reopening_a_remembered_file_needs_no_dialog_and_follows_its_language(qt
     core, storage, translator = _storage(config, install)
     protection = InstanceProtectionPresenter(translator, protected=True)
 
-    opened = open_data_file(core, storage, translator, protection, QIcon())
+    opened = open_data_file(
+        core, storage, translator, protection, QIcon(), StartupDialogLayout.from_ui_section(config.ui)
+    )
 
     storage.writer.shutdown()
     assert opened
@@ -214,7 +217,9 @@ def test_unguarded_startup_warns_before_opening_the_file(
 
     QTimer.singleShot(0, accept_warning)
     with caplog.at_level(logging.INFO):
-        opened = open_data_file(core, storage, translator, protection, QIcon())
+        opened = open_data_file(
+            core, storage, translator, protection, QIcon(), StartupDialogLayout.from_ui_section(config.ui)
+        )
     storage.writer.shutdown()
 
     assert opened
