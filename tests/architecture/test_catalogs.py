@@ -148,6 +148,11 @@ def test_key_literal_scan_sees_the_shell_texts() -> None:
     assert {"app.title", "shell.language.button.fr", "placeholder.journal"} <= literals
 
 
+@pytest.mark.parametrize("sound", sorted((REPO_ROOT / "assets" / "sounds").glob("*.mp3")), ids=lambda path: path.stem)
+def test_every_shipped_sound_has_a_label(sound: Path) -> None:
+    assert f"sound.builtin.{sound.stem}" in ENGLISH
+
+
 def test_plural_base_needs_both_forms() -> None:
     assert _exists("storage.issue.more")
     assert not _exists("storage.issue")

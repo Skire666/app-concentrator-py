@@ -16,7 +16,9 @@ from concentrator.domain.settings.user_settings import UserSettings, UserSetting
 from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
 from concentrator.infrastructure.i18n.json_catalog_translator import CATALOG_SUFFIX, load_catalogs
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
+from concentrator.infrastructure.qt.qt_sound_player import MP3_MIME_TYPE, decodable_mime_types
 from concentrator.infrastructure.system.app_paths import AppPaths
+from concentrator.infrastructure.system.builtin_sound_catalog import SOUND_SUFFIX
 from concentrator.ui.panels.module_bar_panel import MODULE_ICON_FILES
 
 _logger = logging.getLogger(__name__)
@@ -28,18 +30,31 @@ ROUND_TRIP_TIMER_ID: Final = TimerConfigId("00000000-0000-7000-8000-000000000001
 ROUND_TRIP_TIME: Final = datetime(2026, 1, 1, tzinfo=UTC)
 
 
-def _required_files(paths: AppPaths) -> list[Path]:
+def _required_files(paths: AppPaths, config: AppConfig) -> list[Path]:
     """Files the application cannot run without.
 
     Args:
         paths: Application paths.
+        config: Loaded configuration (default alarm sound).
 
     Returns:
-        The ini, the catalogs and the icons.
+        The ini, the catalogs, the icons and the default alarm sound.
     """
     catalogs = [paths.i18n_dir / f"{language.iso_code}{CATALOG_SUFFIX}" for language in CATALOG_LANGUAGES]
     icons = [paths.icons_dir / name for name in MODULE_ICON_FILES.values()]
-    return [paths.config_file, *catalogs, paths.app_icon_file, *icons]
+    sound = paths.sounds_dir / f"{config.timer.default_sound}{SOUND_SUFFIX}"
+    return [paths.config_file, *catalogs, paths.app_icon_file, *icons, sound]
+
+
+def audio_failures() -> list[str]:
+    """Check that the Qt multimedia FFmpeg plugin is bundled and decodes MP3 (ADR-004).
+
+    Returns:
+        One description per problem.
+    """
+    if MP3_MIME_TYPE in decodable_mime_types():
+        return []
+    return ["Qt multimedia cannot decode MP3 (FFmpeg plugin missing)"]
 
 
 def _svg_failures(paths: AppPaths) -> list[str]:
@@ -85,7 +100,7 @@ def storage_failures(app_version: str, config: AppConfig) -> list[str]:
 
 
 def run_self_check(paths: AppPaths, config: AppConfig, app_version: str) -> bool:
-    """Check the assets, the catalogs, the SVG rendering and the user data pipeline; log the outcome.
+    """Check the assets, catalogs, SVG rendering, MP3 decoding and user data pipeline; log the outcome.
 
     Args:
         paths: Application paths.
@@ -95,11 +110,12 @@ def run_self_check(paths: AppPaths, config: AppConfig, app_version: str) -> bool
     Returns:
         Whether every check passed.
     """
-    failures = [f"missing file: {path}" for path in _required_files(paths) if not path.is_file()]
+    failures = [f"missing file: {path}" for path in _required_files(paths, config) if not path.is_file()]
     catalogs = load_catalogs(paths.i18n_dir, CATALOG_LANGUAGES, config.i18n.fallback_language)
     if not catalogs.is_success or catalogs.validation.has_warnings:
         failures.append(f"catalogs: {[code.name for code in catalogs.validation.error_codes]}")
     failures.extend(_svg_failures(paths))
+    failures.extend(audio_failures())
     failures.extend(storage_failures(app_version, config))
     if failures:
         _logger.error("Self-check failed: %s", failures)
