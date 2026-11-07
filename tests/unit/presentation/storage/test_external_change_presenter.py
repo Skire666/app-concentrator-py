@@ -10,6 +10,7 @@ from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.presentation.storage.external_change_presenter import ExternalChangePresenter
+from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
 from tests.fakes.storage_stack import DATA_PATH, StorageStack
 from tests.fakes.user_data_factory import SAVED_AT, make_user_data
 
@@ -100,3 +101,31 @@ def test_reload_failure_explains_and_asks_again(setup: Setup) -> None:
     assert title == "en:external_change.title"
     assert message.splitlines() == ["en:external_change.reload_failed", "en:error.storage_file_not_found"]
     assert [save.overwrite_external for save in setup.stack.file.pending] == [True]
+
+
+def _shutdown(setup: Setup) -> ShutdownPresenter:
+    presenter = ShutdownPresenter(setup.stack.coordinator, setup.stack.translator)
+    presenter.attach(setup.stack.dialogs)
+    setup.stack.session.change()
+    setup.stack.file.blocking_validations.append(CHANGED)
+    return presenter
+
+
+def test_conflict_found_when_closing_is_left_to_the_shutdown_question(setup: Setup) -> None:
+    shutdown = _shutdown(setup)
+    setup.stack.dialogs.confirm_answer = True  # "Quit without saving"
+
+    assert shutdown.can_close()
+    setup.stack.scheduler.run_pending()
+
+    assert [texts[1] for texts in setup.stack.dialogs.texts("confirm")] == ["en:shutdown.changed.message"]
+
+
+def test_conflict_found_at_session_end_is_asked_if_the_session_goes_on(setup: Setup) -> None:
+    shutdown = _shutdown(setup)
+    setup.stack.dialogs.confirm_answer = False
+
+    shutdown.flush_on_session_end()
+    setup.stack.scheduler.run_pending()
+
+    assert [texts[1] for texts in setup.stack.dialogs.texts("confirm")] == ["en:external_change.message"]

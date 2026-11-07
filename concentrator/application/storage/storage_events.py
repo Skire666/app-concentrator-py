@@ -28,9 +28,12 @@ class SaveStatusChangedEvent:
         path: Open data file, ``None`` before one is open.
         saved_at: Last successful save (``saved_at`` of the file), ``None`` before the first one.
         validation: Issues of the last save: warnings when saved, the failure when failed.
+        interactive_shutdown: Published by the flush of a window close whose caller asks the user
+            itself (the external modification dialog then stays out of the way).
     """
 
     state: SaveStateEnum
     path: Path | None = None
     saved_at: datetime | None = None
     validation: ValidationResult = field(default_factory=ValidationResult.success)
+    interactive_shutdown: bool = False

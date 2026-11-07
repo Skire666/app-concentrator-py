@@ -102,6 +102,7 @@ class SaveCoordinator:
         self._save_again = False
         self._conflict = False
         self._overwrite_next = False
+        self._interactive_flush = False
         self._closed = False
         self._status = SaveStatusChangedEvent(state=SaveStateEnum.NO_FILE)
         event_bus.subscribe(UserDataChangedEvent, self._on_data_changed)
@@ -140,12 +141,13 @@ class SaveCoordinator:
         self._overwrite_next = True
         self._save_now()
 
-    def flush_for_shutdown(self, *, overwrite_external: bool = False) -> ValidationResult:
+    def flush_for_shutdown(self, *, overwrite_external: bool = False, interactive: bool = False) -> ValidationResult:
         """Save pending changes synchronously (close, quit, Windows session end; ADR-032).
 
         Args:
             overwrite_external: Overwrite a file changed outside Concentrator; this resolves the
                 conflict like ``keep_local_version`` and holds until a save succeeds.
+            interactive: The caller (window close) asks the user itself; the published status says so.
 
         Returns:
             Success when nothing is pending or the save succeeded, else the failure (a retry is then
@@ -168,7 +170,11 @@ class SaveCoordinator:
         )
         self._in_flight = None
         self._save_again = False
-        self._apply_outcome(outcome)
+        self._interactive_flush = interactive
+        try:
+            self._apply_outcome(outcome)
+        finally:
+            self._interactive_flush = False
         return outcome.validation
 
     def close(self) -> None:
@@ -255,7 +261,13 @@ class SaveCoordinator:
             validation: Issues to show.
             saved_at: Last successful save.
         """
-        status = SaveStatusChangedEvent(state=state, path=self._path, saved_at=saved_at, validation=validation)
+        status = SaveStatusChangedEvent(
+            state=state,
+            path=self._path,
+            saved_at=saved_at,
+            validation=validation,
+            interactive_shutdown=self._interactive_flush,
+        )
         if status == self._status:
             return
         self._status = status

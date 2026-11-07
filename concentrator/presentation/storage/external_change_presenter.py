@@ -49,9 +49,13 @@ class ExternalChangePresenter:
     def on_save_status_changed(self, status: SaveStatusChangedEvent) -> None:
         """Schedule the question when a save was refused because of an external change.
 
+        A refusal found while the window closes is left to the shutdown question.
+
         Args:
             status: New save status.
         """
+        if status.interactive_shutdown:
+            return
         external = ErrorCodeEnum.STORAGE_FILE_CHANGED_EXTERNALLY in status.validation.error_codes
         if status.state is SaveStateEnum.FAILED and external:
             self._schedule()

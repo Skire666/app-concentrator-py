@@ -48,7 +48,7 @@ class ShutdownPresenter:
         Returns:
             Whether the window may close.
         """
-        result = self._coordinator.flush_for_shutdown()
+        result = self._coordinator.flush_for_shutdown(interactive=True)
         if result.is_failure and ErrorCodeEnum.STORAGE_FILE_CHANGED_EXTERNALLY in result.error_codes:
             result = self._ask_external_change()
             if result.is_skipped:
@@ -98,7 +98,7 @@ class ShutdownPresenter:
         )
         if quit_without_saving:
             return ValidationResult.skipped()
-        return self._coordinator.flush_for_shutdown(overwrite_external=True)
+        return self._coordinator.flush_for_shutdown(overwrite_external=True, interactive=True)
 
     def _attached_dialogs(self) -> DialogPort:
         """The dialog service.
