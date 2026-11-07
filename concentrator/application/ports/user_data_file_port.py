@@ -56,7 +56,8 @@ class UserDataFilePort(Protocol):
         """Replace the data file with a recovery candidate.
 
         A damaged main file is quarantined first, so that the ``.bak`` being restored is never
-        overwritten by it (ADR-027).
+        overwritten by it; an unreadable main file or one written by a newer version is never renamed
+        and the restore fails (ADR-027).
 
         Args:
             path: Data file path.
@@ -70,12 +71,16 @@ class UserDataFilePort(Protocol):
     def create(self, path: Path, data: UserData) -> DataResult[StoredUserData]:
         """Create a new data file (and its folder).
 
+        A ``.tmp`` or ``.bak`` left at that path is put aside first (``<file>.tmp.discarded-...``,
+        ``<file>.bak.discarded-...``), never overwritten.
+
         Args:
             path: Data file path.
             data: Initial content.
 
         Returns:
-            The written data, ``STORAGE_FILE_ALREADY_EXISTS``, or a write failure.
+            The written data, ``STORAGE_FILE_ALREADY_EXISTS``, ``STORAGE_REPLACE_FAILED`` when a side
+            file cannot be put aside, or a write failure.
         """
         ...
 

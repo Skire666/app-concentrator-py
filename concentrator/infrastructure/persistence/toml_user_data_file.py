@@ -19,7 +19,13 @@ from concentrator.infrastructure.persistence.atomic_file_writer import AtomicFil
 from concentrator.infrastructure.persistence.daily_backup import DailyBackup
 from concentrator.infrastructure.persistence.file_fingerprint import FileFingerprint, FingerprintRegistry
 from concentrator.infrastructure.persistence.recovery_inspector import RecoveryInspector
-from concentrator.infrastructure.persistence.side_files import backup_path, corrupt_path, discarded_path, temporary_path
+from concentrator.infrastructure.persistence.side_files import (
+    backup_path,
+    corrupt_path,
+    discarded_backup_path,
+    discarded_path,
+    temporary_path,
+)
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
 from concentrator.infrastructure.persistence.user_data_file_reader import ReadFile, UserDataFileReader
 from concentrator.infrastructure.persistence.writer_thread import WriterThread
@@ -28,6 +34,9 @@ _logger = logging.getLogger(__name__)
 
 TEXT_ENCODING: Final = "utf-8"
 SOURCE_FIELD: Final = "source"
+_KEEP_MAIN_CODES: Final = frozenset(
+    {ErrorCodeEnum.STORAGE_FILE_UNREADABLE, ErrorCodeEnum.STORAGE_SCHEMA_VERSION_UNSUPPORTED}
+)  # a FATAL main file is never renamed or written (ADR-027)
 
 
 def _crashed[T]() -> DataResult[T]:
@@ -192,18 +201,27 @@ class TomlUserDataFile(UserDataFilePort):
         return SaveOutcome(revision=revision, saved_at=saved_at, validation=written.validation)
 
     def _create_job(self, path: Path, data: UserData) -> DataResult[StoredUserData]:
-        """Writer thread: create a new data file.
+        """Writer thread: create a new data file, after putting aside a ``.tmp`` or ``.bak`` left there.
 
         Args:
             path: Data file path.
             data: Initial content.
 
         Returns:
-            The written data or the failure.
+            The written data or the failure (nothing is written when a side file cannot be put aside).
         """
         if path.exists():
             _logger.warning("Cannot create %s: a file already exists", path)
             return DataResult.fail(ValidationResult.failure(ErrorCodeEnum.STORAGE_FILE_ALREADY_EXISTS))
+        local_now = self._clock.now_local()
+        for side, aside in (
+            (temporary_path(path), discarded_path(path, local_now)),
+            (backup_path(path), discarded_backup_path(path, local_now)),
+        ):
+            if side.exists():
+                moved = self._rename(side, aside)
+                if moved.data is None:
+                    return DataResult.fail(moved.validation)
         return self._write(path, data, check_external=False)
 
     def _restore_job(self, path: Path, source: RecoverySourceEnum) -> DataResult[StoredUserData]:
@@ -226,13 +244,29 @@ class TomlUserDataFile(UserDataFilePort):
         candidate = self._reader.read(source_path)
         if candidate.data is None:
             return DataResult.fail(candidate.validation)
-        main = self._reader.read(path)
-        if main.data is None and main.validation.error_codes != (ErrorCodeEnum.STORAGE_FILE_NOT_FOUND,):
-            moved = self._rename(path, corrupt_path(path, self._clock.now_local()))
-            if moved.data is None:
-                return DataResult.fail(moved.validation)
+        cleared = self._clear_main_for_restore(path)
+        if cleared.is_failure:
+            return DataResult.fail(cleared)
         _logger.info("Restoring %s from its %s file", path, source.name.lower())
         return self._write(path, candidate.data.stored.data, check_external=False)
+
+    def _clear_main_for_restore(self, path: Path) -> ValidationResult:
+        """Writer thread: quarantine a damaged main file; refuse an unreadable or newer one (ADR-027).
+
+        Args:
+            path: Data file path.
+
+        Returns:
+            Success when the main file is valid, absent or quarantined, else the failure.
+        """
+        main = self._reader.read(path)
+        codes = main.validation.error_codes
+        if main.data is not None or codes == (ErrorCodeEnum.STORAGE_FILE_NOT_FOUND,):
+            return ValidationResult.success()
+        if not _KEEP_MAIN_CODES.isdisjoint(codes):
+            _logger.warning("Restore refused: %s cannot be read or is newer (%s)", path, [code.name for code in codes])
+            return main.validation
+        return self._rename(path, corrupt_path(path, self._clock.now_local())).validation
 
     def _write(self, path: Path, data: UserData, *, check_external: bool) -> DataResult[StoredUserData]:
         """Writer thread: encode, write atomically, remember the fingerprint, make the daily copy.

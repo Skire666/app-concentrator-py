@@ -235,6 +235,55 @@ def test_restore_refuses_an_invalid_candidate_and_changes_nothing(adapter: TomlU
     assert path.read_text(encoding="utf-8") == "{ damaged"
 
 
+def test_create_puts_aside_the_side_files_left_at_the_path(adapter: TomlUserDataFile, path: Path) -> None:
+    path.parent.mkdir(parents=True)
+    _side(path, ".tmp").write_text("newest data", encoding="utf-8")
+    _side(path, ".bak").write_text("previous data", encoding="utf-8")
+
+    created = adapter.create(path, make_user_data())
+    following = _save(adapter, path, make_user_data(LanguageEnum.ENGLISH))
+
+    assert created.is_success
+    assert following.validation.is_success
+    assert _side(path, ".tmp.discarded-20261106-100000").read_text(encoding="utf-8") == "newest data"
+    assert _side(path, ".bak.discarded-20261106-100000").read_text(encoding="utf-8") == "previous data"
+
+
+def test_create_writes_nothing_when_a_side_file_cannot_be_put_aside(adapter: TomlUserDataFile, path: Path) -> None:
+    path.parent.mkdir(parents=True)
+    _side(path, ".bak").write_text("previous data", encoding="utf-8")
+    _side(path, ".bak.discarded-20261106-100000").mkdir()
+
+    created = adapter.create(path, make_user_data())
+
+    assert created.validation.error_codes == (ErrorCodeEnum.STORAGE_REPLACE_FAILED,)
+    assert not path.exists()
+    assert _side(path, ".bak").read_text(encoding="utf-8") == "previous data"
+
+
+@pytest.mark.parametrize(
+    ("main_text", "code"),
+    [
+        ("schema_version = 99", ErrorCodeEnum.STORAGE_SCHEMA_VERSION_UNSUPPORTED),
+        (None, ErrorCodeEnum.STORAGE_FILE_UNREADABLE),
+    ],
+)
+def test_restore_never_renames_a_newer_or_unreadable_main(
+    adapter: TomlUserDataFile, path: Path, main_text: str | None, code: ErrorCodeEnum
+) -> None:
+    path.parent.mkdir(parents=True)
+    _side(path, ".bak").write_text(SPEC_EXAMPLE_TEXT, encoding="utf-8")
+    if main_text is None:
+        path.mkdir()  # a folder in its place cannot be read, like a locked file
+    else:
+        path.write_text(main_text, encoding="utf-8")
+
+    result = adapter.restore(path, RecoverySourceEnum.BACKUP)
+
+    assert result.validation.error_codes == (code,)
+    assert sorted(item.name for item in path.parent.iterdir()) == [path.name, _side(path, ".bak").name]
+
+
 def test_restore_from_an_unknown_source_fails(adapter: TomlUserDataFile, path: Path) -> None:
     assert adapter.restore(path, RecoverySourceEnum.UNSET).validation.error_codes == (ErrorCodeEnum.ENUM_VALUE_UNKNOWN,)
 

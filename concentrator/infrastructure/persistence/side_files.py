@@ -8,6 +8,7 @@ TEMPORARY_SUFFIX: Final = ".tmp"
 BACKUP_SUFFIX: Final = ".bak"
 CORRUPT_SUFFIX: Final = ".corrupt-"
 DISCARDED_SUFFIX: Final = ".tmp.discarded-"
+BACKUP_DISCARDED_SUFFIX: Final = ".bak.discarded-"
 STAMP_FORMAT: Final = "%Y%m%d-%H%M%S"
 
 
@@ -72,3 +73,16 @@ def discarded_path(path: Path, local_now: datetime) -> Path:
         The new name of the temporary file.
     """
     return _with_suffix(path, DISCARDED_SUFFIX + local_now.strftime(STAMP_FORMAT))
+
+
+def discarded_backup_path(path: Path, local_now: datetime) -> Path:
+    """``<file>.bak.discarded-YYYYMMDD-HHMMSS``: a backup put aside before a new data file is created.
+
+    Args:
+        path: Data file path.
+        local_now: Local time of the rename.
+
+    Returns:
+        The new name of the backup file.
+    """
+    return _with_suffix(path, BACKUP_DISCARDED_SUFFIX + local_now.strftime(STAMP_FORMAT))
