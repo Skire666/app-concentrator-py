@@ -73,7 +73,8 @@ app-concentrator-py/
 │   ├── config/concentrator.ini  application constants (copied next to the exe at build)
 │   ├── i18n/en.json  fr.json    flat UI catalogs (plain JSON, no compiled files)
 │   ├── icons/                   concentrator.ico, module icons (.svg/.png)
-│   └── sounds/                  built-in alarm and chime .mp3 files (CC0 or owned)
+│   └── sounds/                  built-in alarm and chime .mp3 files (CC0, owned, or a license the
+│                                owner confirmed; SOURCES.md names them, ADR-038)
 ├── concentrator/                source package (see §4)
 ├── tests/                       unit/, integration/, ui/, architecture/, fakes/
 ├── scripts/                     check.py, coverage_gate.py, build.py, clean.py, bench_storage.py
@@ -249,7 +250,9 @@ class DataResult[T]:
 `ClockPort` (`now_utc()` and `now_local()` in whole seconds, `monotonic()` at full precision,
 `to_local(moment)`; ADR-030), `IdGeneratorPort`, `SchedulerPort`
 (`call_soon`, `call_later` returning a cancellable handle), `MainThreadDispatcherPort`,
-`TranslatorPort`, `LogFeedPort`, `SoundPlayerPort`, `AttentionPort`, `LinkOpenerPort`,
+`TranslatorPort`, `LogFeedPort`, `SoundPlayerPort` (plays a `SoundPlayback`: candidate files tried in
+order, then the system beep), `SoundCatalogPort` (built-in sounds, file of a `SoundRef`), `AttentionPort`
+(`is_application_active`, `notify`, `request_attention`), `LinkOpenerPort`,
 `ViewPreferencesPort` (string key-value), `UserDataFilePort`, and one `*ReaderPort` / `*WriterPort`
 pair per aggregate.
 
@@ -372,7 +375,9 @@ silent code-level defaults for ini keys.
   any size, `setLoops(n)` or `QMediaPlayer.Loops.Infinite`. Volume 0-100 converted with
   `QAudio.convertVolume` (logarithmic to linear). Separate instances for alarm and chime.
 - `QtAttention`: `QSystemTrayIcon.showMessage` (Windows toast) and `QApplication.alert(window, 0)`
-  (taskbar button flashes until activated). Notifies only when the window is not active.
+  (taskbar button flashes until activated). The icon itself belongs to `ui/panels/tray_panel.py` (it
+  renders the `TRAY` snapshot) and is handed over by bootstrap (ADR-038). `AlarmCoordinator` notifies
+  only when no Concentrator window is active (`QGuiApplication.applicationState()`).
 - `QtSingleInstanceGuard`: `QLockFile` (per user) for exclusivity plus `QLocalServer`/`QLocalSocket`
   so a second launch asks the first instance to show itself, then exits with code 0.
 - `QtScheduler`, `QtMainThreadDispatcher` (signal with queued connection), `QtLinkOpener`
@@ -431,7 +436,10 @@ silent code-level defaults for ini keys.
 ### 8.3 Action gate
 
 `ActionGate.run(action, operation, *, interactive=False)`:
-- ignores the call while `action` is busy (log DEBUG);
+- ignores the call while `action`, or another action of its group, is busy (log DEBUG); groups
+  (`presentation/common/action_groups.py`) gather the actions of a button that changes action with the
+  state, so the cooldown belongs to the clicked button (ADR-038); a click on an enabled button always
+  counts;
 - marks it busy and requests only the sections bound to the action
   (`presentation/common/action_sections.py`, every `ActionIdEnum` member mapped), so the bound
   controls become disabled without rebuilding unrelated snapshots (ADR-023);

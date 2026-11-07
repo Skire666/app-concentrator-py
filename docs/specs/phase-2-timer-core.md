@@ -110,9 +110,10 @@ limits built from `AppConfig`), `timer_session.py` (immutable; `start`, `pause`,
   `QAudio.convertVolume(value / 100, LogarithmicVolumeScale, LinearVolumeScale)`; `errorOccurred`
   logged and converted to the fallback chain. Two instances: `alarm` and `preview` (phase 3 adds
   `chime`).
-- `qt/qt_attention.py`: owns the `QSystemTrayIcon` (always visible, tooltip and menu Show/Quit from
-  the shell snapshot), `showMessage(..., timer.notification_duration_ms)`, `QApplication.alert`.
-  Notifies only when the main window is not the active window.
+- `qt/qt_attention.py`: `showMessage(..., timer.notification_duration_ms)` on the `QSystemTrayIcon`,
+  `QApplication.alert`. Notifies only when no Concentrator window is active. The icon (always
+  visible, tooltip and menu Show/Quit from the `TRAY` snapshot) belongs to `ui/panels/tray_panel.py`
+  (amended, ADR-038).
 - `system/builtin_sound_catalog.py`: lists `assets/sounds/*.mp3`; label key
   `sound.builtin.<file stem>`.
 - Persistence: `TimerConfigSchema`, mapper, singleton store; default config created from the ini on
@@ -171,6 +172,8 @@ max_auto_stop_seconds = 3600
 notification_duration_ms = 8000
 ```
 
+Added by ADR-038: `min_auto_stop_seconds = 5`.
+
 ## Error codes
 
 | Code | Name |
@@ -192,6 +195,8 @@ notification_duration_ms = 8000
 
 `assets/sounds/alarm-classic.mp3`, `assets/sounds/alarm-soft.mp3` (CC0 or your own recordings),
 `assets/icons/concentrator.ico` if the placeholder is not kept. The agent cannot download them.
+Amended (ADR-038): five sounds `alarm-<author>-<title>.mp3` were provided, with a license confirmed by
+the owner; `timer.default_sound = alarm-lesiakower-reverby-notification-sound`.
 
 ## Tests
 
@@ -214,8 +219,9 @@ notification_duration_ms = 8000
 - [ ] One click on Start starts the countdown; digits are 64 px and do not jitter.
 - [ ] The button matrix matches the table in every state.
 - [ ] At zero, the alarm rings with the chosen sound, volume and play count.
-- [ ] With the journal page shown, the window minimized, or another app focused: sound plays, a
-      Windows notification appears, the taskbar button flashes until the window is activated.
+- [ ] With the journal page shown: sound plays, the digits blink, the Focus button is highlighted.
+      With the window minimized or another app focused: sound plays, a Windows notification appears,
+      the taskbar button flashes until the window is activated (amended, ADR-038).
 - [ ] OK, Restart, Snooze and auto-stop (with and without auto-restart) behave as specified.
 - [ ] A 100 MB+ MP3 plays immediately and the UI stays responsive.
 - [ ] A deleted custom sound falls back to the default sound with a WARNING in the log.
@@ -225,8 +231,8 @@ notification_duration_ms = 8000
 
 ## Manual test script
 
-1. Set 00:00:10, Start, switch to the journal page, wait: sound, toast, flashing taskbar, highlighted
-   Focus button.
+1. Set 00:00:10, Start, switch to the journal page, wait: sound, blinking digits, highlighted Focus
+   button, no toast while the window stays active (amended, ADR-038).
 2. Repeat with the window minimized, then with another application in front.
 3. Snooze; check the caption; let it ring again; press OK.
 4. Auto-stop 10 s with auto-restart on; let it ring without touching anything.

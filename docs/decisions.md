@@ -62,6 +62,10 @@ superseded.
   less known), `playsound` (unmaintained, no volume or loop control).
 - Consequences: the audio adapter lives in `infrastructure/qt/`; the frozen build must include the
   multimedia plugins (verified in phase 2 acceptance).
+- Verification (phase 2, 2026-11-07): `scripts/build.py` bundles
+  `PySide6/plugins/multimedia/ffmpegmediaplugin.dll` and `assets/sounds`; the frozen self-check now
+  fails when MP3 cannot be decoded or the default sound is missing, and it passed. Sound heard in the
+  frozen build: manual check at the phase 2 review.
 
 ## ADR-005 — Atomic save procedure
 
@@ -122,12 +126,15 @@ superseded.
 
 ## ADR-011 — Timer state machine clarifications
 
-- Status: proposed (confirm at phase 2 review).
+- Status: accepted, owner decision (2026-11-07, phase 2 plan review), except the sleep behaviour,
+  checked by the phase 2 manual test.
 - Decisions on gaps in the brief: a PAUSED state exists (Edit, Reset enabled, Resume); the
   "finished" state shows three buttons (Restart, OK, Snooze 5 min); a duration edited while running
   applies at the next start; favorites start the timer only from IDLE; remaining time is computed
   from the monotonic clock (behaviour after Windows sleep checked manually in phase 2); a running
   countdown is not restored after an app restart.
+- Amendment (phase 2): "Restart automatically" applies after an automatic stop only (owner
+  confirmation); the quit question says that a countdown in progress is lost (ADR-038).
 
 ## ADR-012 — Business copy and technical copy
 
@@ -633,3 +640,77 @@ superseded.
   - The minimum width and the spacing of the first-run and recovery dialogs come from
     `ui.startup_dialog_min_width_px` (560) and `ui.dialog_spacing_px` (10).
 - Not changed: errors raised during the startup dialogs are still only logged (ADR-024).
+
+## ADR-038 — Phase 2 timer decisions
+
+- Status: accepted, owner decisions at the phase 2 plan review (2026-11-07); the items "decided during
+  the build" are to be approved at the phase 2 review.
+- Context: the phase 2 spec left the sound assets, the notification rule, the close behaviour and the
+  double-click protection open, and parts of it conflict with the `furryp` layer contracts.
+- Owner decisions (2026-11-07):
+  1. **Built-in sounds.** The owner provided five MP3 files named `alarm-<author>-<title>.mp3` (one by
+     lesiakower, four by Universfield) and confirmed that their license allows their use in this
+     personal project without commercial use. They keep their names (the spec's `alarm-classic` and
+     `alarm-soft` are not used); `timer.default_sound` is `alarm-lesiakower-reverby-notification-sound`.
+     `assets/sounds/SOURCES.md` names the authors; `AGENTS.md` section 3 no longer requires CC0.
+  2. **Notification rule.** The Windows notification and the flashing taskbar button come only when no
+     Concentrator window is active (`QGuiApplication.applicationState()`, so an open dialog of
+     Concentrator counts as active). With the Journal page shown and the window active, the alarm
+     plays, the digits blink and the Focus button is highlighted, without notification. The phase 2
+     acceptance criterion and manual step 1 are amended accordingly.
+  3. **Alarm while the edit dialog is open:** no special handling; the user closes the dialog to stop
+     the alarm, and the automatic stop still applies.
+  4. **Closing quits, after a question.** The close button, Alt+F4 and "Quit" in the notification
+     area menu ask "Do you want to quit Concentrator?" (with "The countdown in progress will be lost."
+     when the timer is not idle); Escape keeps Concentrator open. Then the pending changes are flushed
+     as before (ADR-032). The notification area icon does not keep Concentrator running. Once Windows
+     announced the end of the session (`commitDataRequest`), nothing is asked: Qt 6 closes the windows
+     itself after `WM_ENDSESSION`, and the changes were flushed already.
+  5. **Cooldown per button.** A click on an enabled button always counts; the second click of a double
+     click is not swallowed. The cooldown (`ui.action_cooldown_ms`) belongs to the clicked button: the
+     actions of the three timer buttons form one group in `ActionGate`
+     (`presentation/common/action_groups.py`), so after Start the same button, now Pause, stays
+     disabled for the cooldown. The spec test "a double click on Start performs one start" is read as
+     two clicks within the cooldown.
+  6. **Files without `[timer]`** (written in phase 1) are completed from the `concentrator.ini` defaults
+     when they are opened or reloaded, and saved (`UserDataDefaults`, `UserDataSessionPort.apply`).
+  7. **`timer.min_auto_stop_seconds`** (new ini key, 5) replaces the "5" written in the spec.
+  8. **Sound fallback chain.** `SoundPlayerPort.play` takes a `SoundPlayback` (candidate files, volume,
+     loops) instead of `(sound, volume, loops)`. `AlarmCoordinator` resolves the chosen sound, then
+     `timer.default_sound`, through `SoundCatalogPort` (WARNING for a missing file, without its path);
+     `QtSoundPlayer` tries the next file when Qt reports an error while playing, then beeps.
+- Decided during the build (please approve):
+  1. **The notification area icon belongs to the ui.** The spec puts it in `QtAttention`, which would
+     have to render the shell snapshot, but `infrastructure` may not import `presentation`.
+     `ui/panels/tray_panel.py` owns the `QSystemTrayIcon` and its Show/Quit menu (`TRAY` section,
+     `TrayPresenter`); bootstrap hands the icon to `QtAttention` for the messages. A click on the icon
+     or on a notification shows the window.
+  2. **`AttentionPort.is_application_active()`** carries the notification rule into the application
+     layer, so it is tested with a fake.
+  3. **Integer monotonic milliseconds** in `TimerSession`: a one-hour run with 100 ms ticks ends exactly
+     on time. The wall-clock end ("Ends at 17:52") is computed once when the countdown starts running,
+     so the caption never flickers between two minutes.
+  4. **`TimerSettings`** is the editable part of `TimerConfig` (duration, sound, volume, plays,
+     automatic stop and restart) and the draft of the edit form; the file keeps the flat layout of the
+     spec.
+  5. **Limits from the ini apply when a file is read** (`UserDataLimits` given to `UserDataCodec`): a
+     stored value outside them makes the file invalid, as any rule failure does.
+  6. **Edit form sound check.** A stored sound that is missing is a warning under the field (the other
+     settings can be saved, the alarm falls back); a newly chosen sound that is missing or cannot be
+     decoded blocks Save. The check reads the disk once per sound. "Choose an MP3 file..." is a button
+     next to the list; the files chosen while the dialog is open stay in the list.
+  7. **Duration limits in error messages** are `HH:MM:SS` texts (`Duration.as_clock_text`).
+  8. **Translated literals of every layer are checked**: `AlarmCoordinator` translates the notification
+     texts in the application layer, so the catalog test now reads the literal keys passed to `tr()`
+     in every layer.
+  9. **Wrappers for ports implemented by Qt widgets** (`MainWindowHandle`, `TimerEditWindow`): a
+     `QWidget` cannot subclass a `Protocol` (metaclass conflict). `MainWindow` takes its presenters as one
+     `MainWindowPresenters` value (argument limit).
+  10. **Details:** the engine publishes nothing on its first tick (the startup render shows the idle
+      timer); `placeholder.focus.zone2` and its snapshot field are removed (phase 0 review); the edit
+      dialog takes the size of its layout (no ini key); the default audio output device is taken at each
+      play, so a headset plugged in later is used; the edit dialog snapshot is built by `TimerEditView`
+      (file size limits).
+- Consequences: the bundle grows from 124 MB to 146 MB (FFmpeg multimedia plugin); every later dialog
+  with a button whose action changes should join a group; phase 3 reuses the sound player, the
+  catalog, the duration input and the completion of missing sections.
