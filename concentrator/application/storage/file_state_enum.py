@@ -11,3 +11,4 @@ class FileStateEnum(BaseIntEnum):
     ABSENT = 1
     VALID = 2
     INVALID = 3
+    NOT_INSPECTED = 4  # not read: the decision does not need it (``.bak`` next to a valid main file)

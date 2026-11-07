@@ -189,10 +189,22 @@ def test_probe_reports_main_tmp_and_bak(adapter: TomlUserDataFile, path: Path, c
     assert report is not None
     assert report.main.state is FileStateEnum.VALID
     assert report.main.saved_at == clock.now_utc()
-    assert report.backup.state is FileStateEnum.VALID
+    assert report.backup.state is FileStateEnum.NOT_INSPECTED
     assert report.temporary.state is FileStateEnum.INVALID
     assert report.temporary.validation.error_codes == (ErrorCodeEnum.STORAGE_SYNTAX_INVALID,)
     assert report.probe_of(RecoverySourceEnum.BACKUP) is report.backup
+
+
+def test_probe_reads_the_bak_only_when_the_main_file_is_not_valid(adapter: TomlUserDataFile, path: Path) -> None:
+    adapter.create(path, make_user_data(LanguageEnum.ENGLISH))
+    _save(adapter, path, make_user_data(LanguageEnum.FRENCH))
+    path.write_text("{ damaged", encoding="utf-8")
+
+    report = adapter.probe(path).data
+
+    assert report is not None
+    assert report.main.state is FileStateEnum.INVALID
+    assert report.backup.state is FileStateEnum.VALID
 
 
 def test_restore_newer_tmp_over_a_valid_main(adapter: TomlUserDataFile, path: Path, clock: FakeClock) -> None:
