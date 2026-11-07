@@ -139,5 +139,18 @@
   "field.settings.created_at": "Settings creation date",
   "field.settings.updated_at": "Settings change date",
   "field.settings.language": "Language",
+  "field.timer": "Timer",
+  "field.timer.id": "Timer identifier",
+  "field.timer.created_at": "Timer creation date",
+  "field.timer.updated_at": "Timer change date",
+  "field.timer.duration_seconds": "Timer duration",
+  "field.timer.sound": "Alarm sound",
+  "field.timer.sound.kind": "Alarm sound type",
+  "field.timer.sound.value": "Alarm sound name or file",
+  "field.timer.volume": "Alarm volume",
+  "field.timer.loop_count": "Number of plays",
+  "field.timer.loop_forever": "Repeat until stopped",
+  "field.timer.auto_stop_seconds": "Automatic stop",
+  "field.timer.auto_restart": "Restart automatically",
   "format.time_with_seconds": "{hour}:{minute}:{second}"
 }

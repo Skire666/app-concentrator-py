@@ -10,6 +10,7 @@ from concentrator.application.storage.external_change_commands import ExternalCh
 from concentrator.application.storage.save_coordinator import SaveCoordinator
 from concentrator.application.storage.startup_commands import StartupCommands
 from concentrator.application.storage.storage_events import SaveStatusChangedEvent
+from concentrator.application.storage.user_data_defaults import UserDataDefaults
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
@@ -27,6 +28,7 @@ from tests.fakes.in_memory_user_settings import InMemoryUserSettings
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.manual_scheduler import ManualScheduler
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
+from tests.fakes.timer_factory import DEFAULT_SETTINGS
 from tests.fakes.user_data_factory import make_settings
 
 DATA_PATH: Final = Path("D:/sync/concentrator.toml")
@@ -64,16 +66,19 @@ class StorageStack:
             event_bus=self.bus,
             storage=make_storage_section(),
         )
+        ids = FakeIdGenerator()
+        defaults = UserDataDefaults(ids, self.clock, DEFAULT_SETTINGS)
         self.commands = StartupCommands(
             file=self.file,
             session=self.session,
             coordinator=self.coordinator,
             preferences=self.preferences,
-            ids=FakeIdGenerator(),
+            ids=ids,
             clock=self.clock,
+            defaults=defaults,
             default_path=DEFAULT_PATH,
         )
-        self.external = ExternalChangeCommands(self.file, self.session, self.coordinator)
+        self.external = ExternalChangeCommands(self.file, self.session, self.coordinator, defaults)
         self.settings = InMemoryUserSettings(make_settings(language))
         self.hint = LanguageHint(self.preferences)
         self.switcher = LanguageSwitcher(

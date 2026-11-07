@@ -46,6 +46,9 @@ class UiSection:
     dialog_overlay_opacity_percent: int
     startup_dialog_min_width_px: int
     dialog_spacing_px: int
+    timer_font_family: str
+    timer_font_size_px: int
+    alert_blink_interval_ms: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -65,9 +68,21 @@ class StorageSection:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TimerSection:
-    """``[timer]``: runtime engine settings."""
+    """``[timer]``: heartbeat, snooze, limits and defaults of the timer configuration, notification."""
 
     tick_interval_ms: int
+    snooze_minutes: int
+    default_duration_seconds: int
+    min_duration_seconds: int
+    max_duration_seconds: int
+    default_sound: str
+    default_volume: int
+    default_loop_count: int
+    max_loop_count: int
+    default_auto_stop_seconds: int
+    min_auto_stop_seconds: int
+    max_auto_stop_seconds: int
+    notification_duration_ms: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

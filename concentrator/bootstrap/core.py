@@ -11,6 +11,7 @@ from concentrator.infrastructure.qt.qsettings_view_preferences import QSettingsV
 from concentrator.infrastructure.qt.qt_main_thread_dispatcher import QtMainThreadDispatcher
 from concentrator.infrastructure.qt.qt_scheduler import QtScheduler
 from concentrator.infrastructure.system.system_clock import SystemClock
+from concentrator.infrastructure.system.uuid7_id_generator import Uuid7IdGenerator
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 
@@ -21,6 +22,7 @@ class Core:
 
     Attributes:
         clock: System clock.
+        ids: UUIDv7 generator.
         scheduler: Qt scheduler (main thread).
         dispatcher: Brings writer-thread results to the main thread.
         renderer: Render coordinator of every dialog and panel.
@@ -30,6 +32,7 @@ class Core:
     """
 
     clock: SystemClock
+    ids: Uuid7IdGenerator
     scheduler: QtScheduler
     dispatcher: QtMainThreadDispatcher
     renderer: RenderCoordinator
@@ -61,6 +64,7 @@ def build_core(app: QApplication, config: AppConfig, reporter: ErrorReporterPort
     )
     return Core(
         clock=clock,
+        ids=Uuid7IdGenerator(),
         scheduler=scheduler,
         dispatcher=QtMainThreadDispatcher(app),
         renderer=renderer,

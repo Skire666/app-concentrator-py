@@ -6,14 +6,14 @@ from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.severity_enum import SeverityEnum
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
-from tests.fakes.user_data_factory import SAVED_AT, SPEC_EXAMPLE_TEXT, make_stored
+from tests.fakes.user_data_factory import SAVED_AT, SPEC_EXAMPLE_TEXT, USER_DATA_LIMITS, make_stored
 
-CODEC = UserDataCodec(app_version="0.1.0")
+CODEC = UserDataCodec(app_version="0.1.0", limits=USER_DATA_LIMITS)
 
 
 def _edited(old: str, new: str) -> str:
     assert old in SPEC_EXAMPLE_TEXT
-    return SPEC_EXAMPLE_TEXT.replace(old, new)
+    return SPEC_EXAMPLE_TEXT.replace(old, new, 1)
 
 
 def test_encode_writes_exactly_the_spec_example() -> None:
@@ -23,7 +23,7 @@ def test_encode_writes_exactly_the_spec_example() -> None:
 def test_encode_converts_a_non_utc_saved_at_and_drops_nothing_else() -> None:
     text = CODEC.encode(make_stored(saved_at=datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)))
 
-    assert text.endswith("language = 2\n")
+    assert text.endswith("auto_restart = false\n")
     assert "\r" not in text
     assert text.startswith("# Concentrator user data. Schema version 1.\n")
 

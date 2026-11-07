@@ -19,10 +19,10 @@ from tests.fakes.app_config_factory import make_storage_section
 from tests.fakes.fake_clock import FakeClock
 from tests.fakes.immediate_dispatcher import ImmediateDispatcher
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
-from tests.fakes.user_data_factory import SPEC_EXAMPLE_TEXT, make_stored, make_user_data
+from tests.fakes.user_data_factory import SPEC_EXAMPLE_TEXT, USER_DATA_LIMITS, make_stored, make_user_data
 
 TIMEOUT_MS = 5000
-CODEC = UserDataCodec(app_version="0.1.0")
+CODEC = UserDataCodec(app_version="0.1.0", limits=USER_DATA_LIMITS)
 
 
 @pytest.fixture

@@ -30,6 +30,12 @@ class InMemorySession(UserDataSessionPort):
         self.data = data
         self._revision += 1
 
+    @override
+    def apply(self, data: UserData) -> int:
+        if data != self.data:
+            self.change(data)
+        return self._revision
+
     def change(self, data: UserData | None = None) -> None:
         self.data = data or self.data
         self._revision += 1

@@ -11,6 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 _STRICT: Final = ConfigDict(strict=True, extra="forbid", frozen=True)
 _MIN_WINDOW_ABOVE_DEFAULT: Final = "min_window size must not exceed default_window size"
 _MAX_DELAY_BELOW_DEBOUNCE: Final = "save_max_delay_ms must not be lower than save_debounce_ms"
+_DURATION_ORDER: Final = "min_duration_seconds <= default_duration_seconds <= max_duration_seconds is required"
+_LOOP_COUNT_ABOVE_MAX: Final = "default_loop_count must not exceed max_loop_count"
+_AUTO_STOP_ORDER: Final = "min_auto_stop_seconds must not exceed max_auto_stop_seconds"
+_AUTO_STOP_DEFAULT: Final = "default_auto_stop_seconds must be 0 or between min and max_auto_stop_seconds"
 
 type Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 type FileName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=r"^[^/\\:*?\"<>|]+$")]
@@ -18,6 +22,9 @@ type InstanceKey = Annotated[str, StringConstraints(min_length=1, max_length=64,
 type WindowSide = Annotated[int, Field(ge=320, le=10_000)]
 type LanguageCode = Literal["en", "fr"]
 type LevelName = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+type SoundName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=r"^[A-Za-z0-9_.-]+$")]
+type TimerSeconds = Annotated[int, Field(ge=1, le=359_999)]
+type AutoStopSeconds = Annotated[int, Field(ge=1, le=86_400)]
 
 
 class AppSectionSchema(BaseModel):
@@ -59,6 +66,9 @@ class UiSectionSchema(BaseModel):
     dialog_overlay_opacity_percent: Annotated[int, Field(ge=0, le=50)]
     startup_dialog_min_width_px: WindowSide
     dialog_spacing_px: Annotated[int, Field(ge=0, le=50)]
+    timer_font_family: Text
+    timer_font_size_px: Annotated[int, Field(ge=8, le=400)]
+    alert_blink_interval_ms: Annotated[int, Field(ge=100, le=5_000)]
 
     @model_validator(mode="after")
     def _check_min_window(self) -> Self:
@@ -97,6 +107,31 @@ class TimerSectionSchema(BaseModel):
     model_config = _STRICT
 
     tick_interval_ms: Annotated[int, Field(ge=10, le=1_000)]
+    snooze_minutes: Annotated[int, Field(ge=1, le=1_440)]
+    default_duration_seconds: TimerSeconds
+    min_duration_seconds: TimerSeconds
+    max_duration_seconds: TimerSeconds
+    default_sound: SoundName
+    default_volume: Annotated[int, Field(ge=0, le=100)]
+    default_loop_count: Annotated[int, Field(ge=1, le=999)]
+    max_loop_count: Annotated[int, Field(ge=1, le=999)]
+    default_auto_stop_seconds: Annotated[int, Field(ge=0, le=86_400)]
+    min_auto_stop_seconds: AutoStopSeconds
+    max_auto_stop_seconds: AutoStopSeconds
+    notification_duration_ms: Annotated[int, Field(ge=1_000, le=60_000)]
+
+    @model_validator(mode="after")
+    def _check_limits(self) -> Self:
+        if not self.min_duration_seconds <= self.default_duration_seconds <= self.max_duration_seconds:
+            raise ValueError(_DURATION_ORDER)
+        if self.default_loop_count > self.max_loop_count:
+            raise ValueError(_LOOP_COUNT_ABOVE_MAX)
+        if self.min_auto_stop_seconds > self.max_auto_stop_seconds:
+            raise ValueError(_AUTO_STOP_ORDER)
+        stop = self.default_auto_stop_seconds
+        if stop and not self.min_auto_stop_seconds <= stop <= self.max_auto_stop_seconds:
+            raise ValueError(_AUTO_STOP_DEFAULT)
+        return self
 
 
 class LoggingSectionSchema(BaseModel):

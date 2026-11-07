@@ -8,10 +8,12 @@ from typing import Final
 from PySide6.QtGui import QIcon, QImageReader
 
 from concentrator.application.common.app_config import AppConfig
-from concentrator.application.storage.user_data import StoredUserData, UserData
+from concentrator.application.storage.user_data import StoredUserData, UserData, UserDataLimits
+from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.bootstrap.translator_loader import CATALOG_LANGUAGES
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
+from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
 from concentrator.infrastructure.i18n.json_catalog_translator import CATALOG_SUFFIX, load_catalogs
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
 from concentrator.infrastructure.system.app_paths import AppPaths
@@ -22,6 +24,7 @@ _logger = logging.getLogger(__name__)
 SVG_FORMAT = b"svg"
 ICON_CHECK_SIZE_PX = 32
 ROUND_TRIP_ID: Final = UserSettingsId("00000000-0000-7000-8000-000000000000")
+ROUND_TRIP_TIMER_ID: Final = TimerConfigId("00000000-0000-7000-8000-000000000001")
 ROUND_TRIP_TIME: Final = datetime(2026, 1, 1, tzinfo=UTC)
 
 
@@ -58,20 +61,23 @@ def _svg_failures(paths: AppPaths) -> list[str]:
     ]
 
 
-def storage_failures(app_version: str) -> list[str]:
+def storage_failures(app_version: str, config: AppConfig) -> list[str]:
     """Round-trip an in-memory ``UserData`` through codec, schemas and mappers (no file, ADR-034).
 
     A frozen bundle missing ``tomllib`` or ``pydantic`` pieces fails here.
 
     Args:
         app_version: Version written in the document.
+        config: Loaded configuration (timer defaults and limits).
 
     Returns:
         One description per problem.
     """
-    codec = UserDataCodec(app_version)
+    timer = TimerDefaults.from_section(config.timer)
+    codec = UserDataCodec(app_version, UserDataLimits(timer=timer.limits))
     settings = UserSettings.create(ROUND_TRIP_ID, ROUND_TRIP_TIME, LanguageEnum.ENGLISH)
-    stored = StoredUserData(data=UserData.initial(settings), saved_at=ROUND_TRIP_TIME)
+    timer_config = TimerConfig.create(ROUND_TRIP_TIMER_ID, ROUND_TRIP_TIME, timer.settings)
+    stored = StoredUserData(data=UserData.initial(settings, timer_config), saved_at=ROUND_TRIP_TIME)
     decoded = codec.decode(codec.encode(stored))
     if decoded.data == stored:
         return []
@@ -94,7 +100,7 @@ def run_self_check(paths: AppPaths, config: AppConfig, app_version: str) -> bool
     if not catalogs.is_success or catalogs.validation.has_warnings:
         failures.append(f"catalogs: {[code.name for code in catalogs.validation.error_codes]}")
     failures.extend(_svg_failures(paths))
-    failures.extend(storage_failures(app_version))
+    failures.extend(storage_failures(app_version, config))
     if failures:
         _logger.error("Self-check failed: %s", failures)
         return False

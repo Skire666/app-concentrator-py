@@ -11,7 +11,7 @@ from typing import Final
 
 from pydantic import ValidationError
 
-from concentrator.application.storage.user_data import CURRENT_SCHEMA_VERSION, StoredUserData
+from concentrator.application.storage.user_data import CURRENT_SCHEMA_VERSION, StoredUserData, UserDataLimits
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.severity_enum import SeverityEnum
@@ -50,13 +50,15 @@ def _newer_version(document: dict[str, object]) -> int | None:
 class UserDataCodec:
     """Converts between the file text and the stored data."""
 
-    def __init__(self, app_version: str) -> None:
+    def __init__(self, app_version: str, limits: UserDataLimits) -> None:
         """Create the codec.
 
         Args:
             app_version: Version written in ``app_version``.
+            limits: Bounds from ``concentrator.ini`` applied by the domain rules on read.
         """
         self._app_version = app_version
+        self._limits = limits
 
     def decode(self, text: str) -> DataResult[StoredUserData]:
         """Run the read pipeline.
@@ -94,8 +96,7 @@ class UserDataCodec:
         document = TomlCodec.encode(schema.model_dump(mode="json"))
         return HEADER.format(version=stored.data.schema_version) + document + LINE_END
 
-    @staticmethod
-    def _validate(value: object) -> DataResult[StoredUserData]:
+    def _validate(self, value: object) -> DataResult[StoredUserData]:
         """Validate a parsed document with pydantic, then map it to the domain.
 
         Args:
@@ -115,4 +116,4 @@ class UserDataCodec:
             details = [(".".join(map(str, item["loc"])), item["type"]) for item in error.errors(include_url=False)]
             _logger.warning("Data file structure is invalid: %s", details)
             return DataResult.fail(validation_from_error(error))
-        return UserDataMapper.to_domain(schema)
+        return UserDataMapper.to_domain(schema, self._limits)

@@ -14,7 +14,8 @@ from concentrator.application.storage.save_coordinator import SaveCoordinator
 from concentrator.application.storage.startup_plan import StartupPlan, classify
 from concentrator.application.storage.startup_reason_enum import StartupReasonEnum
 from concentrator.application.storage.startup_step_enum import StartupStepEnum
-from concentrator.application.storage.user_data import StoredUserData, UserData
+from concentrator.application.storage.user_data import StoredUserData
+from concentrator.application.storage.user_data_defaults import UserDataDefaults
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
@@ -41,6 +42,7 @@ class StartupCommands:
         preferences: ViewPreferencesPort,
         ids: IdGeneratorPort,
         clock: ClockPort,
+        defaults: UserDataDefaults,
         default_path: Path,
     ) -> None:
         """Create the use cases.
@@ -52,6 +54,7 @@ class StartupCommands:
             preferences: ``ui-state.ini`` (remembered path).
             ids: Id of the settings of a new file.
             clock: Creation instant of a new file.
+            defaults: Sections of a new file, and those missing from an older file.
             default_path: ``paths.default_data_file``.
         """
         self._file = file
@@ -60,6 +63,7 @@ class StartupCommands:
         self._preferences = preferences
         self._ids = ids
         self._clock = clock
+        self._defaults = defaults
         self._default_path = default_path
 
     def resolve_startup(self) -> StartupPlan:
@@ -122,7 +126,7 @@ class StartupCommands:
         validation = UserSettingsRules.validate(settings)
         if validation.is_failure:
             return DataResult.fail(validation)
-        created = self._file.create(path, UserData.initial(settings))
+        created = self._file.create(path, self._defaults.initial(settings))
         if created.data is None:
             return DataResult.fail(created.validation)
         return DataResult.ok(self._open(path, created.data), created.validation)
@@ -173,7 +177,7 @@ class StartupCommands:
         return self.create_at(path, language)
 
     def _open(self, path: Path, stored: StoredUserData) -> StartupPlan:
-        """Make a file the open one.
+        """Make a file the open one; sections it does not have yet are added and saved.
 
         Args:
             path: Data file path.
@@ -184,6 +188,7 @@ class StartupCommands:
         """
         self._session.reset(stored.data)
         self._coordinator.attach(path, stored.saved_at)
+        self._defaults.complete_session(self._session)
         self._preferences.set_text(DATA_FILE_PATH_KEY, path.as_posix())
         _logger.info("Data file opened: %s", path)
         return StartupPlan(

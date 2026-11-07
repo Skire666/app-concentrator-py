@@ -12,6 +12,7 @@ from concentrator.application.storage.startup_commands import DATA_FILE_PATH_KEY
 from concentrator.application.storage.startup_reason_enum import StartupReasonEnum
 from concentrator.application.storage.startup_step_enum import StartupStepEnum
 from concentrator.application.storage.user_data import StoredUserData
+from concentrator.application.storage.user_data_defaults import UserDataDefaults
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.validation_result import ValidationResult
@@ -24,6 +25,7 @@ from tests.fakes.in_memory_session import InMemorySession
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.manual_scheduler import ManualScheduler
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
+from tests.fakes.timer_factory import DEFAULT_SETTINGS
 from tests.fakes.user_data_factory import SAVED_AT, make_stored, make_user_data
 
 PATH = Path("D:/sync/concentrator.toml")
@@ -45,15 +47,21 @@ class Setup:
             event_bus=bus,
             storage=make_storage_section(),
         )
+        ids = FakeIdGenerator()
+        self.defaults = UserDataDefaults(ids, self.clock, DEFAULT_SETTINGS)
         self.commands = StartupCommands(
             file=self.file,
             session=self.session,
             coordinator=self.coordinator,
             preferences=self.preferences,
-            ids=FakeIdGenerator(),
+            ids=ids,
             clock=self.clock,
+            defaults=self.defaults,
             default_path=DEFAULT,
         )
+
+    def external(self) -> ExternalChangeCommands:
+        return ExternalChangeCommands(self.file, self.session, self.coordinator, self.defaults)
 
     def remember(self, path: Path = PATH) -> None:
         self.preferences.values[DATA_FILE_PATH_KEY] = path.as_posix()
@@ -207,9 +215,7 @@ def test_start_empty_never_creates_when_the_quarantine_fails(setup: Setup) -> No
 def test_reload_after_an_external_change_resets_the_session(setup: Setup) -> None:
     setup.commands.create_at(PATH, LanguageEnum.ENGLISH)
     setup.file.loads[PATH] = DataResult.ok(StoredUserData(data=make_user_data(LanguageEnum.FRENCH), saved_at=NEWER))
-    commands = ExternalChangeCommands(setup.file, setup.session, setup.coordinator)
-
-    reloaded = commands.reload()
+    reloaded = setup.external().reload()
 
     assert reloaded.data is not None
     assert setup.session.data == make_user_data(LanguageEnum.FRENCH)
@@ -221,17 +227,17 @@ def test_reload_failure_leaves_the_session_alone(setup: Setup) -> None:
     setup.commands.create_at(PATH, LanguageEnum.ENGLISH)
     resets = setup.session.resets
 
-    result = ExternalChangeCommands(setup.file, setup.session, setup.coordinator).reload()
+    result = setup.external().reload()
 
     assert result.validation.error_codes == (ErrorCodeEnum.STORAGE_FILE_NOT_FOUND,)
     assert setup.session.resets == resets
 
 
 def test_reload_without_open_file_fails(setup: Setup) -> None:
-    result = ExternalChangeCommands(setup.file, setup.session, setup.coordinator).reload()
+    result = setup.external().reload()
 
     assert result.validation.error_codes == (ErrorCodeEnum.STORAGE_FILE_NOT_FOUND,)
 
 
 def test_keep_concentrator_version_delegates_to_the_coordinator(setup: Setup) -> None:
-    assert ExternalChangeCommands(setup.file, setup.session, setup.coordinator).keep_concentrator_version().is_success
+    assert setup.external().keep_concentrator_version().is_success

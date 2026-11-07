@@ -11,13 +11,15 @@ from concentrator.application.settings.settings_queries import SettingsQueries
 from concentrator.application.storage.external_change_commands import ExternalChangeCommands
 from concentrator.application.storage.save_coordinator import SaveCoordinator
 from concentrator.application.storage.startup_commands import StartupCommands
+from concentrator.application.storage.user_data import UserDataLimits
+from concentrator.application.storage.user_data_defaults import UserDataDefaults
+from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.bootstrap.core import Core
 from concentrator.infrastructure.persistence.store_user_settings import StoreUserSettingsReader, StoreUserSettingsWriter
 from concentrator.infrastructure.persistence.toml_user_data_file import TomlUserDataFile
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
 from concentrator.infrastructure.persistence.user_data_store import UserDataStore
 from concentrator.infrastructure.persistence.writer_thread import WriterThread
-from concentrator.infrastructure.system.uuid7_id_generator import Uuid7IdGenerator
 from concentrator.presentation.shell.language_switcher import LanguageSwitcher
 
 
@@ -27,6 +29,8 @@ class Storage:
 
     Attributes:
         writer: The single writer thread (stopped on exit).
+        store: In-memory data of the open file.
+        timer_defaults: Timer values of ``concentrator.ini``.
         coordinator: Debounced saves and the shutdown flush.
         startup: First-run and recovery use cases.
         external: Answers to an external modification.
@@ -36,6 +40,8 @@ class Storage:
     """
 
     writer: WriterThread
+    store: UserDataStore
+    timer_defaults: TimerDefaults
     coordinator: SaveCoordinator
     startup: StartupCommands
     external: ExternalChangeCommands
@@ -44,7 +50,9 @@ class Storage:
     hint: LanguageHint
 
 
-def _data_file(core: Core, config: AppConfig, writer: WriterThread, app_version: str) -> TomlUserDataFile:
+def _data_file(
+    core: Core, config: AppConfig, writer: WriterThread, app_version: str, limits: UserDataLimits
+) -> TomlUserDataFile:
     """Create the TOML data file adapter.
 
     Args:
@@ -52,12 +60,13 @@ def _data_file(core: Core, config: AppConfig, writer: WriterThread, app_version:
         config: Loaded configuration.
         writer: The single writer thread.
         app_version: Written in ``app_version``.
+        limits: Bounds applied by the domain rules when a file is read.
 
     Returns:
         The adapter.
     """
     return TomlUserDataFile(
-        codec=UserDataCodec(app_version),
+        codec=UserDataCodec(app_version, limits),
         writer=writer,
         clock=core.clock,
         storage=config.storage,
@@ -66,7 +75,12 @@ def _data_file(core: Core, config: AppConfig, writer: WriterThread, app_version:
 
 
 def _startup_commands(
-    core: Core, config: AppConfig, file: TomlUserDataFile, store: UserDataStore, coordinator: SaveCoordinator
+    core: Core,
+    config: AppConfig,
+    file: TomlUserDataFile,
+    store: UserDataStore,
+    coordinator: SaveCoordinator,
+    defaults: UserDataDefaults,
 ) -> StartupCommands:
     """Create the first-run and recovery use cases.
 
@@ -76,6 +90,7 @@ def _startup_commands(
         file: Data file adapter.
         store: In-memory data.
         coordinator: Save coordinator.
+        defaults: Sections of new and older files.
 
     Returns:
         The use cases.
@@ -85,8 +100,9 @@ def _startup_commands(
         session=store,
         coordinator=coordinator,
         preferences=core.preferences,
-        ids=Uuid7IdGenerator(),
+        ids=core.ids,
         clock=core.clock,
+        defaults=defaults,
         default_path=config.paths.default_data_file,
     )
 
@@ -107,20 +123,43 @@ def build_storage(
         The storage services.
     """
     writer = WriterThread(core.dispatcher, reporter)
-    file = _data_file(core, config, writer, app_version)
+    timer_defaults = TimerDefaults.from_section(config.timer)
+    file = _data_file(core, config, writer, app_version, UserDataLimits(timer=timer_defaults.limits))
     store = UserDataStore(core.event_bus)
+    defaults = UserDataDefaults(core.ids, core.clock, timer_defaults.settings)
     coordinator = SaveCoordinator(
         session=store, file=file, scheduler=core.scheduler, event_bus=core.event_bus, storage=config.storage
     )
     reader = StoreUserSettingsReader(store)
-    settings = SettingsCommands(reader, StoreUserSettingsWriter(store), core.clock, core.event_bus)
     hint = LanguageHint(core.preferences)
     return Storage(
         writer=writer,
+        store=store,
+        timer_defaults=timer_defaults,
         coordinator=coordinator,
-        startup=_startup_commands(core, config, file, store, coordinator),
-        external=ExternalChangeCommands(file, store, coordinator),
+        startup=_startup_commands(core, config, file, store, coordinator, defaults),
+        external=ExternalChangeCommands(file, store, coordinator, defaults),
         settings_queries=SettingsQueries(reader),
-        switcher=LanguageSwitcher(translator, hint, core.renderer, settings),
+        switcher=_language_switcher(core, store, translator, hint),
         hint=hint,
     )
+
+
+def _language_switcher(
+    core: Core, store: UserDataStore, translator: TranslatorPort, hint: LanguageHint
+) -> LanguageSwitcher:
+    """Create the language switcher on top of the settings use cases.
+
+    Args:
+        core: Main-thread services.
+        store: In-memory data.
+        translator: Translator to switch.
+        hint: Language of the startup dialogs.
+
+    Returns:
+        The switcher.
+    """
+    settings = SettingsCommands(
+        StoreUserSettingsReader(store), StoreUserSettingsWriter(store), core.clock, core.event_bus
+    )
+    return LanguageSwitcher(translator, hint, core.renderer, settings)

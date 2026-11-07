@@ -139,5 +139,18 @@
   "field.settings.created_at": "Date de création des réglages",
   "field.settings.updated_at": "Date de modification des réglages",
   "field.settings.language": "Langue",
+  "field.timer": "Minuteur",
+  "field.timer.id": "Identifiant du minuteur",
+  "field.timer.created_at": "Date de création du minuteur",
+  "field.timer.updated_at": "Date de modification du minuteur",
+  "field.timer.duration_seconds": "Durée du minuteur",
+  "field.timer.sound": "Son de l'alarme",
+  "field.timer.sound.kind": "Type de son de l'alarme",
+  "field.timer.sound.value": "Nom ou fichier du son de l'alarme",
+  "field.timer.volume": "Volume de l'alarme",
+  "field.timer.loop_count": "Nombre de lectures",
+  "field.timer.loop_forever": "Répéter jusqu'à l'arrêt",
+  "field.timer.auto_stop_seconds": "Arrêt automatique",
+  "field.timer.auto_restart": "Redémarrage automatique",
   "format.time_with_seconds": "{hour}:{minute}:{second}"
 }

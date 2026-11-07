@@ -47,6 +47,7 @@ class UserDataStore(UserDataSessionPort):
         self._revision += 1
         _logger.debug("User data reset (revision %d)", self._revision)
 
+    @override
     def apply(self, data: UserData) -> int:
         """Replace the snapshot after a change; an equal snapshot changes nothing.
 

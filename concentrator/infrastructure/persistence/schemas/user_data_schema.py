@@ -5,13 +5,15 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 from concentrator.infrastructure.persistence.schemas.schema_types import PERSISTENCE_MODEL_CONFIG, UtcTimestamp
+from concentrator.infrastructure.persistence.schemas.timer_config_schema import TimerConfigSchema
 from concentrator.infrastructure.persistence.schemas.user_settings_schema import UserSettingsSchema
 
 
 class UserDataSchema(BaseModel):
     """Root object of the file: field order is the order written in the file.
 
-    Later phases add their sections with defaults, so that older development files still load.
+    Later phases add their sections with defaults, so that older development files still load; an
+    absent section is ``None`` and is not written.
     """
 
     model_config = PERSISTENCE_MODEL_CONFIG
@@ -20,3 +22,4 @@ class UserDataSchema(BaseModel):
     saved_at: UtcTimestamp
     app_version: str
     settings: UserSettingsSchema
+    timer: TimerConfigSchema | None = None

@@ -17,7 +17,7 @@ from concentrator.application.common.app_config import (
 from concentrator.domain.settings.language_enum import LanguageEnum
 
 
-def make_ui_section(**changes: int) -> UiSection:
+def make_ui_section(**changes: int | str) -> UiSection:
     section = UiSection(
         module_bar_width_px=100,
         zone1_ratio_percent=70,
@@ -30,6 +30,9 @@ def make_ui_section(**changes: int) -> UiSection:
         dialog_overlay_opacity_percent=10,
         startup_dialog_min_width_px=560,
         dialog_spacing_px=10,
+        timer_font_family="Cascadia Mono",
+        timer_font_size_px=64,
+        alert_blink_interval_ms=500,
     )
     return replace(section, **changes)
 
@@ -49,8 +52,30 @@ def make_storage_section(**changes: int | bool) -> StorageSection:
     return replace(section, **changes)
 
 
+def make_timer_section(**changes: int | str) -> TimerSection:
+    section = TimerSection(
+        tick_interval_ms=100,
+        snooze_minutes=5,
+        default_duration_seconds=1500,
+        min_duration_seconds=1,
+        max_duration_seconds=359_999,
+        default_sound="alarm-lesiakower-reverby-notification-sound",
+        default_volume=80,
+        default_loop_count=3,
+        max_loop_count=99,
+        default_auto_stop_seconds=120,
+        min_auto_stop_seconds=5,
+        max_auto_stop_seconds=3600,
+        notification_duration_ms=8000,
+    )
+    return replace(section, **changes)
+
+
 def make_app_config(
-    root: Path = Path("C:/concentrator-tests"), ui: UiSection | None = None, storage: StorageSection | None = None
+    root: Path = Path("C:/concentrator-tests"),
+    ui: UiSection | None = None,
+    storage: StorageSection | None = None,
+    timer: TimerSection | None = None,
 ) -> AppConfig:
     return AppConfig(
         app=AppSection(
@@ -68,7 +93,7 @@ def make_app_config(
         ),
         ui=ui or make_ui_section(),
         storage=storage or make_storage_section(),
-        timer=TimerSection(tick_interval_ms=100),
+        timer=timer or make_timer_section(),
         logging=LoggingSection(
             level=logging.INFO,
             file_name="concentrator.log",

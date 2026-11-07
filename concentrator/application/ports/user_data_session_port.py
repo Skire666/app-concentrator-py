@@ -31,3 +31,14 @@ class UserDataSessionPort(Protocol):
             data: Data just loaded or written.
         """
         ...
+
+    def apply(self, data: UserData) -> int:
+        """Replace the snapshot after a change and publish ``UserDataChangedEvent`` (the save follows).
+
+        Args:
+            data: Changed data; an equal snapshot changes nothing.
+
+        Returns:
+            The revision after the call.
+        """
+        ...

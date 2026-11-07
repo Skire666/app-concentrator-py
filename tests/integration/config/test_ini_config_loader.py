@@ -43,6 +43,11 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
     assert config.ui.module_bar_width_px == 100
     assert config.ui.zone1_ratio_percent == 70
     assert config.timer.tick_interval_ms == 100
+    assert config.timer.snooze_minutes == 5
+    assert config.timer.default_sound == "alarm-lesiakower-reverby-notification-sound"
+    assert config.timer.max_duration_seconds == 359_999
+    assert config.ui.timer_font_family == "Cascadia Mono"
+    assert config.ui.alert_blink_interval_ms == 500
     assert config.storage.save_debounce_ms == 500
     assert config.storage.save_max_delay_ms == 1500
     assert config.storage.blocking_write_timeout_ms == 5000
@@ -84,7 +89,9 @@ def test_missing_key_is_reported_with_its_path(paths: AppPaths, tmp_path: Path) 
 
 
 def test_missing_section_is_reported(paths: AppPaths, tmp_path: Path) -> None:
-    ini = _write_ini(tmp_path, {"[timer]\n": "", "tick_interval_ms = 100\n": ""})
+    text = SHIPPED_INI.read_text(encoding="utf-8")
+    section = text[text.index("[timer]") : text.index("[logging]")]
+    ini = _write_ini(tmp_path, {section: ""})
 
     result = IniConfigLoader(paths).load(ini)
 
@@ -119,6 +126,18 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("blocking_write_timeout_ms = 5000", "blocking_write_timeout_ms = 60001", "storage.blocking_write_timeout_ms"),
         ("daily_backup_enabled = true", "daily_backup_enabled = maybe", "storage.daily_backup_enabled"),
         ("daily_backup_retention_days = 7", "daily_backup_retention_days = 0", "storage.daily_backup_retention_days"),
+        ("timer_font_family = Cascadia Mono", "timer_font_family =  ", "ui.timer_font_family"),
+        ("alert_blink_interval_ms = 500", "alert_blink_interval_ms = 99", "ui.alert_blink_interval_ms"),
+        ("max_duration_seconds = 359999", "max_duration_seconds = 360000", "timer.max_duration_seconds"),
+        ("min_duration_seconds = 1", "min_duration_seconds = 1501", "timer"),
+        ("default_duration_seconds = 1500", "default_duration_seconds = 360000", "timer.default_duration_seconds"),
+        ("max_loop_count = 99", "max_loop_count = 2", "timer"),
+        ("max_auto_stop_seconds = 3600", "max_auto_stop_seconds = 4", "timer"),
+        ("default_auto_stop_seconds = 120", "default_auto_stop_seconds = 4000", "timer"),
+        ("default_sound = alarm-lesiakower", "default_sound = sounds/alarm", "timer.default_sound"),
+        ("default_volume = 80", "default_volume = 101", "timer.default_volume"),
+        ("snooze_minutes = 5", "snooze_minutes = 0", "timer.snooze_minutes"),
+        ("notification_duration_ms = 8000", "notification_duration_ms = 999", "timer.notification_duration_ms"),
     ],
 )
 def test_invalid_value_is_reported(paths: AppPaths, tmp_path: Path, old: str, new: str, field: str) -> None:

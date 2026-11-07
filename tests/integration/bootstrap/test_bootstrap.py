@@ -27,6 +27,7 @@ from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
 from concentrator.presentation.storage.startup_dialog_layout import StartupDialogLayout
+from tests.fakes.app_config_factory import make_app_config
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
 
 pytestmark = pytest.mark.ui
@@ -228,7 +229,7 @@ def test_unguarded_startup_warns_before_opening_the_file(
 
 
 def test_self_check_round_trips_the_user_data() -> None:
-    assert storage_failures("0.1.0") == []
+    assert storage_failures("0.1.0", make_app_config()) == []
 
 
 def test_second_instance_check_in_the_same_session_asks_to_exit(install: _Install) -> None:
