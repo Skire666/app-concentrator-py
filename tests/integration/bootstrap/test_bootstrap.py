@@ -28,6 +28,7 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
 from concentrator.presentation.storage.startup_dialog_layout import StartupDialogLayout
 from tests.fakes.app_config_factory import make_app_config
+from tests.fakes.fake_dialogs import FakeDialogs
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
 
 pytestmark = pytest.mark.ui
@@ -145,9 +146,12 @@ def test_built_shell_starts_ticks_saves_and_flushes_on_shutdown(qtbot: QtBot, in
         instance=protection,
     )
     qtbot.addWidget(shell.window)
+    shell.shutdown_presenter.attach(FakeDialogs(confirm_answer=True))  # the quit question when pytest-qt closes it
 
     shell.start()
     qtbot.waitExposed(shell.window)
+    assert shell.window.tray.tray_icon.isVisible() or not shell.window.tray.tray_icon.isSystemTrayAvailable()
+    assert shell.window.timer_panel.digits.text() == "00:25:00"
     shell.window.status_bar.language_button.click()
     qtbot.waitUntil(lambda: not core.gate.is_busy(ActionIdEnum.SHELL_TOGGLE_LANGUAGE), timeout=2000)
 

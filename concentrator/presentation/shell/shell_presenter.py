@@ -1,11 +1,13 @@
 """Page switching and window title of the window shell (the status bar has its own presenter)."""
 
 import logging
+from collections.abc import Callable
 from itertools import starmap
 from types import MappingProxyType
 from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
+from concentrator.application.timer.timer_events import TimerChangedEvent
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
@@ -27,21 +29,41 @@ PAGE_ACTIONS: Final = MappingProxyType(
 PAGE_ORDER: Final = tuple(PAGE_ACTIONS.values())
 
 
-class ShellPresenter:
-    """Builds the ``SHELL`` snapshot and handles the module bar actions."""
+def _never() -> bool:
+    """Default ringing state: no timer.
 
-    def __init__(self, translator: TranslatorPort, gate: ActionGate, renderer: RenderCoordinator) -> None:
+    Returns:
+        ``False``.
+    """
+    return False
+
+
+class ShellPresenter:
+    """Builds the ``SHELL`` snapshot and handles the module bar actions.
+
+    While the timer rings and another page is shown, the Focus button is highlighted.
+    """
+
+    def __init__(
+        self,
+        translator: TranslatorPort,
+        gate: ActionGate,
+        renderer: RenderCoordinator,
+        timer_ringing: Callable[[], bool] = _never,
+    ) -> None:
         """Create the presenter; the Focus page is shown first.
 
         Args:
             translator: Current-language translator.
             gate: Runs every user action.
             renderer: Receives the render requests.
+            timer_ringing: Tells whether the timer is ringing.
         """
         self._translator = translator
         self._texts = UiTexts(translator)
         self._gate = gate
         self._renderer = renderer
+        self._timer_ringing = timer_ringing
         self._active_page = ShellPageEnum.FOCUS
 
     @property
@@ -61,10 +83,18 @@ class ShellPresenter:
             module_buttons=tuple(starmap(self._module_button, PAGE_ACTIONS.items())),
             active_page_index=PAGE_ORDER.index(self._active_page),
             focus_zone1_placeholder=tr("placeholder.focus.zone1"),
-            focus_zone2_placeholder=tr("placeholder.focus.zone2"),
             journal_placeholder=tr("placeholder.journal"),
             settings_placeholder=tr("placeholder.settings"),
         )
+
+    def on_timer_changed(self, event: TimerChangedEvent) -> None:
+        """Re-render the module bar when the timer starts or stops ringing.
+
+        Args:
+            event: Published by the timer engine; only transitions matter here.
+        """
+        if event.transitions:
+            self._renderer.request(RenderSectionEnum.SHELL)
 
     def on_action_requested(self, action_value: int) -> None:
         """Handle a click of the module bar.
@@ -95,7 +125,7 @@ class ShellPresenter:
             text=self._texts.action_label(action),
             tooltip=self._texts.action_tooltip(action),
             checked=page is self._active_page,
-            highlighted=False,
+            highlighted=page is ShellPageEnum.FOCUS and page is not self._active_page and self._timer_ringing(),
             enabled=not self._gate.is_busy(action),
             action=action,
         )

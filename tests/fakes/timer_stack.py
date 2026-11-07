@@ -67,7 +67,7 @@ class TimerStack:
             limits=LIMITS,
             snooze=SNOOZE,
         )
-        self.queries = TimerQueries(self.engine, self.config, self.catalog, self.preview_player)
+        self.queries = TimerQueries(self.engine, self.config, self.catalog, self.preview_player, SNOOZE)
         self.preview = SoundPreview(self.preview_player, self.catalog)
 
     def advance(self, *, ms: float = 0.0, seconds: float = 0.0) -> None:

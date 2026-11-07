@@ -1,6 +1,7 @@
 """Pending changes on close, quit and Windows session end (ADR-032)."""
 
 import logging
+from collections.abc import Callable
 from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
@@ -15,18 +16,34 @@ _logger = logging.getLogger(__name__)
 LINE_BREAK: Final = "\n"
 
 
-class ShutdownPresenter:
-    """Flushes synchronously; on the normal close path a failure asks the user."""
+def _no_countdown() -> bool:
+    """Default countdown state: none.
 
-    def __init__(self, coordinator: SaveCoordinator, translator: TranslatorPort) -> None:
+    Returns:
+        ``False``.
+    """
+    return False
+
+
+class ShutdownPresenter:
+    """Asks before quitting, then flushes synchronously; on the normal close path a failure asks the user."""
+
+    def __init__(
+        self,
+        coordinator: SaveCoordinator,
+        translator: TranslatorPort,
+        countdown_active: Callable[[], bool] = _no_countdown,
+    ) -> None:
         """Create the presenter; its dialogs come with ``attach`` once the main window exists (ADR-036).
 
         Args:
             coordinator: Saves the pending changes.
             translator: Current-language translator.
+            countdown_active: Tells whether a countdown is running, paused or ringing (it is not kept).
         """
         self._coordinator = coordinator
         self._translator = translator
+        self._countdown_active = countdown_active
         self._messages = StorageMessages(translator)
         self._dialogs: DialogPort | None = None
 
@@ -38,8 +55,27 @@ class ShutdownPresenter:
         """
         self._dialogs = dialogs
 
+    def may_close(self) -> bool:
+        """Ask whether to quit, then flush (``closeEvent``: close button, notification area "Quit").
+
+        Escape keeps Concentrator open. The Windows session end never asks (ADR-032).
+
+        Returns:
+            Whether the window may close.
+        """
+        tr = self._translator.tr
+        message = (
+            tr("shutdown.confirm.message.countdown") if self._countdown_active() else tr("shutdown.confirm.message")
+        )
+        if not self._attached_dialogs().confirm(
+            tr("shutdown.confirm.title"), message, tr("dialog.button.quit"), tr("dialog.button.cancel")
+        ):
+            _logger.info("Quit cancelled by the user")
+            return False
+        return self.can_close()
+
     def can_close(self) -> bool:
-        """Flush before the main window closes (``closeEvent``).
+        """Flush before the main window closes, once the user confirmed.
 
         An external change asks "Keep Concentrator's version" (overwrite, then quit; Escape) or "Quit
         without saving". Any other failure asks "Quit without saving" or "Retry"; Retry keeps the window

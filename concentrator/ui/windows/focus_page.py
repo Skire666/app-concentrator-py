@@ -1,4 +1,4 @@
-"""Menu A page. Feature panels replace the placeholders in later phases."""
+"""Menu A page: zone 1 (TODO manager, phase 5) and zone 2 (timer; focus queue and favorites later)."""
 
 from typing import Final
 
@@ -6,19 +6,22 @@ from PySide6.QtCore import QByteArray, Qt
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
 from concentrator.presentation.shell.shell_snapshot import ShellSnapshot
+from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.ui.panels.timer_panel import TimerPanel
 from concentrator.ui.widgets.placeholder_widget import PlaceholderWidget
 
 _PERCENT: Final = 100
 
 
 class FocusPage(QWidget):
-    """Menu A: zone 1 (TODO manager) and zone 2 (vertical stack of panels) in a horizontal splitter."""
+    """Zone 1 and zone 2 in a horizontal splitter; zone 2 stacks its panels from the top."""
 
-    def __init__(self, zone1_ratio_percent: int, parent: QWidget | None = None) -> None:
+    def __init__(self, zone1_ratio_percent: int, timer_layout: TimerLayout, parent: QWidget | None = None) -> None:
         """Build the page.
 
         Args:
             zone1_ratio_percent: Initial share of zone 1 (``ui.zone1_ratio_percent``).
+            timer_layout: Font of the timer digits.
             parent: Parent widget.
         """
         super().__init__(parent)
@@ -27,8 +30,10 @@ class FocusPage(QWidget):
         self._splitter.setChildrenCollapsible(False)
         self._zone1 = PlaceholderWidget(self._splitter)
         zone2 = QWidget(self._splitter)
-        self._zone2 = PlaceholderWidget(zone2)
-        QVBoxLayout(zone2).addWidget(self._zone2)
+        self._timer = TimerPanel(timer_layout, zone2)
+        stack = QVBoxLayout(zone2)
+        stack.addWidget(self._timer)
+        stack.addStretch(1)
         self._splitter.addWidget(self._zone1)
         self._splitter.addWidget(zone2)
         self._splitter.setStretchFactor(0, zone1_ratio_percent)
@@ -39,18 +44,22 @@ class FocusPage(QWidget):
         self.reset_splitter()
 
     @property
-    def zone_texts(self) -> tuple[str, str]:
-        """Texts of the two zones (for tests)."""
-        return self._zone1.text, self._zone2.text
+    def zone1_text(self) -> str:
+        """Text of zone 1 (for tests)."""
+        return self._zone1.text
+
+    @property
+    def timer_panel(self) -> TimerPanel:
+        """Timer at the top of zone 2."""
+        return self._timer
 
     def render_snapshot(self, snapshot: ShellSnapshot) -> None:
-        """Show the zone placeholders.
+        """Show the zone 1 placeholder.
 
         Args:
             snapshot: Shell state.
         """
         self._zone1.set_text(snapshot.focus_zone1_placeholder)
-        self._zone2.set_text(snapshot.focus_zone2_placeholder)
 
     def splitter_state(self) -> QByteArray:
         """Return the splitter blob to persist."""

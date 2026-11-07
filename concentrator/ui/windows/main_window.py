@@ -12,13 +12,15 @@ from concentrator.presentation.common.layout_keys import LAYOUT_FOCUS_PAGE_SPLIT
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
+from concentrator.presentation.ports.main_window_port import MainWindowPort
+from concentrator.presentation.shell.main_window_presenters import MainWindowPresenters
 from concentrator.presentation.shell.shell_layout import ShellLayout
-from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.shell_snapshot import ShellSnapshot
-from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
-from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
+from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.ui.panels.module_bar_panel import ModuleBarPanel
 from concentrator.ui.panels.status_bar_panel import StatusBarPanel
+from concentrator.ui.panels.timer_panel import TimerPanel
+from concentrator.ui.panels.tray_panel import TrayPanel
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.support.layout_codec import decode_blob, encode_blob
 from concentrator.ui.windows.focus_page import FocusPage
@@ -34,45 +36,40 @@ class MainWindow(QWidget):
     def __init__(
         self,
         *,
-        presenter: ShellPresenter,
-        status_bar: StatusBarPresenter,
-        shutdown: ShutdownPresenter,
+        presenters: MainWindowPresenters,
         renderer: RenderCoordinator,
         layout_keeper: LayoutStateKeeper,
         shell_layout: ShellLayout,
+        timer_layout: TimerLayout,
         icons: IconLoader,
         app_icon: QIcon,
     ) -> None:
         """Build the window (not shown).
 
         Args:
-            presenter: Shell presenter (module bar, pages, title).
-            status_bar: Status bar presenter.
-            shutdown: Decides whether the window may close (pending changes, ADR-032).
+            presenters: Presenters of the module bar, pages, status bar, timer, tray and shutdown.
             renderer: Render coordinator the panels are registered with.
             layout_keeper: Store of the layout blobs.
             shell_layout: Sizes from the ini.
+            timer_layout: Font of the timer digits.
             icons: Loader of the module icons.
-            app_icon: Window and taskbar icon.
+            app_icon: Window, taskbar and notification area icon.
         """
         super().__init__(None)
-        self._presenter = presenter
-        self._shutdown = shutdown
+        self._shutdown = presenters.shutdown
         self._layout_keeper = layout_keeper
         self._shell_layout = shell_layout
         self.setWindowIcon(app_icon)
         self.setMinimumSize(shell_layout.min_width_px, shell_layout.min_height_px)
         self._module_bar = ModuleBarPanel(shell_layout.module_bar_width_px, icons, self)
         self._status_bar = StatusBarPanel(self)
+        self._tray = TrayPanel(app_icon, self)
         self._pages = QStackedWidget(self)
-        self._focus_page = FocusPage(shell_layout.zone1_ratio_percent, self._pages)
+        self._focus_page = FocusPage(shell_layout.zone1_ratio_percent, timer_layout, self._pages)
         self._journal_page = JournalPage(self._pages)
         self._settings_page = SettingsPage(self._pages)
         self._build_layout()
-        self._module_bar.action_requested.connect(presenter.on_action_requested)
-        self._status_bar.action_requested.connect(status_bar.on_action_requested)
-        renderer.register(RenderSectionEnum.SHELL, presenter.build_shell_snapshot, self.render_shell)
-        renderer.register(RenderSectionEnum.STATUS_BAR, status_bar.build_snapshot, self._status_bar.render_snapshot)
+        self._wire(presenters, renderer)
 
     @property
     def module_bar(self) -> ModuleBarPanel:
@@ -88,6 +85,16 @@ class MainWindow(QWidget):
     def focus_page(self) -> FocusPage:
         """Menu A page."""
         return self._focus_page
+
+    @property
+    def timer_panel(self) -> TimerPanel:
+        """Timer at the top of zone 2."""
+        return self._focus_page.timer_panel
+
+    @property
+    def tray(self) -> TrayPanel:
+        """Notification area icon."""
+        return self._tray
 
     @property
     def current_page_index(self) -> int:
@@ -131,11 +138,28 @@ class MainWindow(QWidget):
 
     @override
     def closeEvent(self, event: QCloseEvent) -> None:
-        if not self._shutdown.can_close():
+        if not self._shutdown.may_close():
             event.ignore()
             return
         self.save_layout()
         super().closeEvent(event)
+
+    def _wire(self, presenters: MainWindowPresenters, renderer: RenderCoordinator) -> None:
+        """Connect the panels to their presenters and register their render sections.
+
+        Args:
+            presenters: Presenters of the panels.
+            renderer: Render coordinator.
+        """
+        shell, status_bar, timer, tray = presenters.shell, presenters.status_bar, presenters.timer, presenters.tray
+        self._module_bar.action_requested.connect(shell.on_action_requested)
+        self._status_bar.action_requested.connect(status_bar.on_action_requested)
+        self.timer_panel.action_requested.connect(timer.on_action_requested)
+        self._tray.action_requested.connect(tray.on_action_requested)
+        renderer.register(RenderSectionEnum.SHELL, shell.build_shell_snapshot, self.render_shell)
+        renderer.register(RenderSectionEnum.STATUS_BAR, status_bar.build_snapshot, self._status_bar.render_snapshot)
+        renderer.register(RenderSectionEnum.TIMER, timer.build_snapshot, self.timer_panel.render_snapshot)
+        renderer.register(RenderSectionEnum.TRAY, tray.build_snapshot, self._tray.render_snapshot)
 
     def _build_layout(self) -> None:
         """``QHBoxLayout[module bar, QVBoxLayout[pages, status bar]]``."""
@@ -176,3 +200,23 @@ class MainWindow(QWidget):
         self.resize(self._shell_layout.default_width_px, self._shell_layout.default_height_px)
         available = self.screen().availableGeometry()
         self.move(available.center() - QPoint(self.width() // 2, self.height() // 2))
+
+
+class MainWindowHandle(MainWindowPort):
+    """``MainWindowPort`` on the main window (a ``QWidget`` cannot subclass a ``Protocol`` directly)."""
+
+    def __init__(self, window: MainWindow) -> None:
+        """Wrap the window.
+
+        Args:
+            window: Main window.
+        """
+        self._window = window
+
+    @override
+    def show_in_front(self) -> None:
+        self._window.bring_to_front()
+
+    @override
+    def request_close(self) -> None:
+        self._window.close()

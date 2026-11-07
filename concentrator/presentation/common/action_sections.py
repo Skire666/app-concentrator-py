@@ -27,6 +27,20 @@ ACTION_SECTIONS: Final = MappingProxyType(
         ActionIdEnum.STARTUP_KEEP_CURRENT_FILE: (RenderSectionEnum.RECOVERY,),
         ActionIdEnum.STARTUP_CHOOSE_ANOTHER_FILE: (RenderSectionEnum.RECOVERY,),
         ActionIdEnum.STARTUP_START_EMPTY: (RenderSectionEnum.RECOVERY,),
+        ActionIdEnum.TIMER_EDIT: (RenderSectionEnum.TIMER,),
+        ActionIdEnum.TIMER_START: (RenderSectionEnum.TIMER,),
+        ActionIdEnum.TIMER_PAUSE: (RenderSectionEnum.TIMER,),
+        ActionIdEnum.TIMER_RESUME: (RenderSectionEnum.TIMER,),
+        ActionIdEnum.TIMER_RESET: (RenderSectionEnum.TIMER,),
+        ActionIdEnum.TIMER_ACKNOWLEDGE: (RenderSectionEnum.TIMER,),
+        ActionIdEnum.TIMER_RESTART: (RenderSectionEnum.TIMER,),
+        ActionIdEnum.TIMER_SNOOZE: (RenderSectionEnum.TIMER,),
+        ActionIdEnum.TIMER_EDIT_SAVE: (RenderSectionEnum.TIMER_EDIT,),
+        ActionIdEnum.TIMER_EDIT_CANCEL: (RenderSectionEnum.TIMER_EDIT,),
+        ActionIdEnum.TIMER_SOUND_PREVIEW: (RenderSectionEnum.TIMER_EDIT,),
+        ActionIdEnum.TIMER_SOUND_CHOOSE_FILE: (RenderSectionEnum.TIMER_EDIT,),
+        ActionIdEnum.TRAY_SHOW: (RenderSectionEnum.TRAY,),
+        ActionIdEnum.TRAY_QUIT: (RenderSectionEnum.TRAY,),
     }
 )
 

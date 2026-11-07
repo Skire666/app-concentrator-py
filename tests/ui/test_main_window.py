@@ -29,7 +29,8 @@ def test_main_window_builds_with_the_first_render(harness: ShellHarness) -> None
 
     assert window.windowTitle() == "en:app.title"
     assert window.current_page_index == 0
-    assert window.focus_page.zone_texts == ("en:placeholder.focus.zone1", "en:placeholder.focus.zone2")
+    assert window.focus_page.zone1_text == "en:placeholder.focus.zone1"
+    assert window.timer_panel.digits.text() == "00:25:00"
     assert window.status_bar.language_button.text() == "en:shell.language.button.en"
     assert window.status_bar.save_state_text == "en:status.save.no_file"
     assert window.status_bar.instance_warning.isHidden()
@@ -79,7 +80,8 @@ def test_language_button_switches_every_text(harness: ShellHarness) -> None:
     assert window.status_bar.language_button.text() == "fr:shell.language.button.fr"
     assert window.windowTitle() == "fr:app.title"
     assert window.module_bar.button(ActionIdEnum.SHELL_SHOW_SETTINGS).text() == "fr:action.shell_show_settings"
-    assert window.focus_page.zone_texts[0] == "fr:placeholder.focus.zone1"
+    assert window.focus_page.zone1_text == "fr:placeholder.focus.zone1"
+    assert window.timer_panel.buttons[2].text() == "fr:action.timer_start(minutes=5)"
     assert not window.status_bar.language_button.isEnabled()
 
 
@@ -149,17 +151,30 @@ def test_close_with_unsaved_changes_that_fail_keeps_the_window_open(qtbot: QtBot
     stack.coordinator.attach(DATA_PATH, SAVED_AT)
     stack.session.change()
     stack.file.blocking_validation = ValidationResult.failure(ErrorCodeEnum.STORAGE_REPLACE_FAILED)
-    stack.dialogs.confirm_answer = False
+    stack.dialogs.confirm_answers = [True, False]
     harness.window.show()
     qtbot.waitExposed(harness.window)
 
     harness.window.close()
 
     assert harness.window.isVisible()
-    assert stack.dialogs.texts("confirm")[0][0] == "en:shutdown.failed.title"
+    titles = [texts[0] for texts in stack.dialogs.texts("confirm")]
+    assert titles == ["en:shutdown.confirm.title", "en:shutdown.failed.title"]
     stack.dialogs.confirm_answer = True
     harness.window.close()
     assert not harness.window.isVisible()
+
+
+def test_declining_the_quit_question_keeps_the_window_open(qtbot: QtBot, harness: ShellHarness) -> None:
+    harness.stack.dialogs.confirm_answer = False
+    harness.window.show()
+    qtbot.waitExposed(harness.window)
+
+    harness.window.close()
+
+    assert harness.window.isVisible()
+    assert harness.stack.dialogs.texts("confirm")[0][1] == "en:shutdown.confirm.message"
+    harness.stack.dialogs.confirm_answer = True
 
 
 def test_unguarded_mode_shows_the_indicator(qtbot: QtBot) -> None:

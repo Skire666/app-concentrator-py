@@ -59,28 +59,30 @@ class UiTexts:
         """
         self._translator = translator
 
-    def action_label(self, action: ActionIdEnum) -> str:
+    def action_label(self, action: ActionIdEnum, **params: object) -> str:
         """Return the translated label of an action.
 
         Args:
             action: Action.
+            **params: Placeholder values of the label (``Snooze {minutes} min``).
 
         Returns:
             The label.
         """
-        return self._translator.tr(action_label_key(action))
+        return self._translator.tr(action_label_key(action), **params)
 
-    def action_tooltip(self, action: ActionIdEnum) -> str:
+    def action_tooltip(self, action: ActionIdEnum, **params: object) -> str:
         """Return the translated tooltip of an action.
 
         Args:
             action: Action.
+            **params: Placeholder values of the tooltip.
 
         Returns:
             The tooltip, ``""`` when the catalog defines none.
         """
         key = action_tooltip_key(action)
-        return self._translator.tr(key) if self._translator.has(key) else ""
+        return self._translator.tr(key, **params) if self._translator.has(key) else ""
 
     def issue_message(self, issue: ValidationIssue) -> str:
         """Return the translated message of one issue, with its parameters filled in.

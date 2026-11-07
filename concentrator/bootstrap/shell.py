@@ -10,24 +10,31 @@ from concentrator.application.common.app_config import AppConfig
 from concentrator.application.common.app_ticker import AppTicker
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.storage.storage_events import SaveStatusChangedEvent
+from concentrator.application.timer.alarm_coordinator import AlarmCoordinator
+from concentrator.application.timer.timer_events import TimerChangedEvent
 from concentrator.bootstrap.core import Core
 from concentrator.bootstrap.runtime import ForwardingErrorReporter
 from concentrator.bootstrap.storage import Storage
+from concentrator.bootstrap.timer import TimerServices, build_timer, connect_alarm
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
+from concentrator.presentation.shell.main_window_presenters import MainWindowPresenters
 from concentrator.presentation.shell.shell_layout import ShellLayout
 from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
+from concentrator.presentation.shell.tray_presenter import TrayPresenter
 from concentrator.presentation.shell.unexpected_error_presenter import UnexpectedErrorPresenter
 from concentrator.presentation.storage.external_change_presenter import ExternalChangePresenter
 from concentrator.presentation.storage.save_status_texts import SaveStatusTexts
 from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
+from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.support.modal_host import ModalHost
 from concentrator.ui.support.qt_dialog_service import QtDialogService
-from concentrator.ui.windows.main_window import MainWindow
+from concentrator.ui.windows.main_window import MainWindow, MainWindowHandle
+from concentrator.ui.windows.timer_edit_dialog import TimerEditWindow
 
 _logger = logging.getLogger(__name__)
 
@@ -36,7 +43,14 @@ class Shell:
     """Everything the running window needs, kept alive together."""
 
     def __init__(
-        self, *, window: MainWindow, core: Core, shutdown: ShutdownPresenter, ticker: AppTicker, tick_timer: QTimer
+        self,
+        *,
+        window: MainWindow,
+        core: Core,
+        shutdown: ShutdownPresenter,
+        timer: TimerServices,
+        alarm: AlarmCoordinator,
+        tick_timer: QTimer,
     ) -> None:
         """Keep the wired objects.
 
@@ -44,28 +58,33 @@ class Shell:
             window: Main window (not shown yet).
             core: Main-thread services.
             shutdown: Flushes pending changes on close, quit and session end.
-            ticker: Heartbeat of the runtime engines.
+            timer: Timer services (its engine is registered on the ticker).
+            alarm: Plays the alarm when the timer rings.
             tick_timer: Qt timer driving the ticker.
         """
         self.window = window
         self.core = core
         self.shutdown_presenter = shutdown
-        self.ticker = ticker
+        self.timer = timer
+        self.alarm = alarm
         self.tick_timer = tick_timer
 
     def start(self) -> None:
-        """Render once, restore the layout, start the ticker and show the window (steps 7 and 8)."""
+        """Render once, restore the layout, start the ticker, show the window and its icon (steps 7 and 8)."""
         self.core.renderer.request_all()
         self.core.renderer.flush()
         self.window.restore_layout()
         self.tick_timer.start()
         self.window.show()
+        self.window.tray.show()
         _logger.info("Main window shown")
 
     def shutdown(self) -> None:
         """Flush pending changes without dialog, stop the ticker, save the UI state (``aboutToQuit``)."""
         self.shutdown_presenter.flush_without_dialog()
         self.tick_timer.stop()
+        self.timer.alarm_player.stop()
+        self.window.tray.hide()
         self.window.save_layout()
         self.core.preferences.sync()
 
@@ -163,21 +182,95 @@ def build_shell(
     Returns:
         The shell, ready to ``start``.
     """
-    shutdown = ShutdownPresenter(storage.coordinator, translator)
-    window = MainWindow(
-        presenter=ShellPresenter(translator, core.gate, core.renderer),
-        status_bar=_status_bar(core, storage, translator, instance),
-        shutdown=shutdown,
+    timer = build_timer(app, config, paths, translator, core=core, storage=storage)
+    presenters = _presenters(core, storage, translator, instance, timer)
+    window = _main_window(config, paths, core, presenters)
+    dialogs = _attach_dialogs(window, config, presenters, timer, core)
+    _connect_dialogs(dialogs, core, storage, translator, reporter)
+    ticker = AppTicker()
+    ticker.register(timer.engine.tick)
+    return Shell(
+        window=window,
+        core=core,
+        shutdown=presenters.shutdown,
+        timer=timer,
+        alarm=connect_alarm(timer, window, config, translator, core),
+        tick_timer=_tick_timer(app, config, ticker),
+    )
+
+
+def _main_window(config: AppConfig, paths: AppPaths, core: Core, presenters: MainWindowPresenters) -> MainWindow:
+    """Create the main window (not shown).
+
+    Args:
+        config: Loaded configuration.
+        paths: Application paths (icons).
+        core: Main-thread services.
+        presenters: Presenters of its panels.
+
+    Returns:
+        The window.
+    """
+    return MainWindow(
+        presenters=presenters,
         renderer=core.renderer,
         layout_keeper=LayoutStateKeeper(core.preferences),
         shell_layout=ShellLayout.from_ui_section(config.ui),
+        timer_layout=TimerLayout.from_ui_section(config.ui),
         icons=IconLoader(paths.icons_dir),
         app_icon=QIcon(str(paths.app_icon_file)),
     )
-    dialogs = QtDialogService(ModalHost.create(window, config.ui.dialog_overlay_opacity_percent))
-    shutdown.attach(dialogs)
-    _connect_dialogs(dialogs, core, storage, translator, reporter)
-    ticker = AppTicker()
-    return Shell(
-        window=window, core=core, shutdown=shutdown, ticker=ticker, tick_timer=_tick_timer(app, config, ticker)
+
+
+def _attach_dialogs(
+    window: MainWindow, config: AppConfig, presenters: MainWindowPresenters, timer: TimerServices, core: Core
+) -> QtDialogService:
+    """Give the presenters the window and its dialogs, all run over the window (ADR-036).
+
+    Args:
+        window: Main window.
+        config: Loaded configuration.
+        presenters: Presenters of the window.
+        timer: Timer services (edit dialog).
+        core: Main-thread services.
+
+    Returns:
+        The dialog service of the window.
+    """
+    host = ModalHost.create(window, config.ui.dialog_overlay_opacity_percent)
+    dialogs = QtDialogService(host)
+    presenters.shutdown.attach(dialogs)
+    presenters.tray.attach(MainWindowHandle(window))
+    edit_window = TimerEditWindow(timer.editor, core.renderer, host, TimerLayout.from_ui_section(config.ui))
+    timer.editor.attach(edit_window, dialogs)
+    return dialogs
+
+
+def _presenters(
+    core: Core,
+    storage: Storage,
+    translator: TranslatorPort,
+    instance: InstanceProtectionPresenter,
+    timer: TimerServices,
+) -> MainWindowPresenters:
+    """Create the presenters of the main window panels.
+
+    Args:
+        core: Main-thread services.
+        storage: Storage services.
+        translator: Current-language translator.
+        instance: Unguarded single-instance indicator.
+        timer: Timer services.
+
+    Returns:
+        The presenters; the shell presenter follows the timer to highlight the Focus button.
+    """
+    shell = ShellPresenter(translator, core.gate, core.renderer, timer.ringing)
+    core.event_bus.subscribe(TimerChangedEvent, shell.on_timer_changed)
+    return MainWindowPresenters(
+        shell=shell,
+        status_bar=_status_bar(core, storage, translator, instance),
+        shutdown=ShutdownPresenter(storage.coordinator, translator, timer.countdown_active),
+        timer=timer.presenter,
+        tray=TrayPresenter(translator, core.gate),
     )

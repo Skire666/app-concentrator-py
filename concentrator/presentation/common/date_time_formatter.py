@@ -27,6 +27,20 @@ class DateTimeFormatter:
         self._translator = translator
         self._clock = clock
 
+    def time(self, moment: datetime) -> str:
+        """Local time without seconds, for example ``17:52``.
+
+        Args:
+            moment: Timezone-aware instant.
+
+        Returns:
+            The text.
+        """
+        local = self._clock.to_local(moment)
+        return self._translator.tr(
+            "format.time", hour=format(local.hour, _TWO_DIGITS), minute=format(local.minute, _TWO_DIGITS)
+        )
+
     def time_with_seconds(self, moment: datetime) -> str:
         """Local time with seconds, for example ``17:44:03``.
 

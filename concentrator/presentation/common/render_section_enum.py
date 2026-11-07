@@ -12,3 +12,6 @@ class RenderSectionEnum(BaseIntEnum):
     STATUS_BAR = 2
     FIRST_RUN = 3
     RECOVERY = 4
+    TIMER = 5
+    TIMER_EDIT = 6
+    TRAY = 7
