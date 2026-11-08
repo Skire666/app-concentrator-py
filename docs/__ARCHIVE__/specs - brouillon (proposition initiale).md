@@ -12,6 +12,9 @@ Dans les options, rendre la taille de police confiugrable
 faire une taille de base.
 
 
+Dmenader a claude d'économiser des tokens ?
+
+
 
 
 Si la save échoue, mettre un bouton manuel qui retry
