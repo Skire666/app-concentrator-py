@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
@@ -37,21 +39,23 @@ def test_apply_and_start_with_the_current_duration_only_starts(stack: TimerStack
 
 
 @pytest.mark.parametrize("state", [TimerStateEnum.RUNNING, TimerStateEnum.PAUSED, TimerStateEnum.RINGING])
-def test_apply_and_start_outside_idle_is_refused_and_keeps_the_configuration(
-    stack: TimerStack, state: TimerStateEnum
-) -> None:
+def test_apply_and_start_replaces_a_running_paused_or_ringing_timer(stack: TimerStack, state: TimerStateEnum) -> None:
     if state is TimerStateEnum.RINGING:
         stack.run_to_ringing()
     else:
         stack.commands.start()
+        stack.advance(seconds=60)
         if state is TimerStateEnum.PAUSED:
             stack.commands.pause()
+    stops = stack.alarm_player.stops
 
     result = stack.preset_commands.apply_and_start("preset-15")
 
-    assert result.error_codes == (ErrorCodeEnum.TIMER_TRANSITION_INVALID,)
-    assert stack.engine.session.state is state
-    assert stack.engine.settings() == DEFAULT_SETTINGS
+    assert result.is_success
+    assert stack.engine.session.state is TimerStateEnum.RUNNING
+    assert stack.engine.settings() == replace(DEFAULT_SETTINGS, duration=Duration(900))
+    assert stack.queries.current_view().displayed_seconds == 900
+    assert stack.alarm_player.stops == stops + (state is TimerStateEnum.RINGING)
 
 
 def test_apply_and_start_of_an_unknown_favorite_is_not_found(stack: TimerStack) -> None:

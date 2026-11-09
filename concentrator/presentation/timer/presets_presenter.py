@@ -37,8 +37,8 @@ type PresetOperation = Callable[[str], ValidationResult]
 class PresetsPresenter:
     """Builds ``PRESETS`` and runs the favorite actions through the action gate.
 
-    The buttons follow the timer state: the panel re-renders on timer transitions only, not on every
-    displayed second.
+    The favorites are always enabled: a click replaces a countdown in progress. Their tooltip follows the
+    timer state, so the panel re-renders on timer transitions only, not on every displayed second.
     """
 
     def __init__(
@@ -201,19 +201,18 @@ class PresetsPresenter:
 
         Args:
             preset: Favorite.
-            idle: Whether the timer is idle (the button starts it).
+            idle: Whether the timer is idle (otherwise the button replaces the countdown).
             index: Display position.
             last: Display position of the last favorite.
 
         Returns:
             The favorite snapshot.
         """
-        tr = self._translator.tr
-        tooltip = tr("presets.tooltip.start", duration=preset.duration.as_clock_text()) if idle else ""
+        key = "presets.tooltip.start" if idle else "presets.tooltip.replace"
         button = ButtonSnapshot(
             text=self.label(preset),
-            tooltip=tooltip or tr("presets.tooltip.busy"),
-            enabled=idle and not self._gate.is_busy(ActionIdEnum.PRESET_APPLY),
+            tooltip=self._translator.tr(key, duration=preset.duration.as_clock_text()),
+            enabled=not self._gate.is_busy(ActionIdEnum.PRESET_APPLY),
             visible=True,
             action=ActionIdEnum.PRESET_APPLY,
         )

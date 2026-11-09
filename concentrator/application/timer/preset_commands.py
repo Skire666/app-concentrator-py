@@ -141,14 +141,15 @@ class PresetCommands:
         return ValidationResult.success()
 
     def apply_and_start(self, preset_id: str) -> ValidationResult:
-        """Make a favorite's duration the timer duration and start the countdown (one click, ``IDLE`` only).
+        """Make a favorite's duration the timer duration and start the countdown, in one click.
+
+        A countdown in progress is replaced and a ringing alarm stops (``TimerCommands.start_with_duration``).
 
         Args:
             preset_id: Favorite clicked.
 
         Returns:
-            Success, ``ENTITY_NOT_FOUND``, or ``TIMER_TRANSITION_INVALID`` when the timer is not ``IDLE``
-            (the configuration is then unchanged).
+            Success, ``ENTITY_NOT_FOUND``, or the failure of the timer command.
         """
         preset = self._reader.read_item(preset_id)
         if preset.data is None:

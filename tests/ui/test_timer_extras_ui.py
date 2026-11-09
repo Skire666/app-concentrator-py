@@ -135,14 +135,13 @@ def test_presets_panel_follows_the_number_of_favorites(qtbot: QtBot) -> None:
 
 def test_context_menu_opens_on_a_disabled_favorite_and_emits_its_actions(qtbot: QtBot) -> None:
     stack = TimerUiStack()
-    stack.commands.start()
     panel = _presets_panel(qtbot, stack)
     panel.resize(400, 200)
     panel.show()
     recorder = Recorder()
     panel.preset_action_requested.connect(recorder)
     target = panel.preset_buttons[2]
-    assert not target.isEnabled()
+    target.setEnabled(False)  # as during the cooldown after a click
 
     position = target.rect().center()
     event = QContextMenuEvent(QContextMenuEvent.Reason.Mouse, position, target.mapToGlobal(position))
@@ -351,7 +350,12 @@ def test_main_window_click_on_a_favorite_starts_the_timer(qtbot: QtBot) -> None:
     assert harness.timer.engine.session.state is TimerStateEnum.RUNNING
     assert harness.timer.engine.settings().duration == Duration(900)
     assert harness.window.timer_panel.digits.text() == "00:15:00"
-    assert not harness.window.presets_panel.preset_buttons[0].isEnabled()
+    harness.scheduler.advance(100)
+    harness.turn()
+    assert harness.window.presets_panel.preset_buttons[1].isEnabled()
+    harness.window.presets_panel.preset_buttons[1].click()
+    harness.turn()
+    assert harness.window.timer_panel.digits.text() == "00:30:00"
 
 
 def test_main_window_chime_box_switches_the_chime(qtbot: QtBot) -> None:

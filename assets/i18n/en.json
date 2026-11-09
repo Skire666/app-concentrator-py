@@ -235,7 +235,7 @@
   "presets.title": "Favorites",
   "presets.empty": "No favorite yet.",
   "presets.tooltip.start": "Start a countdown of {duration}",
-  "presets.tooltip.busy": "Reset the timer to use a favorite",
+  "presets.tooltip.replace": "Replace the current countdown with {duration}",
   "presets.delete.title": "Delete favorite",
   "presets.delete.message": "Delete the favorite \"{label}\"?",
   "presets.delete.accept": "Delete",

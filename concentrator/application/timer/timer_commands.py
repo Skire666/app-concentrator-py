@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import replace
+from typing import Final
 
 from concentrator.application.common.event_bus import EventBus
 from concentrator.application.ports.clock_port import ClockPort
@@ -9,7 +10,6 @@ from concentrator.application.ports.timer_config_reader_port import TimerConfigR
 from concentrator.application.ports.timer_config_writer_port import TimerConfigWriterPort
 from concentrator.application.timer.timer_engine import TimerEngine
 from concentrator.application.timer.timer_events import TimerConfigChangedEvent
-from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.timer_config_rules import TimerConfigRules
@@ -19,6 +19,8 @@ from concentrator.domain.timer.timer_state_enum import TimerStateEnum
 from concentrator.domain.timer.timer_transition_enum import TimerTransitionEnum
 
 _logger = logging.getLogger(__name__)
+
+COUNTING_STATES: Final = frozenset({TimerStateEnum.RUNNING, TimerStateEnum.PAUSED})
 
 
 class TimerCommands:
@@ -68,23 +70,37 @@ class TimerCommands:
         return self._engine.change(lambda session, now: session.start(now, duration), TimerTransitionEnum.STARTED)
 
     def start_with_duration(self, duration: Duration) -> ValidationResult:
-        """Store a new countdown duration and start it, in one action (a favorite).
+        """Replace the countdown with a new duration and start it, in one action (a favorite).
+
+        A running or paused countdown is reset and a ringing alarm stops first (owner decision at the
+        phase 3 review); the duration is stored and applies to the next starts too.
 
         Args:
             duration: Duration of the favorite.
 
         Returns:
-            Success, ``TIMER_TRANSITION_INVALID`` when the timer is not ``IDLE`` (the configuration is
-            then unchanged), or the rule or write failure of the new duration.
+            Success, or the failure of the stop, of the stored duration or of the start.
         """
-        state = self._engine.session.state
-        if state is not TimerStateEnum.IDLE:
-            _logger.info("Timer command STARTED with a favorite refused in state %s", state.name)
-            return ValidationResult.failure(ErrorCodeEnum.TIMER_TRANSITION_INVALID)
+        stopped = self._stop_current()
+        if stopped.is_failure:
+            return stopped
         stored = self.update_config(replace(self._engine.settings(), duration=duration))
         if stored.is_failure:
             return stored
         return self.start()
+
+    def _stop_current(self) -> ValidationResult:
+        """Bring the timer back to ``IDLE``: reset a countdown, acknowledge an alarm.
+
+        Returns:
+            Success (also when already idle), or the refused transition.
+        """
+        state = self._engine.session.state
+        if state is TimerStateEnum.RINGING:
+            return self.acknowledge()
+        if state in COUNTING_STATES:
+            return self.reset()
+        return ValidationResult.success()
 
     def pause(self) -> ValidationResult:
         """``RUNNING`` -> ``PAUSED``.

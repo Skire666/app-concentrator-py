@@ -1,6 +1,5 @@
 import pytest
 
-from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
@@ -50,7 +49,7 @@ def test_a_typed_label_replaces_the_automatic_one(stack: TimerUiStack) -> None:
 
 
 @pytest.mark.parametrize("state", [TimerStateEnum.RUNNING, TimerStateEnum.PAUSED, TimerStateEnum.RINGING])
-def test_favorites_are_disabled_outside_idle(stack: TimerUiStack, state: TimerStateEnum) -> None:
+def test_favorites_stay_enabled_and_offer_to_replace_the_countdown(stack: TimerUiStack, state: TimerStateEnum) -> None:
     if state is TimerStateEnum.RINGING:
         stack.run_to_ringing()
     else:
@@ -60,8 +59,8 @@ def test_favorites_are_disabled_outside_idle(stack: TimerUiStack, state: TimerSt
 
     buttons = [preset.button for preset in stack.presets_snapshot.presets]
 
-    assert {button.enabled for button in buttons} == {False}
-    assert {button.tooltip for button in buttons} == {"en:presets.tooltip.busy"}
+    assert {button.enabled for button in buttons} == {True}
+    assert buttons[0].tooltip == "en:presets.tooltip.replace(duration=00:15:00)"
 
 
 def test_context_menu_stays_available_while_the_timer_runs(stack: TimerUiStack) -> None:
@@ -89,6 +88,19 @@ def test_click_on_a_favorite_starts_its_countdown(stack: TimerUiStack) -> None:
     stack.scheduler.run_pending()
     assert stack.timer_renders[-1].digits == "00:15:00"
     assert stack.preset_renders[-1].presets[0].button.enabled is False
+    stack.scheduler.advance(100)
+    stack.scheduler.run_pending()
+    assert stack.preset_renders[-1].presets[0].button.enabled is True
+
+
+def test_click_on_a_favorite_replaces_the_running_countdown(stack: TimerUiStack) -> None:
+    stack.click(ActionIdEnum.TIMER_START)
+    stack.advance(seconds=30)
+
+    stack.preset_action(ActionIdEnum.PRESET_APPLY, "preset-45")
+
+    assert stack.engine.session.state is TimerStateEnum.RUNNING
+    assert stack.snapshot.digits == "00:45:00"
 
 
 def test_favorites_render_on_transitions_not_on_every_second(stack: TimerUiStack) -> None:
@@ -200,9 +212,7 @@ def test_changes_request_a_render(stack: TimerUiStack) -> None:
 
 
 def test_failed_apply_is_logged(stack: TimerUiStack, caplog: pytest.LogCaptureFixture) -> None:
-    stack.commands.start()
+    stack.preset_action(ActionIdEnum.PRESET_APPLY, "gone")
 
-    stack.preset_action(ActionIdEnum.PRESET_APPLY, "preset-15")
-
-    assert "Favorite action PRESET_APPLY failed: ['TIMER_TRANSITION_INVALID']" in caplog.text
-    assert ErrorCodeEnum.TIMER_TRANSITION_INVALID.value == 4006
+    assert "Favorite action PRESET_APPLY failed: ['ENTITY_NOT_FOUND']" in caplog.text
+    assert stack.engine.session.state is TimerStateEnum.IDLE

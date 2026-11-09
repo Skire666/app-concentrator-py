@@ -235,7 +235,7 @@
   "presets.title": "Favoris",
   "presets.empty": "Aucun favori pour l'instant.",
   "presets.tooltip.start": "Lancer un décompte de {duration}",
-  "presets.tooltip.busy": "Réinitialisez le minuteur pour utiliser un favori",
+  "presets.tooltip.replace": "Remplacer le décompte en cours par {duration}",
   "presets.delete.title": "Supprimer le favori",
   "presets.delete.message": "Supprimer le favori « {label} » ?",
   "presets.delete.accept": "Supprimer",
