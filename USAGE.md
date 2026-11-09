@@ -1,8 +1,8 @@
 # Using Concentrator
 
 Concentrator keeps your settings in a data file you choose, and its countdown timer rings with an MP3
-alarm, even when the window is in the background. Timer favorites, the hourly chime, the TODO lists and
-the focus queue arrive in the next phases.
+alarm, even when the window is in the background. Favorites start the timer in one click, and an
+hourly chime can mark each full hour. The TODO lists and the focus queue arrive in the next phases.
 
 ## Starting
 
@@ -143,13 +143,57 @@ three buttons that change with the state.
 - If a chosen MP3 file is moved or deleted, the alarm plays the default sound instead (and the log
   says so); if no sound can be played at all, Windows beeps. The dialog shows the missing file under
   **Sound**, and you can still save the other settings.
+- The built-in sounds are **Alarm** (the default), **Beep**, **Chime**, **Notification** and **Soft
+  tone**. A data file that names a built-in sound of an older version plays the default sound until
+  you choose another one.
+
+## Favorites
+
+The **Favorites** block, in the lower part of zone 2, shows one button per saved duration (15, 30 and
+45 minutes in a new data file), then **Add...**. The buttons wrap onto several lines when zone 2 is
+narrow.
+
+- **One click starts the timer**: the favorite's duration becomes the timer duration (kept for the
+  next starts too) and the countdown starts. The buttons are disabled while the timer runs, is paused
+  or rings; their tooltip then says **Reset the timer to use a favorite**.
+- A favorite shows its label, or its duration when the label is empty (`15 min`, `1 h 30`,
+  `1 min 30 s`).
+- **Add...** opens a dialog with an empty label and the current timer duration: type a label if you
+  want one (at most 40 characters, `max_preset_label_length` in `concentrator.ini`), set the duration
+  and **Save**. Two favorites cannot have the same duration. **Add...** is disabled once you have 12
+  favorites (`max_presets`).
+- **Right-click a favorite** (also while the timer runs) for **Edit...**, **Move earlier**, **Move
+  later** and **Delete...** (after a confirmation).
+- As in the timer dialog, errors show under the field while you type, and **Cancel**, Escape or the
+  close button close the dialog without asking.
+- If you delete every favorite, none comes back by itself; the 15/30/45 favorites are created only in
+  a data file that has no favorites section at all.
+
+## Hourly chime
+
+The **Special options** block, at the bottom of zone 2, holds **Chime every hour**, the active hours
+(`08:00 – 20:00` by default) and a **...** button.
+
+- When **Chime every hour** is checked, a short sound plays once at each full hour (`09:00`,
+  `10:00`...) between the first and the last chime, both included. Choose 00:00 and 23:00 to chime all
+  day.
+- **...** opens the chime settings: **Sound** (a built-in sound or **Choose an MP3 file...**), **Volume**
+  with **Preview**, **First chime at** and **Last chime at**. The last chime cannot come before the
+  first one.
+- The chime plays only if Concentrator notices the new hour within its first minute
+  (`trigger_window_seconds` in `concentrator.ini`, `[chime]`): an hour missed while the PC slept is
+  not chimed late, and when the clocks go back in autumn the repeated hour does not chime twice.
+- While the timer rings, the chime of that hour is skipped, so it never covers or cuts the alarm. A
+  chime already playing when the alarm starts finishes on its own.
+- A chime sound that cannot be found falls back to the built-in **Chime**, then to the Windows beep.
 
 ## The window
 
 - **Module bar** (left, full height): **Focus**, **Journal** and **Settings** switch the page. The
   button of the visible page is highlighted.
-- **Focus** page: zone 1 (TODO lists, left) and zone 2 (the timer; the focus queue and favorites
-  later), separated by a splitter you can drag. Zone 1 shows a "coming soon" text for now.
+- **Focus** page: zone 1 (TODO lists, left) and zone 2, separated by a splitter you can drag. Zone 2
+  shows, from top to bottom, the timer, room for the focus queue (later), the favorites and the special
+  options. Zone 1 shows a "coming soon" text for now.
 - **Journal** and **Settings** pages: "coming soon" texts for now.
 - **Status bar** (bottom, one line): the save state on the left, the language button on the right.
   The button shows the current language (`ENG` or `FRA`); click it to switch every text between
@@ -166,7 +210,7 @@ three buttons that change with the state.
 
 | File | Location | Content |
 |---|---|---|
-| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings and timer (`[timer]`) now, timer favorites, lists and tasks later. A file written before the timer existed gets its `[timer]` section from `concentrator.ini` at the next start. |
+| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings, timer (`[timer]`), favorites (`[[timer_presets]]`, or `timer_presets = []` when you deleted them all) and hourly chime (`[hourly_chime]`) now, lists and tasks later. A file written by an older version gets the missing sections from `concentrator.ini` at the next start. |
 | `concentrator.toml.bak` | next to the data file | The version before the last save. |
 | `concentrator.toml.tmp` | next to the data file | Only while saving, or after an interrupted save. |
 | `*.corrupt-*`, `*.tmp.discarded-*`, `*.bak.discarded-*` | next to the data file | Files put aside by the recovery dialog; delete them when you no longer need them. |

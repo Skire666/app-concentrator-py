@@ -456,8 +456,8 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
 - Validation runs on every change through the domain `*Rules`; inline errors appear under the field
   (`FieldErrorSnapshot(field, message)`) with an `invalid` dynamic property for styling.
 - Closing a dirty form asks for confirmation through `DialogPort`, except where the owner decided
-  otherwise: the timer edit dialog closes on Cancel, Escape or its close button without asking
-  (ADR-038).
+  otherwise: the timer, favorite and hourly chime dialogs close on Cancel, Escape or their close
+  button without asking (ADR-038, ADR-039).
 
 ### 8.5 Window / panel / widget
 

@@ -199,7 +199,9 @@ Added by ADR-038: `min_auto_stop_seconds = 5`. Removed at the review (ADR-038):
 `assets/sounds/alarm-classic.mp3`, `assets/sounds/alarm-soft.mp3` (CC0 or your own recordings),
 `assets/icons/concentrator.ico` if the placeholder is not kept. The agent cannot download them.
 Amended (ADR-038): five sounds `alarm-<author>-<title>.mp3` were provided, with a license confirmed by
-the owner; `timer.default_sound = alarm-lesiakower-reverby-notification-sound`.
+the owner; `timer.default_sound = alarm-lesiakower-reverby-notification-sound`. Amended in phase 3
+(ADR-039): the owner renamed the sounds `alarm`, `beep`, `chime`, `notification` and `soft`;
+`timer.default_sound = alarm`.
 
 ## Tests
 

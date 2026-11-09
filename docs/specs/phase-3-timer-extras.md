@@ -13,18 +13,24 @@ Zone 2 final order (top to bottom): timer, focus queue (phase 7), favorites, spe
 ## Favorites
 
 - `TimerPreset` entity: `id`, `created_at`, `updated_at`, `label` (optional, max 40 chars; empty =
-  auto label "15 min" / "1 h 30"), `duration`, `position`.
+  auto label "15 min" / "1 h 30"), `duration`, `position`. Amended (ADR-039): the maximum is the ini
+  key `timer.max_preset_label_length`; the label is trimmed and kept on one line.
 - `TimerPresetsCollection`: ordered by `position`; at most `timer.max_presets`; durations unique
-  (`PRESET_DURATION_DUPLICATE`); `next_position()`, `moved(preset_id, offset)`.
+  (`PRESET_DURATION_DUPLICATE`); `next_position()`, `moved(preset_id, offset)`. Amended (ADR-039):
+  `ordered()` gives the display order and `moved(preset_id, offset, now)` renumbers the positions.
 - Seed: when the file has no `timer_presets` section, create one preset per value of
-  `timer.default_presets_minutes`.
+  `timer.default_presets_minutes`. `timer_presets = []` (every favorite deleted) is not seeded.
 - UI: a wrapping grid of buttons, one per preset, plus an "Add" button. Context menu on a preset:
   Edit, Move earlier, Move later, Delete (confirmation).
 - Click on a preset: if the timer is IDLE, set the configured duration to the preset and start in the
   same action (one click). In any other state the preset buttons are disabled, tooltip "Reset the
   timer to use a favorite".
 - `PresetEditDialog`: label, duration (hours, minutes, seconds), real-time validation, `is_dirty`.
+  Amended (ADR-039): "Add..." proposes an empty label and the timer duration, and Save is enabled as
+  soon as the draft is valid; Cancel, Escape and the close button close without asking.
 - Uses the nine generic operations through `TimerPresetReaderPort` / `TimerPresetWriterPort`.
+  Amended (ADR-039): the reader port is typed with `TimerPresetsCollection` and composes the
+  generic store reader.
 
 ## Hourly chime
 
@@ -35,9 +41,12 @@ Zone 2 final order (top to bottom): timer, focus queue (phase 7), favorites, spe
   first `chime.trigger_window_seconds` of the hour and this (date, hour) has not chimed yet. An hour
   missed during sleep or a busy period is not chimed late.
 - Never chimes while the timer is RINGING; uses its own player instance (`chime`) so it never cuts
-  an alarm; plays once.
+  an alarm; plays once. Amended (ADR-039): an hour that starts while the timer rings is skipped,
+  even if the alarm stops within the window; a chime sound that cannot be found falls back to
+  `chime.default_sound`, then to the system beep.
 - UI: checkbox "Chime every hour" and a "..." button opening `ChimeSettingsDialog` (sound, volume,
-  preview, active hours). Phase 4 exposes the same fields in the settings page.
+  preview, active hours). Phase 4 exposes the same fields in the settings page. Amended (ADR-039):
+  the active hours are shown next to the check box; the dialog closes without asking.
 
 ## Deliverables
 
@@ -59,8 +68,9 @@ Zone 2 final order (top to bottom): timer, focus queue (phase 7), favorites, spe
 
 New `ActionIdEnum` values: `PRESET_APPLY`, `PRESET_ADD`, `PRESET_EDIT`, `PRESET_DELETE`,
 `PRESET_MOVE_EARLIER`, `PRESET_MOVE_LATER`, `PRESET_EDIT_SAVE`, `PRESET_EDIT_CANCEL`,
-`CHIME_TOGGLE`, `CHIME_EDIT`, `CHIME_EDIT_SAVE`, `CHIME_EDIT_CANCEL`, `CHIME_PREVIEW`.
-New `RenderSectionEnum` values: `PRESETS`, `PRESET_EDIT`, `SPECIAL_OPTIONS`, `CHIME_EDIT`.
+`CHIME_TOGGLE`, `CHIME_EDIT`, `CHIME_EDIT_SAVE`, `CHIME_EDIT_CANCEL`, `CHIME_PREVIEW` (values 29 to
+41), plus `CHIME_SOUND_CHOOSE_FILE` (42, ADR-039).
+New `RenderSectionEnum` values: `PRESETS`, `PRESET_EDIT`, `SPECIAL_OPTIONS`, `CHIME_EDIT` (8 to 11).
 
 `PresetsPresenter` subscribes to `TimerChangedEvent` so preset buttons follow the timer state.
 
@@ -102,7 +112,8 @@ default_end_hour = 20
 trigger_window_seconds = 59
 ```
 
-Asset to provide: `assets/sounds/chime.mp3`.
+Asset to provide: `assets/sounds/chime.mp3`. Amended (ADR-039): provided by the owner, with the
+other sounds renamed; added key `timer.max_preset_label_length = 40`.
 
 ## Error codes
 

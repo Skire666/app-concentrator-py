@@ -730,3 +730,74 @@ superseded.
   3. One commit for the review changes, across layers.
   The owner also added `assets/sounds/alarm-notification-alert.mp3` (labelled "Notification alert" /
   "Alerte de notification"; no author in its name).
+
+## ADR-039 — Phase 3 favorites and hourly chime decisions
+
+- Status: accepted, owner decisions at the phase 3 plan review (2026-11-09: "Suit tes
+  recommandations"); the items "decided during the build" are to be approved at the phase 3 review.
+- Context: the phase 3 spec leaves the chime sound, the close behaviour of the new dialogs, the draft
+  of a new favorite and the chime during an alarm open, and writes the label limit as a literal.
+- Owner decisions (2026-11-09):
+  1. **Renamed built-in sounds.** The owner replaced the phase 2 files with `alarm.mp3`, `beep.mp3`,
+     `chime.mp3`, `notification.mp3` and `soft.mp3` (same license, ADR-038). `timer.default_sound` is
+     `alarm` and `chime.default_sound` is `chime`; the catalogs label the new names. One list of
+     built-in sounds serves the alarm and the chime. A data file that still names an old built-in sound
+     plays the default sound (fallback chain of ADR-038) and the dialog shows "The sound file was not
+     found." under Sound.
+  2. **The favorite and chime dialogs close without asking**, like the timer dialog (Cancel, Escape and
+     the close button). This answers the open questions 1 and 2 of the phase 2 review; `AGENTS.md`
+     section 8.4 now names the three edit dialogs.
+  3. **"Add..." opens a draft** with an empty label and the duration of the timer; Save is enabled as
+     soon as the draft is valid, without a change. An existing favorite needs a change, as other forms.
+  4. **The context menu of a favorite** (Edit, Move earlier, Move later, Delete) is available in every
+     timer state; only the one-click start is disabled outside `IDLE`.
+  5. **An hour that starts while the timer rings is skipped** (INFO in the log), even if the alarm stops
+     within the trigger window; a chime already playing is not cut when the alarm starts.
+  6. **One click on a favorite sets the duration and starts** (spec review question 1), and the default
+     chime hours stay 08:00 to 20:00 (spec review question 2).
+  7. **`timer.max_preset_label_length`** (new ini key, 40) replaces the "40" written in the spec, and
+     the chime dialog has its own "Choose an MP3 file..." action (`CHIME_SOUND_CHOOSE_FILE`, 42).
+- Decided during the build (please approve):
+  1. **Favorite positions.** `TimerPresetsCollection.ordered()` gives the display order; the stored order
+     of the items is not used. `moved(preset_id, offset, now)` takes the change instant (the moved
+     favorites get a new `updated_at`) and renumbers the positions `0, 1, 2...`, so gaps left by deleted
+     favorites disappear at the next move. A move at an end is skipped. The file lists the favorites
+     in position order.
+  2. **Seeding.** A file without the `timer_presets` key gets the favorites of
+     `timer.default_presets_minutes`; `timer_presets = []` (every favorite deleted) stays empty.
+  3. **Strict limits on read**, as in phase 2: a file with more than `timer.max_presets` favorites, a
+     label longer than `timer.max_preset_label_length`, two favorites with the same duration or two
+     with the same id is invalid. Lowering a limit in the ini can therefore make a file invalid.
+  4. **`TimerLimits` carries the favorite limits** (`max_presets`, `max_preset_label_length`) next to the
+     duration range they share, instead of a separate limits class.
+  5. **`apply_and_start` goes through `TimerCommands.start_with_duration`**, which checks `IDLE` before
+     storing the duration, so a refused click leaves the configuration unchanged.
+  6. **`TimerPresetReaderPort` is typed with `TimerPresetsCollection`**: `DataResult` is invariant, so
+     the port cannot narrow `EntityReaderPort`; the store adapter composes the generic
+     `StoreCollectionReader`. The writer is the generic `StoreCollectionWriter`.
+  7. **`HourlyChime` holds `enabled` and `ChimeSettings`** (sound, volume, hours), like `TimerConfig` and
+     `TimerSettings`; the file keeps the flat layout of the spec. `ChimeQueries` falls back to the ini
+     defaults if the chime cannot be read; `ChimeDefaults` reads `[chime]`.
+  8. **Chime window.** The chime of `H` plays while the local time is at most
+     `chime.trigger_window_seconds` after `H:00:00`, once per local (date, hour); only the last handled
+     hour is remembered. When the clocks go back, the repeated hour has the same (date, hour) and does
+     not chime twice; when they go forward, the next existing hour chimes. Switching the chime on during
+     the window still chimes that hour. The service runs after the timer engine on the ticker, so a
+     countdown that ends at `H:00:00` rings before the chime is checked.
+  9. **Shared code.** The chosen-then-default sound chain (`sound_candidates`), the sound list
+     (`SoundChoices`), the sound check of a form (`SoundCheck`) and the file picker
+     (`pick_sound_file`) serve the alarm and the chime; `EditorDialogPort` replaces
+     `TimerEditDialogPort` for the three edit dialogs. The chime dialog shares the preview player.
+  10. **Context menu on a disabled favorite.** A disabled Qt button neither handles nor forwards its
+      context menu event, but its event filters see it: the favorites panel filters the events of its
+      buttons.
+  11. **Automatic labels** come from `duration.label.*` catalog keys: whole minutes read `15 min`,
+      `2 h` or `1 h 30`; a duration with seconds lists its parts (`1 min 30 s`).
+  12. **Details:** the favorite buttons re-render on timer transitions only, not every second; the
+      "Add..." button shows the limit message as tooltip when the favorites are full; the delete
+      question names the favorite; the special options show the active hours next to the check box;
+      `[chime]` is validated at startup (hours 0-23, start before end, window 1-3599 s), and
+      `default_presets_minutes` must be unique, within the duration range and at most `max_presets`.
+- Consequences: the self-check also requires the default chime sound and round-trips every section;
+  later phases add sections the same way (`UserDataDefaults.complete`). The settings page of phase 4
+  reuses `ChimeSettingsForm`.
