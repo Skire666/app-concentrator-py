@@ -141,7 +141,7 @@ def _presets(
         event_bus=core.event_bus,
         limits=limits,
     )
-    editor = PresetEditPresenter(translator, core.gate, core.renderer, queries, timer.queries, commands)
+    editor = PresetEditPresenter(translator, core.gate, core.renderer, queries, commands)
     presenter = PresetsPresenter(
         translator, core.gate, core.renderer, queries=queries, timer=timer.queries, commands=commands, editor=editor
     )

@@ -150,14 +150,17 @@ def test_no_favorite_shows_the_empty_text(stack: TimerUiStack) -> None:
     assert (snapshot.presets, snapshot.empty_text) == ((), "en:presets.empty")
 
 
-def test_add_opens_the_dialog_on_a_new_favorite_with_the_timer_duration(stack: TimerUiStack) -> None:
+def test_add_opens_the_dialog_on_an_empty_favorite(stack: TimerUiStack) -> None:
+    stack.preset_action(ActionIdEnum.PRESET_APPLY, "preset-15")
     stack.preset_action(ActionIdEnum.PRESET_ADD)
 
     assert stack.preset_window.shows == 1
     snapshot = stack.preset_editor.build_snapshot()
     assert snapshot.title == "en:preset.edit.title.new"
-    assert (snapshot.duration.minutes, snapshot.label.text) == (25, "")
-    assert snapshot.save.enabled is True
+    duration = snapshot.duration
+    assert (duration.hours, duration.minutes, duration.seconds, snapshot.label.text) == (0, 0, 0, "")
+    assert (duration.error, snapshot.label.error, snapshot.label.placeholder) == ("", "", "")
+    assert snapshot.save.enabled is False
 
 
 def test_edit_opens_the_dialog_on_the_favorite(stack: TimerUiStack) -> None:

@@ -221,6 +221,7 @@ def test_favorite_dialog_adds_what_the_user_typed(qtbot: QtBot) -> None:
 
     def act() -> None:
         QTest.keyClicks(panel.label_input, "Pomodoro")
+        panel.duration_input.spin_boxes[1].setValue(25)
         stack.scheduler.run_pending()
         stack.scheduler.advance(100)
         panel.save_button.click()

@@ -127,7 +127,7 @@ class ShellHarness:
         timer, gate, renderer = self.timer, self.stack.gate, self.stack.renderer
         self.preset_window = FakeEditorDialog()
         self.preset_editor = PresetEditPresenter(
-            self.translator, gate, renderer, timer.preset_queries, timer.queries, timer.preset_commands
+            self.translator, gate, renderer, timer.preset_queries, timer.preset_commands
         )
         self.preset_editor.attach(self.preset_window)
         self.presets = PresetsPresenter(

@@ -7,9 +7,8 @@ from typing import Final
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.timer.preset_commands import PresetCommands
 from concentrator.application.timer.preset_queries import PresetQueries
-from concentrator.application.timer.timer_queries import TimerQueries
 from concentrator.domain.common.validation_result import ValidationResult
-from concentrator.domain.timer.duration import SECONDS_PER_HOUR
+from concentrator.domain.timer.duration import SECONDS_PER_HOUR, Duration
 from concentrator.domain.timer.timer_config_rules import DURATION_FIELD
 from concentrator.domain.timer.timer_preset_rules import LABEL_FIELD
 from concentrator.presentation.common.action_button import action_button
@@ -27,7 +26,7 @@ from concentrator.presentation.timer.timer_edit_snapshot import DurationInputSna
 _logger = logging.getLogger(__name__)
 
 _NOT_ATTACHED: Final = "PresetEditPresenter.attach() was not called"
-NEW_PRESET_LABEL: Final = ""
+NEW_PRESET: Final = PresetDraft(label="", duration=Duration(0))
 
 
 class PresetEditPresenter:
@@ -42,7 +41,6 @@ class PresetEditPresenter:
         gate: ActionGate,
         renderer: RenderCoordinator,
         queries: PresetQueries,
-        timer: TimerQueries,
         commands: PresetCommands,
     ) -> None:
         """Create the presenter; the dialog comes with ``attach``.
@@ -52,7 +50,6 @@ class PresetEditPresenter:
             gate: Runs every user action.
             renderer: Receives the render requests.
             queries: Favorites and their limits.
-            timer: Duration of the timer (proposed for a new favorite).
             commands: Stores the favorite.
         """
         self._translator = translator
@@ -61,7 +58,6 @@ class PresetEditPresenter:
         self._gate = gate
         self._renderer = renderer
         self._queries = queries
-        self._timer = timer
         self._commands = commands
         self._window: EditorDialogPort | None = None
         self._form: PresetEditForm | None = None
@@ -79,13 +75,12 @@ class PresetEditPresenter:
         self._window = window
 
     def open_new(self) -> ValidationResult:
-        """Add a favorite: empty label, duration of the timer (``PRESET_ADD``).
+        """Add a favorite: empty label, duration 00:00:00 (``PRESET_ADD``, owner decision at the review).
 
         Returns:
             Success once the dialog closed.
         """
-        draft = PresetDraft(label=NEW_PRESET_LABEL, duration=self._timer.settings().duration)
-        return self._open(draft, preset_id="")
+        return self._open(NEW_PRESET, preset_id="")
 
     def open_edit(self, preset_id: str) -> ValidationResult:
         """Edit a favorite (``PRESET_EDIT``).
@@ -114,7 +109,7 @@ class PresetEditPresenter:
             label=LabelInputSnapshot(
                 label=tr("preset.edit.label"),
                 text=form.draft.label,
-                placeholder=tr("preset.edit.label_placeholder", label=self._labels.label(form.draft.duration)),
+                placeholder=self._placeholder(form),
                 error=self._error(form, LABEL_FIELD),
             ),
             duration=self._duration_input(form),
@@ -225,6 +220,20 @@ class PresetEditPresenter:
             error=self._error(form, DURATION_FIELD),
         )
 
+    def _placeholder(self, form: PresetEditForm) -> str:
+        """Return the automatic label shown in the empty label field.
+
+        Args:
+            form: Current form.
+
+        Returns:
+            "Automatic: 25 min", ``""`` while the duration is 00:00:00.
+        """
+        duration = form.draft.duration
+        if not duration.seconds:
+            return ""
+        return self._translator.tr("preset.edit.label_placeholder", label=self._labels.label(duration))
+
     def _error(self, form: PresetEditForm, field: str) -> str:
         """Return the inline message of a field.
 
@@ -233,9 +242,9 @@ class PresetEditPresenter:
             field: Field path of the rules.
 
         Returns:
-            The first message, ``""`` when the field is valid.
+            The first message, ``""`` when the field is valid or the errors are not shown yet.
         """
-        issues = form.errors.issues_for(field)
+        issues = form.errors.issues_for(field) if form.shows_errors else ()
         return self._texts.issue_message(issues[0]) if issues else ""
 
     def _current_form(self) -> PresetEditForm:
@@ -245,9 +254,8 @@ class PresetEditPresenter:
             The form.
         """
         if self._form is None:
-            draft = PresetDraft(label=NEW_PRESET_LABEL, duration=self._timer.settings().duration)
             self._form = PresetEditForm(
-                draft, limits=self._queries.limits, presets=self._queries.presets(), preset_id=""
+                NEW_PRESET, limits=self._queries.limits, presets=self._queries.presets(), preset_id=""
             )
         return self._form
 

@@ -14,13 +14,26 @@ def stack() -> TimerUiStack:
     return TimerUiStack()
 
 
-def test_new_favorite_form_can_be_saved_when_valid_without_change() -> None:
+def test_new_favorite_form_starts_empty_and_hides_its_errors_until_a_change() -> None:
     form = PresetEditForm(
-        PresetDraft(label="", duration=Duration(1500)), limits=LIMITS, presets=make_presets(), preset_id=""
+        PresetDraft(label="", duration=Duration(0)), limits=LIMITS, presets=make_presets(), preset_id=""
     )
 
     assert form.is_new
+    assert form.errors.is_failure
+    assert not form.shows_errors
+    assert not form.can_submit
+    form.set_duration(0, 25, 0)
+    assert form.shows_errors
     assert form.can_submit
+
+
+def test_existing_favorite_form_always_shows_its_errors() -> None:
+    form = PresetEditForm(
+        PresetDraft(label="", duration=Duration(900)), limits=LIMITS, presets=make_presets(), preset_id="preset-15"
+    )
+
+    assert form.shows_errors
 
 
 def test_existing_favorite_form_needs_a_change() -> None:
@@ -58,6 +71,7 @@ def test_label_length_is_checked_after_trimming() -> None:
 def test_saving_a_new_favorite_adds_it_and_closes(stack: TimerUiStack) -> None:
     def edit() -> None:
         stack.preset_editor.on_label_changed(" Pomodoro ")
+        stack.preset_editor.on_duration_changed(0, 25, 0)
         stack.preset_edit(ActionIdEnum.PRESET_EDIT_SAVE)
 
     stack.preset_window.while_open = edit
@@ -121,6 +135,7 @@ def test_cancel_closes_without_saving_or_asking(stack: TimerUiStack) -> None:
 
 def test_save_failure_keeps_the_dialog_open(stack: TimerUiStack, caplog: pytest.LogCaptureFixture) -> None:
     def edit() -> None:
+        stack.preset_editor.on_duration_changed(2, 0, 0)
         stack.presets.presets = make_presets(*range(1, LIMITS.max_presets + 1))
         stack.preset_edit(ActionIdEnum.PRESET_EDIT_SAVE)
 
@@ -137,7 +152,10 @@ def test_editing_an_unknown_favorite_opens_nothing(stack: TimerUiStack) -> None:
 
 
 def test_snapshot_before_any_opening_describes_a_new_favorite(stack: TimerUiStack) -> None:
-    assert stack.preset_editor.build_snapshot().title == "en:preset.edit.title.new"
+    snapshot = stack.preset_editor.build_snapshot()
+
+    assert snapshot.title == "en:preset.edit.title.new"
+    assert snapshot.duration.minutes == 0
 
 
 def test_unhandled_dialog_action_is_logged(stack: TimerUiStack, caplog: pytest.LogCaptureFixture) -> None:

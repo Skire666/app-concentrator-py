@@ -27,7 +27,8 @@ class PresetDraft:
 class PresetEditForm:
     """``FormState`` over ``PresetDraft``: label length, duration range and unique duration.
 
-    A new favorite can be saved as soon as its draft is valid; an existing one only once it changed.
+    A new favorite starts empty (no label, 00:00:00) and can be saved as soon as its draft is valid; its
+    inline errors show only after the first change. An existing favorite can be saved once it changed.
     """
 
     def __init__(
@@ -65,6 +66,11 @@ class PresetEditForm:
     def errors(self) -> ValidationResult:
         """Validation of the draft."""
         return self._state.errors
+
+    @property
+    def shows_errors(self) -> bool:
+        """Whether the inline errors are shown: always, except on a new favorite not changed yet."""
+        return not self.is_new or self._state.is_dirty
 
     @property
     def can_submit(self) -> bool:

@@ -99,7 +99,7 @@ class TimerUiStack(TimerStack):
         """Favorites, favorite dialog, special options and chime dialog, with recorded renders."""
         self.preset_window = FakeEditorDialog()
         self.preset_editor = PresetEditPresenter(
-            self.translator, self.gate, self.renderer, self.preset_queries, self.queries, self.preset_commands
+            self.translator, self.gate, self.renderer, self.preset_queries, self.preset_commands
         )
         self.preset_editor.attach(self.preset_window)
         self.presets_presenter = PresetsPresenter(
