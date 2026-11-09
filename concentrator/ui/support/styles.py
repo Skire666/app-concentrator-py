@@ -18,6 +18,10 @@ FIELD_ERROR_STYLE: Final = """
 QLabel { font-weight: bold; }
 """
 
+SECTION_TITLE_STYLE: Final = """
+QLabel { font-weight: bold; }
+"""
+
 INVALID_INPUT_STYLE: Final = """
 *[invalid="true"] { border: 2px solid palette(highlight); border-radius: 3px; }
 """

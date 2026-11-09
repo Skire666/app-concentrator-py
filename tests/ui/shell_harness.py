@@ -1,6 +1,11 @@
 """A real ``MainWindow`` wired to the real presenters, with fake ports."""
 
-from concentrator.application.timer.timer_events import TimerChangedEvent, TimerConfigChangedEvent
+from concentrator.application.timer.timer_events import (
+    HourlyChimeChangedEvent,
+    TimerChangedEvent,
+    TimerConfigChangedEvent,
+    TimerPresetsChangedEvent,
+)
 from concentrator.domain.timer.timer_state_enum import TimerStateEnum
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
@@ -12,6 +17,10 @@ from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
 from concentrator.presentation.storage.save_status_texts import SaveStatusTexts
 from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
+from concentrator.presentation.timer.chime_presenter import ChimePresenter
+from concentrator.presentation.timer.chime_settings_presenter import ChimeSettingsPresenter
+from concentrator.presentation.timer.preset_edit_presenter import PresetEditPresenter
+from concentrator.presentation.timer.presets_presenter import PresetsPresenter
 from concentrator.presentation.timer.timer_edit_presenter import TimerEditPresenter
 from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.presentation.timer.timer_presenter import TimerPresenter
@@ -92,10 +101,16 @@ class ShellHarness:
         self.timer.bus.subscribe(TimerChangedEvent, self.timer_presenter.on_timer_changed)
         self.timer.bus.subscribe(TimerConfigChangedEvent, self.timer_presenter.on_config_changed)
         self.timer.bus.subscribe(TimerChangedEvent, self.presenter.on_timer_changed)
+        self._build_timer_extras()
         paths = AppPaths.from_runtime()
         self.window = MainWindow(
             presenters=MainWindowPresenters(
-                shell=self.presenter, status_bar=self.status_bar, shutdown=self.shutdown, timer=self.timer_presenter
+                shell=self.presenter,
+                status_bar=self.status_bar,
+                shutdown=self.shutdown,
+                timer=self.timer_presenter,
+                presets=self.presets,
+                chime=self.chime,
             ),
             renderer=self.stack.renderer,
             layout_keeper=LayoutStateKeeper(self.preferences),
@@ -106,6 +121,42 @@ class ShellHarness:
         )
         self.stack.renderer.request_all()
         self.stack.renderer.flush()
+
+    def _build_timer_extras(self) -> None:
+        """Favorites and special options presenters on the timer stack, as bootstrap wires them."""
+        timer, gate, renderer = self.timer, self.stack.gate, self.stack.renderer
+        self.preset_window = FakeEditorDialog()
+        self.preset_editor = PresetEditPresenter(
+            self.translator, gate, renderer, timer.preset_queries, timer.queries, timer.preset_commands
+        )
+        self.preset_editor.attach(self.preset_window)
+        self.presets = PresetsPresenter(
+            self.translator,
+            gate,
+            renderer,
+            queries=timer.preset_queries,
+            timer=timer.queries,
+            commands=timer.preset_commands,
+            editor=self.preset_editor,
+        )
+        self.presets.attach(self.stack.dialogs)
+        self.chime_window = FakeEditorDialog()
+        self.chime_editor = ChimeSettingsPresenter(
+            self.translator,
+            gate,
+            renderer,
+            queries=timer.chime_queries,
+            commands=timer.chime_commands,
+            sounds=timer.queries,
+            preview=timer.preview,
+        )
+        self.chime_editor.attach(self.chime_window, self.stack.dialogs)
+        self.chime = ChimePresenter(
+            self.translator, gate, renderer, timer.chime_queries, timer.chime_commands, self.chime_editor.open
+        )
+        timer.bus.subscribe(TimerChangedEvent, self.presets.on_timer_changed)
+        timer.bus.subscribe(TimerPresetsChangedEvent, self.presets.on_presets_changed)
+        timer.bus.subscribe(HourlyChimeChangedEvent, self.chime.on_chime_changed)
 
     def turn(self) -> None:
         self.scheduler.run_pending()

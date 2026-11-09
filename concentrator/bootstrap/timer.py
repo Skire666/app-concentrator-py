@@ -34,8 +34,10 @@ class TimerServices:
     Attributes:
         engine: Runtime countdown (registered on the ticker).
         queries: Read use cases.
+        commands: Write use cases.
         catalog: Built-in sounds and sound files.
         alarm_player: Player of the alarm.
+        preview: Plays a sound once from an edit dialog.
         defaults: Timer values of ``concentrator.ini``.
         editor: Edit dialog presenter (its dialog is attached with the main window).
         presenter: Timer panel presenter.
@@ -43,8 +45,10 @@ class TimerServices:
 
     engine: TimerEngine
     queries: TimerQueries
+    commands: TimerCommands
     catalog: BuiltinSoundCatalog
     alarm_player: QtSoundPlayer
+    preview: SoundPreview
     defaults: TimerDefaults
     editor: TimerEditPresenter
     presenter: TimerPresenter
@@ -94,14 +98,15 @@ def build_timer(
     preview_player = QtSoundPlayer("preview", app)
     queries = TimerQueries(engine, StoreTimerConfigReader(storage.store), catalog, preview_player, defaults.snooze)
     commands = _commands(engine, core, storage)
-    editor = TimerEditPresenter(
-        translator, core.gate, core.renderer, queries, commands, SoundPreview(preview_player, catalog), defaults.limits
-    )
+    preview = SoundPreview(preview_player, catalog)
+    editor = TimerEditPresenter(translator, core.gate, core.renderer, queries, commands, preview, defaults.limits)
     return TimerServices(
         engine=engine,
         queries=queries,
+        commands=commands,
         catalog=catalog,
         alarm_player=QtSoundPlayer("alarm", app),
+        preview=preview,
         defaults=defaults,
         editor=editor,
         presenter=_presenter(config, translator, core, (queries, commands, editor)),

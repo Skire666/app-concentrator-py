@@ -1,4 +1,4 @@
-"""Menu A page: zone 1 (TODO manager, phase 5) and zone 2 (timer; focus queue and favorites later)."""
+"""Menu A page: zone 1 (TODO manager, phase 5) and zone 2 (timer, focus queue later, favorites, options)."""
 
 from typing import Final
 
@@ -7,6 +7,8 @@ from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
 from concentrator.presentation.shell.shell_snapshot import ShellSnapshot
 from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.ui.panels.presets_panel import PresetsPanel
+from concentrator.ui.panels.special_options_panel import SpecialOptionsPanel
 from concentrator.ui.panels.timer_panel import TimerPanel
 from concentrator.ui.widgets.placeholder_widget import PlaceholderWidget
 
@@ -14,14 +16,17 @@ _PERCENT: Final = 100
 
 
 class FocusPage(QWidget):
-    """Zone 1 and zone 2 in a horizontal splitter; zone 2 stacks its panels from the top."""
+    """Zone 1 and zone 2 in a horizontal splitter.
+
+    Zone 2, top to bottom: timer, the room of the focus queue (phase 7), favorites, special options.
+    """
 
     def __init__(self, zone1_ratio_percent: int, timer_layout: TimerLayout, parent: QWidget | None = None) -> None:
         """Build the page.
 
         Args:
             zone1_ratio_percent: Initial share of zone 1 (``ui.zone1_ratio_percent``).
-            timer_layout: Font of the timer digits.
+            timer_layout: Font of the timer digits and spacing of the favorites.
             parent: Parent widget.
         """
         super().__init__(parent)
@@ -31,9 +36,14 @@ class FocusPage(QWidget):
         self._zone1 = PlaceholderWidget(self._splitter)
         zone2 = QWidget(self._splitter)
         self._timer = TimerPanel(timer_layout, zone2)
+        self._presets = PresetsPanel(timer_layout, zone2)
+        self._options = SpecialOptionsPanel(zone2)
         stack = QVBoxLayout(zone2)
+        stack.setSpacing(timer_layout.spacing_px)
         stack.addWidget(self._timer)
         stack.addStretch(1)
+        stack.addWidget(self._presets)
+        stack.addWidget(self._options)
         self._splitter.addWidget(self._zone1)
         self._splitter.addWidget(zone2)
         self._splitter.setStretchFactor(0, zone1_ratio_percent)
@@ -52,6 +62,16 @@ class FocusPage(QWidget):
     def timer_panel(self) -> TimerPanel:
         """Timer at the top of zone 2."""
         return self._timer
+
+    @property
+    def presets_panel(self) -> PresetsPanel:
+        """Favorites, below the room of the focus queue."""
+        return self._presets
+
+    @property
+    def special_options_panel(self) -> SpecialOptionsPanel:
+        """Special options at the bottom of zone 2."""
+        return self._options
 
     def render_snapshot(self, snapshot: ShellSnapshot) -> None:
         """Show the zone 1 placeholder.

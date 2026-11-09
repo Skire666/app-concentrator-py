@@ -17,6 +17,8 @@ from concentrator.presentation.shell.shell_layout import ShellLayout
 from concentrator.presentation.shell.shell_snapshot import ShellSnapshot
 from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.ui.panels.module_bar_panel import ModuleBarPanel
+from concentrator.ui.panels.presets_panel import PresetsPanel
+from concentrator.ui.panels.special_options_panel import SpecialOptionsPanel
 from concentrator.ui.panels.status_bar_panel import StatusBarPanel
 from concentrator.ui.panels.timer_panel import TimerPanel
 from concentrator.ui.support.icon_loader import IconLoader
@@ -89,6 +91,16 @@ class MainWindow(QWidget):
         return self._focus_page.timer_panel
 
     @property
+    def presets_panel(self) -> PresetsPanel:
+        """Favorites of zone 2."""
+        return self._focus_page.presets_panel
+
+    @property
+    def special_options_panel(self) -> SpecialOptionsPanel:
+        """Special options of zone 2."""
+        return self._focus_page.special_options_panel
+
+    @property
     def current_page_index(self) -> int:
         """Index of the visible page."""
         return self._pages.currentIndex()
@@ -150,6 +162,23 @@ class MainWindow(QWidget):
         renderer.register(RenderSectionEnum.SHELL, shell.build_shell_snapshot, self.render_shell)
         renderer.register(RenderSectionEnum.STATUS_BAR, status_bar.build_snapshot, self._status_bar.render_snapshot)
         renderer.register(RenderSectionEnum.TIMER, timer.build_snapshot, self.timer_panel.render_snapshot)
+        self._wire_timer_extras(presenters, renderer)
+
+    def _wire_timer_extras(self, presenters: MainWindowPresenters, renderer: RenderCoordinator) -> None:
+        """Connect the favorites and the special options and register their render sections.
+
+        Args:
+            presenters: Presenters of the panels.
+            renderer: Render coordinator.
+        """
+        presets, chime = presenters.presets, presenters.chime
+        self.presets_panel.action_requested.connect(presets.on_action_requested)
+        self.presets_panel.preset_action_requested.connect(presets.on_preset_action_requested)
+        self.special_options_panel.action_requested.connect(chime.on_action_requested)
+        renderer.register(RenderSectionEnum.PRESETS, presets.build_snapshot, self.presets_panel.render_snapshot)
+        renderer.register(
+            RenderSectionEnum.SPECIAL_OPTIONS, chime.build_snapshot, self.special_options_panel.render_snapshot
+        )
 
     def _build_layout(self) -> None:
         """``QHBoxLayout[module bar, QVBoxLayout[pages, status bar]]``."""

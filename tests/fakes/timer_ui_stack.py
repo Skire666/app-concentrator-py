@@ -93,9 +93,9 @@ class TimerUiStack(TimerStack):
             self.renderer.register(RenderSectionEnum.TIMER_EDIT, self.editor.build_snapshot, self.edit_renders.append)
         self.bus.subscribe(TimerChangedEvent, self.presenter.on_timer_changed)
         self.bus.subscribe(TimerConfigChangedEvent, self.presenter.on_config_changed)
-        self._build_extra_presenters()
+        self._build_extra_presenters(register_editors=register_editor)
 
-    def _build_extra_presenters(self) -> None:
+    def _build_extra_presenters(self, *, register_editors: bool) -> None:
         """Favorites, favorite dialog, special options and chime dialog, with recorded renders."""
         self.preset_window = FakeEditorDialog()
         self.preset_editor = PresetEditPresenter(
@@ -132,9 +132,10 @@ class TimerUiStack(TimerStack):
         self.chime_edit_renders: list[ChimeSettingsSnapshot] = []
         register = self.renderer.register
         register(RenderSectionEnum.PRESETS, self.presets_presenter.build_snapshot, self.preset_renders.append)
-        register(RenderSectionEnum.PRESET_EDIT, self.preset_editor.build_snapshot, self.preset_edit_renders.append)
         register(RenderSectionEnum.SPECIAL_OPTIONS, self.chime_presenter.build_snapshot, self.options_renders.append)
-        register(RenderSectionEnum.CHIME_EDIT, self.chime_editor.build_snapshot, self.chime_edit_renders.append)
+        if register_editors:
+            register(RenderSectionEnum.PRESET_EDIT, self.preset_editor.build_snapshot, self.preset_edit_renders.append)
+            register(RenderSectionEnum.CHIME_EDIT, self.chime_editor.build_snapshot, self.chime_edit_renders.append)
         self.bus.subscribe(TimerChangedEvent, self.presets_presenter.on_timer_changed)
         self.bus.subscribe(TimerPresetsChangedEvent, self.presets_presenter.on_presets_changed)
         self.bus.subscribe(HourlyChimeChangedEvent, self.chime_presenter.on_chime_changed)

@@ -16,6 +16,7 @@ from concentrator.bootstrap.core import Core
 from concentrator.bootstrap.runtime import ForwardingErrorReporter
 from concentrator.bootstrap.storage import Storage
 from concentrator.bootstrap.timer import TimerServices, build_timer, connect_alarm
+from concentrator.bootstrap.timer_extras import TimerExtras, build_timer_extras
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
@@ -32,7 +33,9 @@ from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.support.modal_host import ModalHost
 from concentrator.ui.support.qt_dialog_service import QtDialogService
+from concentrator.ui.windows.chime_settings_dialog import ChimeSettingsWindow
 from concentrator.ui.windows.main_window import MainWindow
+from concentrator.ui.windows.preset_edit_dialog import PresetEditWindow
 from concentrator.ui.windows.timer_edit_dialog import TimerEditWindow
 
 _logger = logging.getLogger(__name__)
@@ -48,6 +51,7 @@ class Shell:
         core: Core,
         shutdown: ShutdownPresenter,
         timer: TimerServices,
+        extras: TimerExtras,
         alarm: AlarmCoordinator,
         tick_timer: QTimer,
     ) -> None:
@@ -58,6 +62,7 @@ class Shell:
             core: Main-thread services.
             shutdown: Flushes pending changes on close, quit and session end.
             timer: Timer services (its engine is registered on the ticker).
+            extras: Favorites and hourly chime (its service is registered on the ticker).
             alarm: Plays the alarm when the timer rings.
             tick_timer: Qt timer driving the ticker.
         """
@@ -65,6 +70,7 @@ class Shell:
         self.core = core
         self.shutdown_presenter = shutdown
         self.timer = timer
+        self.extras = extras
         self.alarm = alarm
         self.tick_timer = tick_timer
 
@@ -82,6 +88,7 @@ class Shell:
         self.shutdown_presenter.flush_without_dialog()
         self.tick_timer.stop()
         self.timer.alarm_player.stop()
+        self.extras.chime_player.stop()
         self.window.save_layout()
         self.core.preferences.sync()
 
@@ -180,17 +187,20 @@ def build_shell(
         The shell, ready to ``start``.
     """
     timer = build_timer(app, config, paths, translator, core=core, storage=storage)
-    presenters = _presenters(core, storage, translator, instance, timer)
+    extras = build_timer_extras(app, translator, core=core, storage=storage, timer=timer)
+    presenters = _presenters(core, storage, translator, instance, (timer, extras))
     window = _main_window(config, paths, core, presenters)
-    dialogs = _attach_dialogs(window, config, presenters, timer, core)
+    dialogs = _attach_dialogs(window, config, presenters, (timer, extras), core)
     _connect_dialogs(dialogs, core, storage, translator, reporter)
     ticker = AppTicker()
     ticker.register(timer.engine.tick)
+    ticker.register(extras.chime_service.tick)
     return Shell(
         window=window,
         core=core,
         shutdown=presenters.shutdown,
         timer=timer,
+        extras=extras,
         alarm=connect_alarm(timer, window, core),
         tick_timer=_tick_timer(app, config, ticker),
     )
@@ -220,7 +230,11 @@ def _main_window(config: AppConfig, paths: AppPaths, core: Core, presenters: Mai
 
 
 def _attach_dialogs(
-    window: MainWindow, config: AppConfig, presenters: MainWindowPresenters, timer: TimerServices, core: Core
+    window: MainWindow,
+    config: AppConfig,
+    presenters: MainWindowPresenters,
+    timer: tuple[TimerServices, TimerExtras],
+    core: Core,
 ) -> QtDialogService:
     """Give the presenters the window and its dialogs, all run over the window (ADR-036).
 
@@ -228,17 +242,21 @@ def _attach_dialogs(
         window: Main window.
         config: Loaded configuration.
         presenters: Presenters of the window.
-        timer: Timer services (edit dialog).
+        timer: Timer services and timer extras (edit, favorite and chime dialogs).
         core: Main-thread services.
 
     Returns:
         The dialog service of the window.
     """
+    services, extras = timer
     host = ModalHost.create(window, config.ui.dialog_overlay_opacity_percent)
     dialogs = QtDialogService(host)
     presenters.shutdown.attach(dialogs)
-    edit_window = TimerEditWindow(timer.editor, core.renderer, host, TimerLayout.from_ui_section(config.ui))
-    timer.editor.attach(edit_window, dialogs)
+    layout = TimerLayout.from_ui_section(config.ui)
+    services.editor.attach(TimerEditWindow(services.editor, core.renderer, host, layout), dialogs)
+    extras.preset_editor.attach(PresetEditWindow(extras.preset_editor, core.renderer, host, layout))
+    extras.presets.attach(dialogs)
+    extras.chime_editor.attach(ChimeSettingsWindow(extras.chime_editor, core.renderer, host, layout), dialogs)
     return dialogs
 
 
@@ -247,7 +265,7 @@ def _presenters(
     storage: Storage,
     translator: TranslatorPort,
     instance: InstanceProtectionPresenter,
-    timer: TimerServices,
+    timer: tuple[TimerServices, TimerExtras],
 ) -> MainWindowPresenters:
     """Create the presenters of the main window panels.
 
@@ -256,16 +274,19 @@ def _presenters(
         storage: Storage services.
         translator: Current-language translator.
         instance: Unguarded single-instance indicator.
-        timer: Timer services.
+        timer: Timer services and timer extras.
 
     Returns:
         The presenters; the shell presenter follows the timer to highlight the Focus button.
     """
-    shell = ShellPresenter(translator, core.gate, core.renderer, timer.ringing)
+    services, extras = timer
+    shell = ShellPresenter(translator, core.gate, core.renderer, services.ringing)
     core.event_bus.subscribe(TimerChangedEvent, shell.on_timer_changed)
     return MainWindowPresenters(
         shell=shell,
         status_bar=_status_bar(core, storage, translator, instance),
-        shutdown=ShutdownPresenter(storage.coordinator, translator, timer.countdown_active),
-        timer=timer.presenter,
+        shutdown=ShutdownPresenter(storage.coordinator, translator, services.countdown_active),
+        timer=services.presenter,
+        presets=extras.presets,
+        chime=extras.chime,
     )
