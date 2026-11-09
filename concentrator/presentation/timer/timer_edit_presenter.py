@@ -65,7 +65,7 @@ class TimerEditPresenter:
         self._view = TimerEditView(translator, gate, queries, limits)
         self._actions: dict[ActionIdEnum, tuple[Callable[[], ValidationResult], bool]] = {
             ActionIdEnum.TIMER_EDIT_SAVE: (self._save, False),
-            ActionIdEnum.TIMER_EDIT_CANCEL: (self._cancel, True),
+            ActionIdEnum.TIMER_EDIT_CANCEL: (self._cancel, False),
             ActionIdEnum.TIMER_SOUND_PREVIEW: (self._play_preview, False),
             ActionIdEnum.TIMER_SOUND_CHOOSE_FILE: (self._choose_file, True),
         }
@@ -91,23 +91,6 @@ class TimerEditPresenter:
         self._attached_window().show_editor()
         self._preview.stop()
         return ValidationResult.success()
-
-    def can_close(self) -> bool:
-        """Tell whether the dialog may close (Escape, title bar button); a dirty form asks first.
-
-        Returns:
-            Whether to close.
-        """
-        form = self._form
-        if form is None or not form.is_dirty:
-            return True
-        tr = self._translator.tr
-        return self._attached_dialogs().confirm(
-            tr("timer.edit.discard.title"),
-            tr("timer.edit.discard.message"),
-            tr("dialog.button.discard"),
-            tr("dialog.button.keep_editing"),
-        )
 
     def build_snapshot(self) -> TimerEditSnapshot:
         """Describe the dialog.
@@ -221,14 +204,13 @@ class TimerEditPresenter:
         return result
 
     def _cancel(self) -> ValidationResult:
-        """Close the dialog without saving (after confirmation when the draft changed).
+        """Close the dialog without saving and without asking (owner decision, ADR-038).
 
         Returns:
             Success.
         """
-        if self.can_close():
-            self._preview.stop()
-            self._attached_window().close_editor()
+        self._preview.stop()
+        self._attached_window().close_editor()
         return ValidationResult.success()
 
     def _play_preview(self) -> ValidationResult:

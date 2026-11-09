@@ -24,7 +24,6 @@ from concentrator.presentation.shell.main_window_presenters import MainWindowPre
 from concentrator.presentation.shell.shell_layout import ShellLayout
 from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
-from concentrator.presentation.shell.tray_presenter import TrayPresenter
 from concentrator.presentation.shell.unexpected_error_presenter import UnexpectedErrorPresenter
 from concentrator.presentation.storage.external_change_presenter import ExternalChangePresenter
 from concentrator.presentation.storage.save_status_texts import SaveStatusTexts
@@ -33,7 +32,7 @@ from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.support.modal_host import ModalHost
 from concentrator.ui.support.qt_dialog_service import QtDialogService
-from concentrator.ui.windows.main_window import MainWindow, MainWindowHandle
+from concentrator.ui.windows.main_window import MainWindow
 from concentrator.ui.windows.timer_edit_dialog import TimerEditWindow
 
 _logger = logging.getLogger(__name__)
@@ -70,13 +69,12 @@ class Shell:
         self.tick_timer = tick_timer
 
     def start(self) -> None:
-        """Render once, restore the layout, start the ticker, show the window and its icon (steps 7 and 8)."""
+        """Render once, restore the layout, start the ticker and show the window (steps 7 and 8)."""
         self.core.renderer.request_all()
         self.core.renderer.flush()
         self.window.restore_layout()
         self.tick_timer.start()
         self.window.show()
-        self.window.tray.show()
         _logger.info("Main window shown")
 
     def shutdown(self) -> None:
@@ -84,7 +82,6 @@ class Shell:
         self.shutdown_presenter.flush_without_dialog()
         self.tick_timer.stop()
         self.timer.alarm_player.stop()
-        self.window.tray.hide()
         self.window.save_layout()
         self.core.preferences.sync()
 
@@ -194,7 +191,7 @@ def build_shell(
         core=core,
         shutdown=presenters.shutdown,
         timer=timer,
-        alarm=connect_alarm(timer, window, config, translator, core),
+        alarm=connect_alarm(timer, window, core),
         tick_timer=_tick_timer(app, config, ticker),
     )
 
@@ -240,7 +237,6 @@ def _attach_dialogs(
     host = ModalHost.create(window, config.ui.dialog_overlay_opacity_percent)
     dialogs = QtDialogService(host)
     presenters.shutdown.attach(dialogs)
-    presenters.tray.attach(MainWindowHandle(window))
     edit_window = TimerEditWindow(timer.editor, core.renderer, host, TimerLayout.from_ui_section(config.ui))
     timer.editor.attach(edit_window, dialogs)
     return dialogs
@@ -272,5 +268,4 @@ def _presenters(
         status_bar=_status_bar(core, storage, translator, instance),
         shutdown=ShutdownPresenter(storage.coordinator, translator, timer.countdown_active),
         timer=timer.presenter,
-        tray=TrayPresenter(translator, core.gate),
     )

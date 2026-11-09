@@ -164,7 +164,6 @@ def test_built_shell_starts_ticks_saves_and_flushes_on_shutdown(qtbot: QtBot, in
 
     shell.start()
     qtbot.waitExposed(shell.window)
-    assert shell.window.tray.tray_icon.isVisible() or not shell.window.tray.tray_icon.isSystemTrayAvailable()
     assert shell.window.timer_panel.digits.text() == "00:25:00"
     shell.window.status_bar.language_button.click()
     qtbot.waitUntil(lambda: not core.gate.is_busy(ActionIdEnum.SHELL_TOGGLE_LANGUAGE), timeout=2000)

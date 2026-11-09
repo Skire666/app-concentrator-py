@@ -39,8 +39,6 @@ ACTION_SECTIONS: Final = MappingProxyType(
         ActionIdEnum.TIMER_EDIT_CANCEL: (RenderSectionEnum.TIMER_EDIT,),
         ActionIdEnum.TIMER_SOUND_PREVIEW: (RenderSectionEnum.TIMER_EDIT,),
         ActionIdEnum.TIMER_SOUND_CHOOSE_FILE: (RenderSectionEnum.TIMER_EDIT,),
-        ActionIdEnum.TRAY_SHOW: (RenderSectionEnum.TRAY,),
-        ActionIdEnum.TRAY_QUIT: (RenderSectionEnum.TRAY,),
     }
 )
 

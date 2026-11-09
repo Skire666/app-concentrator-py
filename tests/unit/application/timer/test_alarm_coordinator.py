@@ -105,36 +105,21 @@ def test_pause_and_reset_do_not_touch_the_alarm(stack: TimerStack) -> None:
     assert stack.alarm_player.played == []
 
 
-def test_inactive_application_gets_a_notification_and_a_flashing_taskbar(stack: TimerStack) -> None:
+def test_inactive_application_gets_a_flashing_taskbar_button(stack: TimerStack) -> None:
     stack.attention.active = False
 
     stack.run_to_ringing()
 
-    assert stack.attention.notifications == [
-        ("en:timer.notification.title", "en:timer.notification.message(duration=00:00:10)")
-    ]
     assert stack.attention.attention_requests == 1
 
 
-def test_active_application_gets_no_notification(stack: TimerStack) -> None:
+def test_active_application_gets_only_the_sound(stack: TimerStack) -> None:
     stack.attention.active = True
 
     stack.run_to_ringing()
 
-    assert stack.attention.notifications == []
     assert stack.attention.attention_requests == 0
     assert len(stack.alarm_player.played) == 1
-
-
-def test_notification_failure_is_logged_and_the_taskbar_still_flashes(
-    stack: TimerStack, caplog: pytest.LogCaptureFixture
-) -> None:
-    stack.attention.notify_failure = ValidationResult.failure(ErrorCodeEnum.NOTIFICATION_UNAVAILABLE)
-
-    stack.run_to_ringing()
-
-    assert "NOTIFICATION_UNAVAILABLE" in caplog.text
-    assert stack.attention.attention_requests == 1
 
 
 def test_sound_changed_while_running_applies_to_the_ringing(stack: TimerStack) -> None:

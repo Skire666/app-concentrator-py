@@ -66,7 +66,6 @@ def make_timer_section(**changes: int | str) -> TimerSection:
         default_auto_stop_seconds=120,
         min_auto_stop_seconds=5,
         max_auto_stop_seconds=3600,
-        notification_duration_ms=8000,
     )
     return replace(section, **changes)
 

@@ -1,6 +1,5 @@
 """Timer edit dialog, run over the main window by ``ModalHost`` (ADR-036)."""
 
-from collections.abc import Callable
 from typing import override
 
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QWidget
@@ -16,18 +15,16 @@ from concentrator.ui.support.modal_host import DialogRunner
 
 
 class TimerEditDialog(QDialog):
-    """Hosts the form panel; Escape and the title bar button ask the presenter first."""
+    """Hosts the form panel; Cancel, Escape and the title bar button close it without asking (ADR-038)."""
 
-    def __init__(self, layout: TimerLayout, can_close: Callable[[], bool], parent: QWidget | None) -> None:
+    def __init__(self, layout: TimerLayout, parent: QWidget | None) -> None:
         """Build the dialog (not shown).
 
         Args:
             layout: Spacing of the dialog.
-            can_close: Asks whether the dialog may close (a dirty form asks for confirmation).
             parent: Main window (Qt centers the dialog on it).
         """
         super().__init__(parent)
-        self._can_close = can_close
         self._panel = TimerEditFormPanel(layout, self)
         QVBoxLayout(self).addWidget(self._panel)
 
@@ -44,11 +41,6 @@ class TimerEditDialog(QDialog):
         """
         self.setWindowTitle(snapshot.title)
         self._panel.render_snapshot(snapshot)
-
-    @override
-    def reject(self) -> None:
-        if self._can_close():
-            super().reject()
 
 
 class TimerEditWindow(TimerEditDialogPort):
@@ -67,7 +59,7 @@ class TimerEditWindow(TimerEditDialogPort):
         """
         self._renderer = renderer
         self._runner = runner
-        self._dialog = TimerEditDialog(layout, presenter.can_close, runner.parent)
+        self._dialog = TimerEditDialog(layout, runner.parent)
         panel = self._dialog.panel
         panel.duration_changed.connect(presenter.on_duration_changed)
         panel.sound_selected.connect(presenter.on_sound_selected)

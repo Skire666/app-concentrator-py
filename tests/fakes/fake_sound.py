@@ -62,22 +62,15 @@ class FakeSoundCatalog(SoundCatalogPort):
 
 
 class FakeAttention(AttentionPort):
-    """``active`` is the application state; records ``notifications`` and ``attention_requests``."""
+    """``active`` is the application state; counts ``attention_requests``."""
 
     def __init__(self, *, active: bool = False) -> None:
         self.active = active
-        self.notifications: list[tuple[str, str]] = []
         self.attention_requests = 0
-        self.notify_failure: ValidationResult | None = None
 
     @override
     def is_application_active(self) -> bool:
         return self.active
-
-    @override
-    def notify(self, title: str, message: str) -> ValidationResult:
-        self.notifications.append((title, message))
-        return self.notify_failure or ValidationResult.success()
 
     @override
     def request_attention(self) -> None:

@@ -7,7 +7,6 @@ from typing import Final
 from concentrator.application.ports.attention_port import AttentionPort
 from concentrator.application.ports.sound_catalog_port import SoundCatalogPort
 from concentrator.application.ports.sound_player_port import LOOP_FOREVER, SoundPlayback, SoundPlayerPort
-from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.timer.timer_events import TimerChangedEvent
 from concentrator.domain.timer.sound_ref import SoundRef
 from concentrator.domain.timer.timer_settings import TimerSettings
@@ -31,8 +30,8 @@ class AlarmCoordinator:
 
     The sound read at ringing time is used, so a sound changed while the timer runs applies to the next
     ringing. A sound that cannot be found falls back to ``timer.default_sound`` (WARNING), and the player
-    falls back to the system beep. When no Concentrator window is active, a Windows notification is
-    shown and the taskbar button flashes.
+    falls back to the system beep. When no Concentrator window is active, the taskbar button flashes;
+    nothing is shown in the notification area (ADR-038).
     """
 
     def __init__(
@@ -41,7 +40,6 @@ class AlarmCoordinator:
         player: SoundPlayerPort,
         catalog: SoundCatalogPort,
         attention: AttentionPort,
-        translator: TranslatorPort,
         settings: Callable[[], TimerSettings],
         fallback_sound: SoundRef,
     ) -> None:
@@ -50,15 +48,13 @@ class AlarmCoordinator:
         Args:
             player: Alarm player instance.
             catalog: Finds the sound files.
-            attention: Notification and taskbar.
-            translator: Texts of the notification.
+            attention: Taskbar button.
             settings: Current timer settings.
             fallback_sound: ``timer.default_sound``.
         """
         self._player = player
         self._catalog = catalog
         self._attention = attention
-        self._translator = translator
         self._settings = settings
         self._fallback_sound = fallback_sound
 
@@ -74,7 +70,7 @@ class AlarmCoordinator:
             self._player.stop()
 
     def _ring(self) -> None:
-        """Play the alarm and notify an inactive application."""
+        """Play the alarm and flash the taskbar button of an inactive application."""
         settings = self._settings()
         loops = LOOP_FOREVER if settings.loop_forever else settings.loop_count
         playback = SoundPlayback(paths=self._candidates(settings.sound), volume=settings.volume, loops=loops)
@@ -82,7 +78,7 @@ class AlarmCoordinator:
         if played.is_failure:
             _logger.warning("Alarm sound not played: %s", [code.name for code in played.error_codes])
         if not self._attention.is_application_active():
-            self._notify(settings)
+            self._attention.request_attention()
 
     def _candidates(self, sound: SoundRef) -> tuple[str, ...]:
         """Return the files to try: the chosen sound, then the default sound.
@@ -101,16 +97,3 @@ class AlarmCoordinator:
             elif resolved.data not in paths:
                 paths.append(resolved.data)
         return tuple(paths)
-
-    def _notify(self, settings: TimerSettings) -> None:
-        """Show the Windows notification and flash the taskbar button.
-
-        Args:
-            settings: Settings of the countdown that ended.
-        """
-        title = self._translator.tr("timer.notification.title")
-        message = self._translator.tr("timer.notification.message", duration=settings.duration.as_clock_text())
-        notified = self._attention.notify(title, message)
-        if notified.is_failure:
-            _logger.warning("Timer notification not shown: %s", [code.name for code in notified.error_codes])
-        self._attention.request_attention()

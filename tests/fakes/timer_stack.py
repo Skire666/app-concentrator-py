@@ -53,7 +53,6 @@ class TimerStack:
             player=self.alarm_player,
             catalog=self.catalog,
             attention=self.attention,
-            translator=self.translator,
             settings=self.engine.settings,
             fallback_sound=DEFAULT_SOUND,
         )

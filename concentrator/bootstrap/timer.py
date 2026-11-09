@@ -163,27 +163,21 @@ def _presenter(
     return presenter
 
 
-def connect_alarm(
-    timer: TimerServices, window: MainWindow, config: AppConfig, translator: TranslatorPort, core: Core
-) -> AlarmCoordinator:
-    """Start the alarm coordinator once the notification area icon exists.
+def connect_alarm(timer: TimerServices, window: MainWindow, core: Core) -> AlarmCoordinator:
+    """Start the alarm coordinator once the main window exists.
 
     Args:
         timer: Timer services.
-        window: Main window (taskbar button and notification area icon).
-        config: Loaded configuration (notification duration).
-        translator: Texts of the notification.
+        window: Main window (its taskbar button flashes when the timer rings unseen).
         core: Main-thread services (event bus).
 
     Returns:
         The coordinator, subscribed to ``TimerChangedEvent``.
     """
-    attention = QtAttention(window.tray.tray_icon, window, config.timer.notification_duration_ms)
     alarm = AlarmCoordinator(
         player=timer.alarm_player,
         catalog=timer.catalog,
-        attention=attention,
-        translator=translator,
+        attention=QtAttention(window),
         settings=timer.engine.settings,
         fallback_sound=timer.defaults.fallback_sound,
     )

@@ -138,30 +138,16 @@ def test_cancel_of_a_clean_form_closes_without_question(stack: TimerUiStack) -> 
     assert stack.dialogs.calls == []
 
 
-def test_cancel_of_a_dirty_form_asks_and_can_keep_editing(stack: TimerUiStack) -> None:
-    stack.dialogs.confirm_answer = False
+def test_cancel_of_a_changed_form_closes_without_question_and_discards(stack: TimerUiStack) -> None:
     stack.editor.on_volume_changed(30)
-
-    stack.edit(A.TIMER_EDIT_CANCEL)
-
-    assert stack.window.closes == 0
-    title, message, accept, reject = stack.dialogs.texts("confirm")[0]
-    assert (title, message) == ("en:timer.edit.discard.title", "en:timer.edit.discard.message")
-    assert (accept, reject) == ("en:dialog.button.discard", "en:dialog.button.keep_editing")
-
-
-def test_cancel_of_a_dirty_form_discards_when_confirmed(stack: TimerUiStack) -> None:
-    stack.editor.on_volume_changed(30)
+    stack.edit(A.TIMER_SOUND_PREVIEW)
 
     stack.edit(A.TIMER_EDIT_CANCEL)
 
     assert stack.window.closes == 1
-    assert stack.config.updates == []
-
-
-def test_escape_on_a_clean_form_closes(stack: TimerUiStack) -> None:
-    assert stack.editor.can_close()
     assert stack.dialogs.calls == []
+    assert stack.config.updates == []
+    assert stack.preview_player.stops == 1
 
 
 def test_reopening_starts_from_the_stored_settings(stack: TimerUiStack) -> None:
@@ -290,9 +276,8 @@ def test_using_the_presenter_before_attach_is_a_wiring_error(stack: TimerUiStack
     )
     with pytest.raises(RuntimeError, match="attach"):
         editor.open()
-    editor.on_volume_changed(1)
     with pytest.raises(RuntimeError, match="attach"):
-        editor.can_close()
+        editor.on_action_requested(int(A.TIMER_SOUND_CHOOSE_FILE))
 
 
 def test_fake_dialog_counts_shows() -> None:

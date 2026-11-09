@@ -77,11 +77,10 @@ class ErrorCodeEnum(BaseIntEnum):
     AUDIO_PLAYBACK_FAILED = 7103
     AUDIO_DEVICE_UNAVAILABLE = 7104
 
-    # 72xx process and Windows shell
+    # 72xx process and Windows shell (7204 is retired and never reused: no Windows notification, ADR-038)
     INSTANCE_LOCK_FAILED = 7201
     INSTANCE_SERVER_FAILED = 7202
     APP_USER_MODEL_ID_FAILED = 7203
-    NOTIFICATION_UNAVAILABLE = 7204
 
     @property
     def category(self) -> ErrorCategoryEnum:

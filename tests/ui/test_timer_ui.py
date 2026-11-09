@@ -5,7 +5,6 @@ from dataclasses import replace
 import pytest
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QSystemTrayIcon
 from pytestqt.qtbot import QtBot
 
 from concentrator.domain.timer.duration import Duration
@@ -211,62 +210,39 @@ def test_edit_dialog_saves_what_the_user_changed(qtbot: QtBot) -> None:
     assert not window.dialog.isVisible()
 
 
-def test_escape_on_a_dirty_edit_dialog_asks_first(qtbot: QtBot) -> None:
+def test_escape_on_a_changed_edit_dialog_closes_without_question(qtbot: QtBot) -> None:
     stack = TimerUiStack(SETTINGS, register_editor=False)
     window = TimerEditWindow(stack.editor, stack.renderer, ScreenDialogRunner(), LAYOUT)
     qtbot.addWidget(window.dialog)
     stack.editor.attach(window, stack.dialogs)
-    stack.dialogs.confirm_answers = [False, True]
 
     def act() -> None:
         window.dialog.panel.volume_slider.slider.setValue(30)
-        window.dialog.reject()
-        assert window.dialog.isVisible()
         window.dialog.reject()
 
     QTimer.singleShot(0, act)
     stack.click(ActionIdEnum.TIMER_EDIT)
 
-    assert len(stack.dialogs.texts("confirm")) == 2
+    assert not window.dialog.isVisible()
+    assert stack.dialogs.calls == []
     assert stack.config.updates == []
 
 
-def test_tray_panel_renders_and_emits(qtbot: QtBot) -> None:
-    harness = ShellHarness()
-    qtbot.addWidget(harness.window)
-    tray = harness.window.tray
-    show, quit_action = tray.menu_actions
-    emitted: list[int] = []
-    tray.action_requested.connect(emitted.append)
+def test_cancel_button_closes_the_edit_dialog_without_question(qtbot: QtBot) -> None:
+    stack = TimerUiStack(SETTINGS, register_editor=False)
+    window = TimerEditWindow(stack.editor, stack.renderer, ScreenDialogRunner(), LAYOUT)
+    qtbot.addWidget(window.dialog)
+    stack.editor.attach(window, stack.dialogs)
+    panel = window.dialog.panel
 
-    show.trigger()
-    tray.tray_icon.activated.emit(QSystemTrayIcon.ActivationReason.Trigger)
-    tray.tray_icon.activated.emit(QSystemTrayIcon.ActivationReason.Context)
-    tray.tray_icon.messageClicked.emit()
-    tray.show()
-    tray.hide()
+    def act() -> None:
+        panel.volume_slider.slider.setValue(30)
+        stack.scheduler.advance(100)
+        panel.cancel_button.click()
 
-    assert tray.tray_icon.toolTip() == "en:app.title"
-    assert (show.text(), quit_action.text()) == ("en:action.tray_show", "en:action.tray_quit")
-    assert emitted == [int(ActionIdEnum.TRAY_SHOW)] * 3
+    QTimer.singleShot(0, act)
+    stack.click(ActionIdEnum.TIMER_EDIT)
 
-
-def test_tray_quit_closes_the_window_after_the_question(qtbot: QtBot) -> None:
-    harness = ShellHarness()
-    qtbot.addWidget(harness.window)
-    harness.window.show()
-    qtbot.waitExposed(harness.window)
-
-    harness.window.tray.menu_actions[1].trigger()
-
-    assert not harness.window.isVisible()
-    assert harness.stack.dialogs.texts("confirm")[0][0] == "en:shutdown.confirm.title"
-
-
-def test_tray_show_brings_the_window_back(qtbot: QtBot) -> None:
-    harness = ShellHarness()
-    qtbot.addWidget(harness.window)
-
-    harness.window.tray.menu_actions[0].trigger()
-
-    assert harness.window.isVisible()
+    assert not window.dialog.isVisible()
+    assert stack.dialogs.calls == []
+    assert stack.config.updates == []

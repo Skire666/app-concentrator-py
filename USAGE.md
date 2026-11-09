@@ -45,8 +45,8 @@ status bar shows the state; hover over it to see the file path and any problem:
 | **Save failed: ... Retrying.** | The file could not be written (locked by another program, disk full...). Your changes stay in memory and Concentrator tries again every 10 seconds, and at every new change. |
 | **Not saved: ...** | The file was changed outside Concentrator; you are asked what to do. |
 
-Closing the window (its close button, or **Quit** in the notification area menu) first asks **Do you
-want to quit Concentrator?**; Escape or **Cancel** keeps it open. Concentrator then saves pending
+Closing the window first asks **Do you want to quit Concentrator?**; Escape or **Cancel** keeps it
+open. Concentrator then saves pending
 changes. If that fails, you choose **Quit without saving** or **Retry**; Retry keeps Concentrator open
 and it keeps trying. When Windows logs off or shuts down, pending changes are saved without asking
 anything; if the logoff is cancelled, Concentrator goes on saving normally.
@@ -117,9 +117,9 @@ three buttons that change with the state.
 - **Stop automatically after** (edit dialog): after that many seconds of ringing the alarm stops by
   itself; with **Restart the countdown after the automatic stop**, the countdown starts again at once.
 - When the timer rings and no Concentrator window is active (window minimized, another application in
-  front), a Windows notification appears and the taskbar button flashes until you come back. While the
-  Journal or Settings page is shown, the **Focus** button of the module bar is highlighted. Windows "Do
-  not disturb" may hide the notification; the sound plays anyway.
+  front), the taskbar button flashes until you come back. While the Journal or Settings page is shown,
+  the **Focus** button of the module bar is highlighted. Concentrator shows nothing in the notification
+  area next to the clock: no icon and no Windows notification.
 - After a click, the three timer buttons stay disabled for a tenth of a second, so the second click of
   a quick double click on **Start** does not pause the timer. A click on an enabled button always
   counts.
@@ -135,16 +135,14 @@ three buttons that change with the state.
 - **Volume** (0-100 %), **Number of plays** or **Repeat until stopped**, **Stop automatically after**
   (0 = never, otherwise 5 to 3600 seconds) and **Restart the countdown after the automatic stop**.
 - Errors show under the field while you type. **Save** is enabled only when something changed and every
-  value is valid. **Cancel**, Escape or the close button ask before discarding your changes.
+  value is valid. **Cancel**, Escape or the close button close the dialog at once and discard your
+  changes, without asking.
 - While the timer runs, a new duration applies at the next start or reset, and a new sound at the next
   ringing; the dialog says so. While the dialog is open, the timer buttons are behind it: close the
   dialog to stop a ringing alarm (the automatic stop still applies).
 - If a chosen MP3 file is moved or deleted, the alarm plays the default sound instead (and the log
   says so); if no sound can be played at all, Windows beeps. The dialog shows the missing file under
   **Sound**, and you can still save the other settings.
-
-The notification area (next to the clock) shows the Concentrator icon while it runs. Click it, or click
-a timer notification, to bring the window back; its menu has **Show Concentrator** and **Quit**.
 
 ## The window
 

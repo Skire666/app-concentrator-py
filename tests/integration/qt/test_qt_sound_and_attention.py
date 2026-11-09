@@ -1,18 +1,17 @@
 """Qt sound player and attention adapters on the offscreen platform (no sound is heard in tests)."""
 
 from pathlib import Path
-from typing import override
 
 import pytest
 from PySide6.QtCore import QObject, Qt, QUrl
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtWidgets import QSystemTrayIcon, QWidget
+from PySide6.QtWidgets import QWidget
 from pytestqt.qtbot import QtBot
 
 from concentrator.application.ports.sound_player_port import LOOP_FOREVER, SoundPlayback
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.timer.volume import Volume
-from concentrator.infrastructure.qt.qt_attention import QtAttention, messages_supported
+from concentrator.infrastructure.qt.qt_attention import QtAttention
 from concentrator.infrastructure.qt.qt_sound_player import (
     QtSoundPlayer,
     decodable_mime_types,
@@ -148,44 +147,11 @@ def test_check_accepts_mp3_and_refuses_other_files(owner: QObject, tmp_path: Pat
     )
 
 
-class RecordingTray(QSystemTrayIcon):
-    def __init__(self, *, visible: bool) -> None:
-        super().__init__()
-        self.visible = visible
-        self.messages: list[tuple[str, str, int]] = []
-
-    @override
-    def isVisible(self) -> bool:
-        return self.visible
-
-    @override
-    def showMessage(self, title: str, msg: str, icon: object = None, msecs: int = 10000) -> None:
-        self.messages.append((title, msg, msecs))
-
-
-def test_attention_shows_the_message_with_the_configured_duration(qtbot: QtBot) -> None:
+def test_attention_flashes_the_taskbar_button(qtbot: QtBot) -> None:
     window = QWidget()
     qtbot.addWidget(window)
-    tray = RecordingTray(visible=True)
-    attention = QtAttention(tray, window, 8000, supported=lambda: True)
 
-    assert attention.notify("Time is up", "Done").is_success
-    attention.request_attention()
-
-    assert tray.messages == [("Time is up", "Done", 8000)]
-
-
-@pytest.mark.parametrize(("supported", "visible"), [(False, True), (True, False)])
-def test_attention_reports_unavailable_notifications(qtbot: QtBot, supported: bool, visible: bool) -> None:
-    window = QWidget()
-    qtbot.addWidget(window)
-    tray = RecordingTray(visible=visible)
-
-    result = QtAttention(tray, window, 8000, supported=lambda: supported).notify("t", "m")
-
-    assert result.error_codes == (ErrorCodeEnum.NOTIFICATION_UNAVAILABLE,)
-    assert tray.messages == []
-    assert isinstance(messages_supported(), bool)
+    QtAttention(window).request_attention()
 
 
 @pytest.mark.parametrize(
@@ -200,6 +166,6 @@ def test_application_is_active_only_in_the_active_state(qtbot: QtBot, state: Qt.
     window = QWidget()
     qtbot.addWidget(window)
 
-    attention = QtAttention(RecordingTray(visible=True), window, 8000, application_state=lambda: state)
+    attention = QtAttention(window, application_state=lambda: state)
 
     assert attention.is_application_active() is active

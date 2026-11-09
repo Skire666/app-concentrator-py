@@ -13,6 +13,8 @@ auto-restart, and an edit dialog with real-time validation.
 
 Timer configuration (persisted), timer session (runtime, not persisted), alarm playback, attention
 (tray toast, taskbar flash, module bar highlight), edit dialog, tray icon with Show/Quit menu.
+Amended at the review (ADR-038): no tray toast and no tray icon; the taskbar flash and the module bar
+highlight remain.
 
 ## Out of scope
 
@@ -71,7 +73,8 @@ until stopped", auto-stop after N seconds (0 = never, otherwise 5-`timer.max_aut
 "Restart automatically after auto-stop".
 
 - Real-time validation through `TimerConfigRules`, inline errors, `is_dirty`, Save enabled only
-  when dirty and valid, Cancel asks confirmation when dirty.
+  when dirty and valid, Cancel asks confirmation when dirty. Amended at the review (ADR-038): Cancel,
+  Escape and the close button close the dialog without asking.
 - While RUNNING or PAUSED, sound settings apply to the next ringing; a duration change applies at the
   next start or reset (the dialog says so).
 - Preview plays once at the chosen volume and stops when the dialog closes.
@@ -110,10 +113,8 @@ limits built from `AppConfig`), `timer_session.py` (immutable; `start`, `pause`,
   `QAudio.convertVolume(value / 100, LogarithmicVolumeScale, LinearVolumeScale)`; `errorOccurred`
   logged and converted to the fallback chain. Two instances: `alarm` and `preview` (phase 3 adds
   `chime`).
-- `qt/qt_attention.py`: `showMessage(..., timer.notification_duration_ms)` on the `QSystemTrayIcon`,
-  `QApplication.alert`. Notifies only when no Concentrator window is active. The icon (always
-  visible, tooltip and menu Show/Quit from the `TRAY` snapshot) belongs to `ui/panels/tray_panel.py`
-  (amended, ADR-038).
+- `qt/qt_attention.py`: `QApplication.alert` only, when no Concentrator window is active. Amended at
+  the review (ADR-038): no notification area icon, no Windows notification (`showMessage`).
 - `system/builtin_sound_catalog.py`: lists `assets/sounds/*.mp3`; label key
   `sound.builtin.<file stem>`.
 - Persistence: `TimerConfigSchema`, mapper, singleton store; default config created from the ini on
@@ -132,7 +133,8 @@ limits built from `AppConfig`), `timer_session.py` (immutable; `start`, `pause`,
 New `ActionIdEnum` values: `TIMER_EDIT`, `TIMER_START`, `TIMER_PAUSE`, `TIMER_RESUME`, `TIMER_RESET`,
 `TIMER_ACKNOWLEDGE`, `TIMER_RESTART`, `TIMER_SNOOZE`, `TIMER_EDIT_SAVE`, `TIMER_EDIT_CANCEL`,
 `TIMER_SOUND_PREVIEW`, `TIMER_SOUND_CHOOSE_FILE`, `TRAY_SHOW`, `TRAY_QUIT`. New `RenderSectionEnum`
-values: `TIMER`, `TIMER_EDIT`, `TRAY`.
+values: `TIMER`, `TIMER_EDIT`, `TRAY`. Amended at the review (ADR-038): `TRAY_SHOW`, `TRAY_QUIT`
+and `TRAY` are removed (values 27, 28 and 7 are not reused).
 
 ## File format (section added)
 
@@ -172,7 +174,8 @@ max_auto_stop_seconds = 3600
 notification_duration_ms = 8000
 ```
 
-Added by ADR-038: `min_auto_stop_seconds = 5`.
+Added by ADR-038: `min_auto_stop_seconds = 5`. Removed at the review (ADR-038):
+`notification_duration_ms`.
 
 ## Error codes
 
@@ -189,7 +192,7 @@ Added by ADR-038: `min_auto_stop_seconds = 5`.
 | 7102 | `AUDIO_FORMAT_UNSUPPORTED` |
 | 7103 | `AUDIO_PLAYBACK_FAILED` |
 | 7104 | `AUDIO_DEVICE_UNAVAILABLE` |
-| 7204 | `NOTIFICATION_UNAVAILABLE` |
+| 7204 | `NOTIFICATION_UNAVAILABLE` (retired at the review, never reused, ADR-038) |
 
 ## Assets to provide before this phase
 
@@ -220,8 +223,9 @@ the owner; `timer.default_sound = alarm-lesiakower-reverby-notification-sound`.
 - [ ] The button matrix matches the table in every state.
 - [ ] At zero, the alarm rings with the chosen sound, volume and play count.
 - [ ] With the journal page shown: sound plays, the digits blink, the Focus button is highlighted.
-      With the window minimized or another app focused: sound plays, a Windows notification appears,
-      the taskbar button flashes until the window is activated (amended, ADR-038).
+      With the window minimized or another app focused: sound plays and the taskbar button flashes
+      until the window is activated; no Windows notification, no notification area icon (amended,
+      ADR-038).
 - [ ] OK, Restart, Snooze and auto-stop (with and without auto-restart) behave as specified.
 - [ ] A 100 MB+ MP3 plays immediately and the UI stays responsive.
 - [ ] A deleted custom sound falls back to the default sound with a WARNING in the log.

@@ -4,7 +4,10 @@ from concentrator.domain.common.base_int_enum import BaseIntEnum
 
 
 class RenderSectionEnum(BaseIntEnum):
-    """One section per registered panel snapshot. Later phases append values."""
+    """One section per registered panel snapshot. Later phases append values.
+
+    7 (notification area icon, removed at the phase 2 review, ADR-038) is never reused.
+    """
 
     UNKNOWN = -1
     UNSET = 0
@@ -14,4 +17,3 @@ class RenderSectionEnum(BaseIntEnum):
     RECOVERY = 4
     TIMER = 5
     TIMER_EDIT = 6
-    TRAY = 7

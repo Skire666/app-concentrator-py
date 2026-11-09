@@ -103,14 +103,20 @@ def test_every_key_literal_in_code_exists() -> None:
 TRANSLATE_METHODS: Final = frozenset({"tr", "tr_plural"})
 
 
+def _call_name(func: ast.expr) -> str:
+    """Name of a called function: ``x.tr(...)`` and a local alias ``tr(...)`` both give ``tr``."""
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return func.id if isinstance(func, ast.Name) else ""
+
+
 def _translated_literals(path: Path) -> list[tuple[str, int]]:
     """Return (key, line) for every literal first argument of a ``tr`` or ``tr_plural`` call."""
     return [
         (node.args[0].value, node.lineno)
         for node in ast.walk(parse(path))
         if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr in TRANSLATE_METHODS
+        and _call_name(node.func) in TRANSLATE_METHODS
         and node.args
         and isinstance(node.args[0], ast.Constant)
         and isinstance(node.args[0].value, str)
@@ -128,13 +134,10 @@ def test_every_literal_translated_in_any_layer_exists() -> None:
     assert missing == []
 
 
-def test_translated_literal_scan_sees_the_application_texts() -> None:
-    alarm = REPO_ROOT / "concentrator" / "application" / "timer" / "alarm_coordinator.py"
+def test_translated_literal_scan_sees_the_tr_calls() -> None:
+    presenter = REPO_ROOT / "concentrator" / "presentation" / "timer" / "timer_presenter.py"
 
-    assert {key for key, _line in _translated_literals(alarm)} == {
-        "timer.notification.title",
-        "timer.notification.message",
-    }
+    assert {"timer.caption.paused", "timer.caption.ringing"} <= {key for key, _line in _translated_literals(presenter)}
 
 
 def test_key_literal_scan_sees_the_shell_texts() -> None:

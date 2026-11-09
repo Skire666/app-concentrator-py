@@ -49,21 +49,6 @@ class ShellSnapshot:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class TraySnapshot:
-    """The notification area icon and its menu (``TRAY``).
-
-    Attributes:
-        tooltip: Text shown over the icon.
-        show_action: "Show Concentrator" menu item.
-        quit_action: "Quit" menu item.
-    """
-
-    tooltip: str
-    show_action: ButtonSnapshot
-    quit_action: ButtonSnapshot
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class StatusBarSnapshot:
     """The one-line status bar.
 

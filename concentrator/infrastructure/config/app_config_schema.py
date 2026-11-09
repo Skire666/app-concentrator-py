@@ -118,7 +118,6 @@ class TimerSectionSchema(BaseModel):
     default_auto_stop_seconds: Annotated[int, Field(ge=0, le=86_400)]
     min_auto_stop_seconds: AutoStopSeconds
     max_auto_stop_seconds: AutoStopSeconds
-    notification_duration_ms: Annotated[int, Field(ge=1_000, le=60_000)]
 
     @model_validator(mode="after")
     def _check_limits(self) -> Self:

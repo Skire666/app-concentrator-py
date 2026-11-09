@@ -714,3 +714,19 @@ superseded.
 - Consequences: the bundle grows from 124 MB to 146 MB (FFmpeg multimedia plugin); every later dialog
   with a button whose action changes should join a group; phase 3 reuses the sound player, the
   catalog, the duration input and the completion of missing sections.
+- Amendment (phase 2 review, owner decisions 2026-11-09): the items "decided during the build" are
+  approved, and the open questions of the first review report take their defaults (the ini limits stay
+  strict when a file is read; `SOURCES.md` keeps the authors only), except:
+  1. **Nothing in the notification area.** No notification area icon (the `TrayPanel`, `TrayPresenter`,
+     the Show/Quit menu, `TRAY_SHOW`, `TRAY_QUIT` and the `TRAY` section are removed) and no Windows
+     notification: Qt shows those only through a notification area icon. When the timer rings unseen,
+     the sound plays and the taskbar button flashes. `AttentionPort.notify`,
+     `NOTIFICATION_UNAVAILABLE` (7204, retired, never reused) and `timer.notification_duration_ms` are
+     removed; `ActionIdEnum` values 27 and 28 and `RenderSectionEnum` value 7 are never reused. Owner
+     decision 2 and build item 1 above are superseded; the quit question remains on the close button.
+  2. **Cancel closes the edit dialog without asking**, and the changes are discarded. Escape and the
+     close button of the dialog behave the same way (agent's reading of the decision, to confirm).
+     `AGENTS.md` section 8.4 notes the exception.
+  3. One commit for the review changes, across layers.
+  The owner also added `assets/sounds/alarm-notification-alert.mp3` (labelled "Notification alert" /
+  "Alerte de notification"; no author in its name).

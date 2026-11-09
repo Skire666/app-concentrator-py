@@ -137,7 +137,6 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("default_sound = alarm-lesiakower", "default_sound = sounds/alarm", "timer.default_sound"),
         ("default_volume = 80", "default_volume = 101", "timer.default_volume"),
         ("snooze_minutes = 5", "snooze_minutes = 0", "timer.snooze_minutes"),
-        ("notification_duration_ms = 8000", "notification_duration_ms = 999", "timer.notification_duration_ms"),
     ],
 )
 def test_invalid_value_is_reported(paths: AppPaths, tmp_path: Path, old: str, new: str, field: str) -> None:

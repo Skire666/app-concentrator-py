@@ -68,7 +68,7 @@ class StorageSection:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TimerSection:
-    """``[timer]``: heartbeat, snooze, limits and defaults of the timer configuration, notification."""
+    """``[timer]``: heartbeat, snooze, limits and defaults of the timer configuration."""
 
     tick_interval_ms: int
     snooze_minutes: int
@@ -82,7 +82,6 @@ class TimerSection:
     default_auto_stop_seconds: int
     min_auto_stop_seconds: int
     max_auto_stop_seconds: int
-    notification_duration_ms: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

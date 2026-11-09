@@ -252,7 +252,7 @@ class DataResult[T]:
 (`call_soon`, `call_later` returning a cancellable handle), `MainThreadDispatcherPort`,
 `TranslatorPort`, `LogFeedPort`, `SoundPlayerPort` (plays a `SoundPlayback`: candidate files tried in
 order, then the system beep), `SoundCatalogPort` (built-in sounds, file of a `SoundRef`), `AttentionPort`
-(`is_application_active`, `notify`, `request_attention`), `LinkOpenerPort`,
+(`is_application_active`, `request_attention`), `LinkOpenerPort`,
 `ViewPreferencesPort` (string key-value), `UserDataFilePort`, and one `*ReaderPort` / `*WriterPort`
 pair per aggregate.
 
@@ -374,10 +374,10 @@ silent code-level defaults for ini keys.
 - `QtSoundPlayer`: `QMediaPlayer` + `QAudioOutput` (QtMultimedia, FFmpeg backend). Streams files of
   any size, `setLoops(n)` or `QMediaPlayer.Loops.Infinite`. Volume 0-100 converted with
   `QAudio.convertVolume` (logarithmic to linear). Separate instances for alarm and chime.
-- `QtAttention`: `QSystemTrayIcon.showMessage` (Windows toast) and `QApplication.alert(window, 0)`
-  (taskbar button flashes until activated). The icon itself belongs to `ui/panels/tray_panel.py` (it
-  renders the `TRAY` snapshot) and is handed over by bootstrap (ADR-038). `AlarmCoordinator` notifies
-  only when no Concentrator window is active (`QGuiApplication.applicationState()`).
+- `QtAttention`: `QApplication.alert(window, 0)` (taskbar button flashes until activated);
+  `AlarmCoordinator` asks for it only when no Concentrator window is active
+  (`QGuiApplication.applicationState()`). Concentrator shows nothing in the notification area: no
+  icon, no Windows notification (owner decision, ADR-038).
 - `QtSingleInstanceGuard`: `QLockFile` (per user) for exclusivity plus `QLocalServer`/`QLocalSocket`
   so a second launch asks the first instance to show itself, then exits with code 0.
 - `QtScheduler`, `QtMainThreadDispatcher` (signal with queued connection), `QtLinkOpener`
@@ -455,7 +455,9 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
   from baseline), `can_submit` (dirty and no failure), `set_field(...)`, `reset()`, `commit()`.
 - Validation runs on every change through the domain `*Rules`; inline errors appear under the field
   (`FieldErrorSnapshot(field, message)`) with an `invalid` dynamic property for styling.
-- Closing a dirty form asks for confirmation through `DialogPort`.
+- Closing a dirty form asks for confirmation through `DialogPort`, except where the owner decided
+  otherwise: the timer edit dialog closes on Cancel, Escape or its close button without asking
+  (ADR-038).
 
 ### 8.5 Window / panel / widget
 
@@ -487,7 +489,7 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
   `locale` module. The formatter zero-pads day, month, hour and minute before filling the
   `{day}`/`{month}`/`{year}`/`{hour}`/`{minute}` templates (`06/11/2026`, never `6/11/2026`).
 - Switching language updates the user settings, the translator, then `RenderCoordinator.request_all()`.
-  No restart, no widget recreation. Window title and tray tooltip are part of the shell snapshot.
+  No restart, no widget recreation. The window title is part of the shell snapshot.
 - Tests: both catalogs have identical key sets and placeholders; every `ErrorCodeEnum` member, every
   `ActionIdEnum` label and every key referenced in code exists.
 
