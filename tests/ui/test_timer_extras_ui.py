@@ -150,9 +150,9 @@ def test_context_menu_opens_on_a_disabled_favorite_and_emits_its_actions(qtbot: 
     menu = panel.last_menu
     assert menu is not None
     actions = menu.actions()
-    assert [action.isEnabled() for action in actions] == [True, True, False, True]
+    assert [action.text() for action in actions] == ["en:action.preset_edit", "en:action.preset_delete"]
     actions[1].trigger()
-    assert recorder.values == [(int(ActionIdEnum.PRESET_MOVE_EARLIER), "preset-45")]
+    assert recorder.values == [(int(ActionIdEnum.PRESET_DELETE), "preset-45")]
 
 
 def test_context_menu_outside_a_favorite_is_ignored(qtbot: QtBot) -> None:
@@ -180,7 +180,7 @@ def test_a_second_context_menu_replaces_the_first(qtbot: QtBot) -> None:
 
     assert panel.last_menu is not first
     assert panel.last_menu is not None
-    assert [action.isEnabled() for action in panel.last_menu.actions()] == [True, True, True, True]
+    assert [action.isEnabled() for action in panel.last_menu.actions()] == [True, True]
 
 
 def test_special_options_panel_shows_the_switch_and_emits_on_click(qtbot: QtBot) -> None:

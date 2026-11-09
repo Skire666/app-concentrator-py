@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 
 
 class PresetCommands:
-    """Create, update, delete, move a favorite, and start the timer with one (``apply_and_start``).
+    """Create, update, delete a favorite, and start the timer with one (``apply_and_start``).
 
     Each successful change publishes one ``TimerPresetsChangedEvent``. Labels never reach the log.
     """
@@ -118,27 +118,6 @@ class PresetCommands:
             Success or ``ENTITY_NOT_FOUND``.
         """
         return self._published(self._writer.delete(preset_id), "deleted").validation
-
-    def move(self, preset_id: str, offset: int) -> ValidationResult:
-        """Move a favorite one place earlier (``-1``) or later (``+1``).
-
-        Args:
-            preset_id: Favorite to move.
-            offset: Direction.
-
-        Returns:
-            Success, skipped when it is already at that end, or ``ENTITY_NOT_FOUND``.
-        """
-        moved = self._presets().moved(preset_id, offset, self._clock.now_utc())
-        if moved.data is None:
-            return moved.validation
-        for preset in moved.data:
-            written = self._writer.update(preset)
-            if written.data is None:
-                return written.validation
-        _logger.info("Timer favorite moved")
-        self._event_bus.publish(TimerPresetsChangedEvent(presets=self._presets()))
-        return ValidationResult.success()
 
     def apply_and_start(self, preset_id: str) -> ValidationResult:
         """Make a favorite's duration the timer duration and start the countdown, in one click.

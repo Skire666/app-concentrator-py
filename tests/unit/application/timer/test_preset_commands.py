@@ -101,7 +101,6 @@ def test_create_refuses_a_favorite_beyond_the_limit(stack: TimerStack) -> None:
     result = stack.preset_commands.create("", Duration(3600))
 
     assert result.validation.error_codes == (ErrorCodeEnum.PRESET_LIMIT_REACHED,)
-    assert not stack.preset_queries.can_add()
 
 
 def test_update_changes_label_and_duration(stack: TimerStack) -> None:
@@ -151,28 +150,6 @@ def test_delete_of_an_unknown_favorite_is_not_found(stack: TimerStack) -> None:
     assert stack.preset_events == []
 
 
-def test_move_first_then_back_changes_the_display_order(stack: TimerStack) -> None:
-    assert stack.preset_commands.move("preset-45", -1).is_success
-    assert stack.preset_commands.move("preset-45", -1).is_success
-
-    assert _ordered(stack) == [("preset-45", 2700), ("preset-15", 900), ("preset-30", 1800)]
-    assert stack.presets.writes == 4
-    assert len(stack.preset_events) == 2
-
-
-def test_move_at_the_end_is_skipped_without_event(stack: TimerStack) -> None:
-    assert stack.preset_commands.move("preset-45", 1).is_skipped
-    assert stack.preset_events == []
-
-
-def test_move_reports_a_write_failure(stack: TimerStack) -> None:
-    stack.presets.write_failure = ValidationResult.failure(ErrorCodeEnum.ENTITY_NOT_FOUND)
-
-    assert stack.preset_commands.move("preset-30", 1).error_codes == (ErrorCodeEnum.ENTITY_NOT_FOUND,)
-    assert stack.preset_events == []
-
-
 def test_queries_give_one_favorite_and_the_limits(stack: TimerStack) -> None:
     assert stack.preset_queries.preset("preset-30").data == stack.presets.presets.get("preset-30").data
     assert stack.preset_queries.limits is LIMITS
-    assert stack.preset_queries.can_add()

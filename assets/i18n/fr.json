@@ -115,8 +115,6 @@
   "action.preset_add.tooltip": "Enregistrer une nouvelle durée favorite",
   "action.preset_edit": "Modifier...",
   "action.preset_delete": "Supprimer...",
-  "action.preset_move_earlier": "Déplacer avant",
-  "action.preset_move_later": "Déplacer après",
   "action.preset_edit_save": "Enregistrer",
   "action.preset_edit_cancel": "Annuler",
   "action.chime_toggle": "Carillon toutes les heures",

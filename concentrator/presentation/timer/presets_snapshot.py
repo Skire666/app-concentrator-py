@@ -11,8 +11,8 @@ class PresetSnapshot:
 
     Attributes:
         preset_id: Id sent back with the action.
-        button: Label (or automatic label), tooltip, enabled only while the timer is idle; ``PRESET_APPLY``.
-        menu: Edit, Move earlier, Move later, Delete.
+        button: Label (or automatic label), tooltip, enabled except during the cooldown; ``PRESET_APPLY``.
+        menu: Edit, Delete.
     """
 
     preset_id: str

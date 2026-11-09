@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
@@ -11,7 +12,10 @@ from concentrator.application.timer.timer_events import TimerChangedEvent, Timer
 from concentrator.application.timer.timer_queries import TimerQueries
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.timer.timer_preset import TimerPreset
+from concentrator.domain.timer.timer_preset_rules import TimerPresetRules
+from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 from concentrator.domain.timer.timer_state_enum import TimerStateEnum
+from concentrator.presentation.common.action_button import action_button
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
@@ -26,9 +30,8 @@ from concentrator.presentation.timer.presets_snapshot import PresetSnapshot, Pre
 _logger = logging.getLogger(__name__)
 
 _NOT_ATTACHED: Final = "PresetsPresenter.attach() was not called"
-EARLIER: Final = -1
-LATER: Final = 1
 INTERACTIVE_ACTIONS: Final = frozenset({ActionIdEnum.PRESET_ADD, ActionIdEnum.PRESET_EDIT, ActionIdEnum.PRESET_DELETE})
+MENU_ACTIONS: Final = (ActionIdEnum.PRESET_EDIT, ActionIdEnum.PRESET_DELETE)
 
 type PresetOperation = Callable[[str], ValidationResult]
 """A context menu or button action on one favorite."""
@@ -39,6 +42,7 @@ class PresetsPresenter:
 
     The favorites are always enabled: a click replaces a countdown in progress. Their tooltip follows the
     timer state, so the panel re-renders on timer transitions only, not on every displayed second.
+    Favorites are not moved (owner decision at the phase 3 review): a new one goes last.
     """
 
     def __init__(
@@ -77,8 +81,6 @@ class PresetsPresenter:
             ActionIdEnum.PRESET_APPLY: commands.apply_and_start,
             ActionIdEnum.PRESET_EDIT: editor.open_edit,
             ActionIdEnum.PRESET_DELETE: self._delete,
-            ActionIdEnum.PRESET_MOVE_EARLIER: lambda preset_id: commands.move(preset_id, EARLIER),
-            ActionIdEnum.PRESET_MOVE_LATER: lambda preset_id: commands.move(preset_id, LATER),
         }
 
     def attach(self, dialogs: DialogPort) -> None:
@@ -90,20 +92,17 @@ class PresetsPresenter:
         self._dialogs = dialogs
 
     def build_snapshot(self) -> PresetsSnapshot:
-        """Describe the favorites panel now.
+        """Describe the favorites panel now (the favorites are read once).
 
         Returns:
             The snapshot.
         """
         presets = self._queries.presets()
         idle = self._timer.current_view().state is TimerStateEnum.IDLE
-        last = len(presets) - 1
         return PresetsSnapshot(
             title=self._translator.tr("presets.title"),
-            presets=tuple(
-                self._preset(preset, idle=idle, index=index, last=last) for index, preset in enumerate(presets)
-            ),
-            add=self._add_button(),
+            presets=tuple(self._preset(preset, idle=idle) for preset in presets),
+            add=self._add_button(presets),
             empty_text="" if presets.items else self._translator.tr("presets.empty"),
         )
 
@@ -196,14 +195,12 @@ class PresetsPresenter:
             return ValidationResult.skipped()
         return self._commands.delete(preset_id)
 
-    def _preset(self, preset: TimerPreset, *, idle: bool, index: int, last: int) -> PresetSnapshot:
+    def _preset(self, preset: TimerPreset, *, idle: bool) -> PresetSnapshot:
         """Describe one favorite.
 
         Args:
             preset: Favorite.
             idle: Whether the timer is idle (otherwise the button replaces the countdown).
-            index: Display position.
-            last: Display position of the last favorite.
 
         Returns:
             The favorite snapshot.
@@ -216,48 +213,24 @@ class PresetsPresenter:
             visible=True,
             action=ActionIdEnum.PRESET_APPLY,
         )
-        menu = (
-            self._menu_item(ActionIdEnum.PRESET_EDIT, allowed=True),
-            self._menu_item(ActionIdEnum.PRESET_MOVE_EARLIER, allowed=index > 0),
-            self._menu_item(ActionIdEnum.PRESET_MOVE_LATER, allowed=index < last),
-            self._menu_item(ActionIdEnum.PRESET_DELETE, allowed=True),
-        )
+        menu = tuple(action_button(self._texts, self._gate, action) for action in MENU_ACTIONS)
         return PresetSnapshot(preset_id=preset.id, button=button, menu=menu)
 
-    def _menu_item(self, action: ActionIdEnum, *, allowed: bool) -> ButtonSnapshot:
-        """Describe a context menu item.
+    def _add_button(self, presets: TimerPresetsCollection) -> ButtonSnapshot:
+        """Describe the "Add..." button.
 
         Args:
-            action: Its action.
-            allowed: Whether the favorite's position allows it.
-
-        Returns:
-            The item snapshot.
-        """
-        return ButtonSnapshot(
-            text=self._texts.action_label(action),
-            tooltip=self._texts.action_tooltip(action),
-            enabled=allowed and not self._gate.is_busy(action),
-            visible=True,
-            action=action,
-        )
-
-    def _add_button(self) -> ButtonSnapshot:
-        """Describe the "Add..." button.
+            presets: Current favorites.
 
         Returns:
             The button, disabled with the limit as tooltip when the favorites are full.
         """
-        action = ActionIdEnum.PRESET_ADD
-        room = self._queries.can_add()
-        full = self._translator.tr("error.preset_limit_reached", max=self._queries.limits.max_presets)
-        return ButtonSnapshot(
-            text=self._texts.action_label(action),
-            tooltip=self._texts.action_tooltip(action) if room else full,
-            enabled=room and not self._gate.is_busy(action),
-            visible=True,
-            action=action,
-        )
+        limits = self._queries.limits
+        room = TimerPresetRules.validate_room(presets, limits).is_success
+        button = action_button(self._texts, self._gate, ActionIdEnum.PRESET_ADD, enabled=room)
+        if room:
+            return button
+        return replace(button, tooltip=self._translator.tr("error.preset_limit_reached", max=limits.max_presets))
 
     def _attached_dialogs(self) -> DialogPort:
         """The dialog service.

@@ -4,12 +4,11 @@ from concentrator.application.ports.timer_preset_reader_port import TimerPresetR
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.timer.timer_limits import TimerLimits
 from concentrator.domain.timer.timer_preset import TimerPreset
-from concentrator.domain.timer.timer_preset_rules import TimerPresetRules
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 
 
 class PresetQueries:
-    """Favorites in display order, one favorite, and whether one more can be added."""
+    """Favorites in display order, one favorite, and their limits."""
 
     def __init__(self, reader: TimerPresetReaderPort, limits: TimerLimits) -> None:
         """Create the queries.
@@ -44,11 +43,3 @@ class PresetQueries:
             The favorite, or ``ENTITY_NOT_FOUND``.
         """
         return self._reader.read_item(preset_id)
-
-    def can_add(self) -> bool:
-        """Tell whether one more favorite is allowed.
-
-        Returns:
-            Whether the number of favorites is below ``timer.max_presets``.
-        """
-        return TimerPresetRules.validate_room(self.presets(), self._limits).is_success

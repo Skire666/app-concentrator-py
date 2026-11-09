@@ -115,8 +115,6 @@
   "action.preset_add.tooltip": "Save a new favorite duration",
   "action.preset_edit": "Edit...",
   "action.preset_delete": "Delete...",
-  "action.preset_move_earlier": "Move earlier",
-  "action.preset_move_later": "Move later",
   "action.preset_edit_save": "Save",
   "action.preset_edit_cancel": "Cancel",
   "action.chime_toggle": "Chime every hour",

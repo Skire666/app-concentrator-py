@@ -10,12 +10,7 @@ from tests.fakes.timer_extras_factory import make_preset, make_presets
 from tests.fakes.timer_factory import LIMITS
 from tests.fakes.timer_ui_stack import TimerUiStack
 
-MENU = (
-    ActionIdEnum.PRESET_EDIT,
-    ActionIdEnum.PRESET_MOVE_EARLIER,
-    ActionIdEnum.PRESET_MOVE_LATER,
-    ActionIdEnum.PRESET_DELETE,
-)
+MENU = (ActionIdEnum.PRESET_EDIT, ActionIdEnum.PRESET_DELETE)
 
 
 @pytest.fixture
@@ -72,14 +67,6 @@ def test_context_menu_stays_available_while_the_timer_runs(stack: TimerUiStack) 
     assert {item.enabled for item in menu} == {True}
 
 
-def test_first_cannot_move_earlier_and_last_cannot_move_later(stack: TimerUiStack) -> None:
-    presets = stack.presets_snapshot.presets
-
-    assert [item.enabled for item in presets[0].menu] == [True, False, True, True]
-    assert [item.enabled for item in presets[2].menu] == [True, True, False, True]
-    assert presets[0].menu[0].text == "en:action.preset_edit"
-
-
 def test_click_on_a_favorite_starts_its_countdown(stack: TimerUiStack) -> None:
     stack.preset_action(ActionIdEnum.PRESET_APPLY, "preset-15")
 
@@ -114,15 +101,6 @@ def test_favorites_render_on_transitions_not_on_every_second(stack: TimerUiStack
 
     assert len(stack.preset_renders) == renders
     assert len(stack.timer_renders) > renders
-
-
-def test_moves_change_the_order(stack: TimerUiStack) -> None:
-    stack.preset_action(ActionIdEnum.PRESET_MOVE_EARLIER, "preset-45")
-    after_first = [preset.preset_id for preset in stack.presets_snapshot.presets]
-    stack.preset_action(ActionIdEnum.PRESET_MOVE_LATER, "preset-15")
-
-    assert after_first == ["preset-15", "preset-45", "preset-30"]
-    assert [preset.preset_id for preset in stack.presets_snapshot.presets] == ["preset-45", "preset-15", "preset-30"]
 
 
 def test_delete_asks_and_deletes_on_yes(stack: TimerUiStack) -> None:

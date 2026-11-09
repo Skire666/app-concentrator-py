@@ -78,41 +78,6 @@ def test_with_duration_finds_another_favorite_only() -> None:
     assert presets.with_duration(Duration(60)) is None
 
 
-def test_moved_earlier_swaps_with_the_previous_favorite() -> None:
-    result = make_presets().moved("preset-30", -1, NOW)
-
-    assert [(preset.id, preset.position, preset.updated_at) for preset in result.data or ()] == [
-        ("preset-30", 0, NOW),
-        ("preset-15", 1, NOW),
-    ]
-
-
-def test_moved_later_swaps_with_the_next_favorite() -> None:
-    result = make_presets().moved("preset-30", 1, NOW)
-
-    assert [(preset.id, preset.position) for preset in result.data or ()] == [("preset-45", 1), ("preset-30", 2)]
-
-
-@pytest.mark.parametrize(("preset_id", "offset"), [("preset-15", -1), ("preset-45", 1)])
-def test_moved_at_either_end_changes_nothing(preset_id: str, offset: int) -> None:
-    result = make_presets().moved(preset_id, offset, NOW)
-
-    assert result.data is None
-    assert result.validation.is_skipped
-
-
-def test_moved_renumbers_positions_left_with_gaps() -> None:
-    presets = TimerPresetsCollection((make_preset(15, 0), make_preset(30, 5), make_preset(45, 9)))
-
-    result = presets.moved("preset-45", -1, NOW)
-
-    assert [(preset.id, preset.position) for preset in result.data or ()] == [("preset-45", 1), ("preset-30", 2)]
-
-
-def test_moved_unknown_favorite_is_not_found() -> None:
-    assert make_presets().moved("nope", 1, NOW).validation.error_codes == (ErrorCodeEnum.ENTITY_NOT_FOUND,)
-
-
 def test_valid_favorite_passes_the_rules() -> None:
     assert TimerPresetRules.validate(make_preset(15, label="Pomodoro"), LIMITS).is_success
 

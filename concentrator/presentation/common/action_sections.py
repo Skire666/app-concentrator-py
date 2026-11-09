@@ -43,8 +43,6 @@ ACTION_SECTIONS: Final = MappingProxyType(
         ActionIdEnum.PRESET_ADD: (RenderSectionEnum.PRESETS,),
         ActionIdEnum.PRESET_EDIT: (RenderSectionEnum.PRESETS,),
         ActionIdEnum.PRESET_DELETE: (RenderSectionEnum.PRESETS,),
-        ActionIdEnum.PRESET_MOVE_EARLIER: (RenderSectionEnum.PRESETS,),
-        ActionIdEnum.PRESET_MOVE_LATER: (RenderSectionEnum.PRESETS,),
         ActionIdEnum.PRESET_EDIT_SAVE: (RenderSectionEnum.PRESET_EDIT,),
         ActionIdEnum.PRESET_EDIT_CANCEL: (RenderSectionEnum.PRESET_EDIT,),
         ActionIdEnum.CHIME_TOGGLE: (RenderSectionEnum.SPECIAL_OPTIONS,),

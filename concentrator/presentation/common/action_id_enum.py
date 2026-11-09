@@ -6,7 +6,8 @@ from concentrator.domain.common.base_int_enum import BaseIntEnum
 class ActionIdEnum(BaseIntEnum):
     """Every user action. Later phases append values; values are never renumbered.
 
-    27 and 28 (notification area menu, removed at the phase 2 review, ADR-038) are never reused.
+    27 and 28 (notification area menu, removed at the phase 2 review, ADR-038), 33 and 34 (moving a
+    favorite, removed at the phase 3 review, ADR-039) are never reused.
 
     The label of a control bound to an action is the catalog key ``action.<name_lowercase>``, with an
     optional ``action.<name_lowercase>.tooltip``.
@@ -44,8 +45,6 @@ class ActionIdEnum(BaseIntEnum):
     PRESET_ADD = 30
     PRESET_EDIT = 31
     PRESET_DELETE = 32
-    PRESET_MOVE_EARLIER = 33
-    PRESET_MOVE_LATER = 34
     PRESET_EDIT_SAVE = 35
     PRESET_EDIT_CANCEL = 36
     CHIME_TOGGLE = 37
