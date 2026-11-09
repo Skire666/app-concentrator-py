@@ -801,3 +801,8 @@ superseded.
 - Consequences: the self-check also requires the default chime sound and round-trips every section;
   later phases add sections the same way (`UserDataDefaults.complete`). The settings page of phase 4
   reuses `ChimeSettingsForm`.
+- Amendment (phase 3 review, owner decision 2026-11-09: "Suit tes recommandations pour les
+  arbitrages"): the items "decided during the build" are approved and the open questions of the
+  review report take their defaults: no automatic translation of the phase 2 sound names (the user
+  chooses the sound once; the fallback plays `alarm` meanwhile), the automatic label "1 h 5 s" is kept,
+  and the ini limits of the favorites stay strict when a file is read.

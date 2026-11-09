@@ -164,3 +164,26 @@ with sound on.
 3. **Lowering `max_presets` or `max_preset_label_length`** below what the file holds makes the file
    invalid at the next start (strict limits, as in phase 2). Default: keep this, since the ini
    documents it.
+
+## Owner answers (2026-11-09)
+
+"Suit tes recommandations pour les arbitrages": the build decisions are approved and the three open
+questions take their defaults (ADR-039 amendment).
+
+## Code review (2026-11-09)
+
+A code review of `main...phase-3-timer-extras` found the issues below. Nothing is changed yet; each line
+gives the recommended fix.
+
+| # | Severity | Where | Issue | Recommended fix |
+|---|---|---|---|---|
+| 1 | bug (UX) | `preset_edit_presenter.py` | After a click on a favorite, the timer duration is that favorite's, so **Add...** always opens on a duplicate with Save disabled | Propose the timer duration if it is free, else the first free duration in steps of 5 minutes after it |
+| 2 | bug (low) | `presets_presenter.py`, `qt_dialog_service.py` | The delete question shows the user's label in a `QMessageBox` in automatic text format: a label such as `<b>x</b>` renders as rich text (`AGENTS.md` section 8.5) | Plain text in every `QtDialogService` message box |
+| 3 | rule | `timer_presets_collection.py` | `moved()` returns a bare tuple of entities (`AGENTS.md` rule 7) | Return a `TimerPresetsCollection` of the changed favorites |
+| 4 | robustness | `preset_commands.py` | `move()` writes favorite by favorite and stops at the first failure without undoing (the failure cannot happen today: same synchronous turn) | Check every write is possible first; keep one event |
+| 5 | consistency | `timer_presets_mapper.py` | A label written by hand on two lines or with extra spaces is loaded as is | Normalize the label when the file is read, like paths |
+| 6 | latent | `timer_preset.py` | `copy_business` of a favorite (generic operation, no caller) would store a second favorite with the same duration, which makes the file invalid | Refuse it in the favorite writer with `PRESET_DURATION_DUPLICATE` |
+| 7 | UX (rare) | `preset_edit_presenter.py` | A save refused by the command for a reason the form does not check (limit reached, favorite gone) is only logged | Show the message in the dialog through `DialogPort.error` |
+| 8 | duplication | presenters | The duration field and the field error lookup are copied from `TimerEditView`; `action_button` is not used everywhere | Share them |
+| 9 | efficiency | `presets_presenter.py` | Each render reads and sorts the favorites twice | Read once |
+| 10 | decided | `concentrator.ini` | Phase 2 sound names are not translated | Owner decision: no translation (question 1) |
