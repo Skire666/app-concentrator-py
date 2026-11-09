@@ -39,6 +39,20 @@ ACTION_SECTIONS: Final = MappingProxyType(
         ActionIdEnum.TIMER_EDIT_CANCEL: (RenderSectionEnum.TIMER_EDIT,),
         ActionIdEnum.TIMER_SOUND_PREVIEW: (RenderSectionEnum.TIMER_EDIT,),
         ActionIdEnum.TIMER_SOUND_CHOOSE_FILE: (RenderSectionEnum.TIMER_EDIT,),
+        ActionIdEnum.PRESET_APPLY: (RenderSectionEnum.PRESETS,),
+        ActionIdEnum.PRESET_ADD: (RenderSectionEnum.PRESETS,),
+        ActionIdEnum.PRESET_EDIT: (RenderSectionEnum.PRESETS,),
+        ActionIdEnum.PRESET_DELETE: (RenderSectionEnum.PRESETS,),
+        ActionIdEnum.PRESET_MOVE_EARLIER: (RenderSectionEnum.PRESETS,),
+        ActionIdEnum.PRESET_MOVE_LATER: (RenderSectionEnum.PRESETS,),
+        ActionIdEnum.PRESET_EDIT_SAVE: (RenderSectionEnum.PRESET_EDIT,),
+        ActionIdEnum.PRESET_EDIT_CANCEL: (RenderSectionEnum.PRESET_EDIT,),
+        ActionIdEnum.CHIME_TOGGLE: (RenderSectionEnum.SPECIAL_OPTIONS,),
+        ActionIdEnum.CHIME_EDIT: (RenderSectionEnum.SPECIAL_OPTIONS,),
+        ActionIdEnum.CHIME_EDIT_SAVE: (RenderSectionEnum.CHIME_EDIT,),
+        ActionIdEnum.CHIME_EDIT_CANCEL: (RenderSectionEnum.CHIME_EDIT,),
+        ActionIdEnum.CHIME_PREVIEW: (RenderSectionEnum.CHIME_EDIT,),
+        ActionIdEnum.CHIME_SOUND_CHOOSE_FILE: (RenderSectionEnum.CHIME_EDIT,),
     }
 )
 

@@ -17,3 +17,7 @@ class RenderSectionEnum(BaseIntEnum):
     RECOVERY = 4
     TIMER = 5
     TIMER_EDIT = 6
+    PRESETS = 8
+    PRESET_EDIT = 9
+    SPECIAL_OPTIONS = 10
+    CHIME_EDIT = 11
