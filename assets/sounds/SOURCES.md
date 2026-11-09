@@ -7,12 +7,11 @@ A file added here without a label is listed under its file name.
 
 | File | Author (from the file name) |
 |---|---|
-| `alarm-lesiakower-reverby-notification-sound.mp3` | lesiakower |
-| `alarm-notification-alert.mp3` | not given in the file name |
-| `alarm-universfield-new-notification.mp3` | Universfield |
-| `alarm-universfield-new-notifications.mp3` | Universfield |
-| `alarm-universfield-notification-beep.mp3` | Universfield |
-| `alarm-universfield-soft-notification.mp3` | Universfield |
+| `chime.mp3` | lesiakower |
+| `alarm.mp3` | Universfield |
+| `notification.mp3` | Universfield |
+| `beep.mp3` | Universfield |
+| `soft.mp3` | Universfield |
 
 The files were provided by the owner, who confirmed on 2026-11-07 that their license allows their use
 in this personal project without commercial use (ADR-038).
