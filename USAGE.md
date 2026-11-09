@@ -154,20 +154,23 @@ The **Favorites** block, in the lower part of zone 2, shows one button per saved
 narrow.
 
 - **One click starts the timer**: the favorite's duration becomes the timer duration (kept for the
-  next starts too) and the countdown starts. The buttons are disabled while the timer runs, is paused
-  or rings; their tooltip then says **Reset the timer to use a favorite**.
+  next starts too) and the countdown starts. The favorites stay clickable at all times: while a
+  countdown runs, is paused or rings, a click stops it (and the alarm) and starts the favorite instead.
 - A favorite shows its label, or its duration when the label is empty (`15 min`, `1 h 30`,
   `1 min 30 s`).
-- **Add...** opens a dialog with an empty label and the current timer duration: type a label if you
-  want one (at most 40 characters, `max_preset_label_length` in `concentrator.ini`), set the duration
-  and **Save**. Two favorites cannot have the same duration. **Add...** is disabled once you have 12
-  favorites (`max_presets`).
-- **Right-click a favorite** (also while the timer runs) for **Edit...**, **Move earlier**, **Move
-  later** and **Delete...** (after a confirmation).
+- **Add...** opens an empty dialog (no label, 00:00:00): type a label if you want one (at most 40
+  characters, `max_preset_label_length` in `concentrator.ini`; the characters `<` `>` `!` `/` `\` are
+  refused), set the duration and **Save**. Two favorites cannot have the same duration. **Add...** is
+  disabled once you have 12 favorites (`max_presets`). A new favorite goes after the others.
+- **Right-click a favorite** for **Edit...** and **Delete...** (after a confirmation).
 - As in the timer dialog, errors show under the field while you type, and **Cancel**, Escape or the
   close button close the dialog without asking.
 - If you delete every favorite, none comes back by itself; the 15/30/45 favorites are created only in
   a data file that has no favorites section at all.
+- If you edit the data file by hand, a favorite that does not work (wrong value, same duration as
+  another, more than 12) is ignored and the log says so; a label that breaks a rule is replaced by the
+  automatic label. The rest of the file opens normally, and the next save writes the cleaned
+  favorites.
 
 ## Hourly chime
 

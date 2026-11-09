@@ -806,3 +806,27 @@ superseded.
   review report take their defaults: no automatic translation of the phase 2 sound names (the user
   chooses the sound once; the fallback plays `alarm` meanwhile), the automatic label "1 h 5 s" is kept,
   and the ini limits of the favorites stay strict when a file is read.
+- Amendment 2 (phase 3 review, owner decisions 2026-11-09, after testing the build): these supersede
+  owner decisions 3 and 4 and build items 1 to 3 above where they differ.
+  1. **Favorites stay enabled.** A click on a favorite while a countdown runs, is paused or rings stops
+     it (reset, or OK for an alarm) and starts the favorite's duration
+     (`TimerCommands.start_with_duration`). The tooltip says the countdown will be replaced.
+  2. **The countdown did not move** in the running application: PySide6 does not keep alive the owner
+     of a bound method connected to a signal, so the `AppTicker` referenced only by the timer's
+     `timeout` connection was collected when `build_shell` returned. The timer never ticked (nor rang,
+     nor the chime played) since phase 2. The shell now keeps the ticker and its Qt timer together
+     (`Heartbeat`); a test checks that the tick timer still reaches the ticker after garbage collection.
+  3. **"Add..." opens empty:** no label and 00:00:00. The inline errors of a new favorite show after the
+     first change; Save is enabled once the draft is valid.
+  4. **Blocked label characters:** `<`, `>`, `!`, `/` and `\` are refused by `TimerPresetRules`
+     (`PRESET_LABEL_CHARACTER_INVALID`, 4104) and by the label field of the favorite dialog.
+  5. **No moving favorites:** Move earlier and Move later are removed; a new favorite goes last.
+     `ActionIdEnum` values 33 and 34 are retired and never reused.
+  6. **Lenient reading of the favorites:** a favorite never makes the data file unusable. A favorite
+     whose structure is broken is left out before validation; then a label that breaks a rule is
+     cleared, and a favorite with a bad identity or duration, a repeated id or duration, or beyond
+     `timer.max_presets` is left out (the first by position win). Labels are cleaned when read. Every
+     ignored value is logged at WARNING without the user's text. The other sections stay strict.
+  7. A save refused for a reason the favorite form does not check is still only logged (no change).
+  8. The duration field, the field message lookup and the action buttons are shared by the dialogs;
+     the favorites panel reads the favorites once per render.

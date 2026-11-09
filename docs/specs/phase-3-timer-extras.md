@@ -14,20 +14,26 @@ Zone 2 final order (top to bottom): timer, focus queue (phase 7), favorites, spe
 
 - `TimerPreset` entity: `id`, `created_at`, `updated_at`, `label` (optional, max 40 chars; empty =
   auto label "15 min" / "1 h 30"), `duration`, `position`. Amended (ADR-039): the maximum is the ini
-  key `timer.max_preset_label_length`; the label is trimmed and kept on one line.
+  key `timer.max_preset_label_length`; the label is trimmed and kept on one line. Amended at the
+  review: `< > ! / \` are refused (`PRESET_LABEL_CHARACTER_INVALID`, 4104).
 - `TimerPresetsCollection`: ordered by `position`; at most `timer.max_presets`; durations unique
   (`PRESET_DURATION_DUPLICATE`); `next_position()`, `moved(preset_id, offset)`. Amended (ADR-039):
   `ordered()` gives the display order and `moved(preset_id, offset, now)` renumbers the positions.
+  Amended at the review: favorites are not moved; `moved()` is removed.
 - Seed: when the file has no `timer_presets` section, create one preset per value of
   `timer.default_presets_minutes`. `timer_presets = []` (every favorite deleted) is not seeded.
+  Amended at the review (ADR-039): a favorite that does not work when the file is read is ignored
+  (WARNING in the log) instead of making the file invalid.
 - UI: a wrapping grid of buttons, one per preset, plus an "Add" button. Context menu on a preset:
-  Edit, Move earlier, Move later, Delete (confirmation).
+  Edit, Move earlier, Move later, Delete (confirmation). Amended at the review (ADR-039): Edit and
+  Delete only.
 - Click on a preset: if the timer is IDLE, set the configured duration to the preset and start in the
   same action (one click). In any other state the preset buttons are disabled, tooltip "Reset the
-  timer to use a favorite".
+  timer to use a favorite". Amended at the review (ADR-039): the buttons stay enabled; in any other
+  state the click stops the countdown or the alarm, then sets and starts the favorite.
 - `PresetEditDialog`: label, duration (hours, minutes, seconds), real-time validation, `is_dirty`.
-  Amended (ADR-039): "Add..." proposes an empty label and the timer duration, and Save is enabled as
-  soon as the draft is valid; Cancel, Escape and the close button close without asking.
+  Amended (ADR-039): "Add..." opens with an empty label and 00:00:00 (review), and Save is enabled
+  as soon as the draft is valid; Cancel, Escape and the close button close without asking.
 - Uses the nine generic operations through `TimerPresetReaderPort` / `TimerPresetWriterPort`.
   Amended (ADR-039): the reader port is typed with `TimerPresetsCollection` and composes the
   generic store reader.
@@ -69,7 +75,8 @@ Zone 2 final order (top to bottom): timer, focus queue (phase 7), favorites, spe
 New `ActionIdEnum` values: `PRESET_APPLY`, `PRESET_ADD`, `PRESET_EDIT`, `PRESET_DELETE`,
 `PRESET_MOVE_EARLIER`, `PRESET_MOVE_LATER`, `PRESET_EDIT_SAVE`, `PRESET_EDIT_CANCEL`,
 `CHIME_TOGGLE`, `CHIME_EDIT`, `CHIME_EDIT_SAVE`, `CHIME_EDIT_CANCEL`, `CHIME_PREVIEW` (values 29 to
-41), plus `CHIME_SOUND_CHOOSE_FILE` (42, ADR-039).
+41), plus `CHIME_SOUND_CHOOSE_FILE` (42, ADR-039). The move actions (33, 34) were removed at the
+review and are never reused.
 New `RenderSectionEnum` values: `PRESETS`, `PRESET_EDIT`, `SPECIAL_OPTIONS`, `CHIME_EDIT` (8 to 11).
 
 `PresetsPresenter` subscribes to `TimerChangedEvent` so preset buttons follow the timer state.
@@ -122,6 +129,7 @@ other sounds renamed; added key `timer.max_preset_label_length = 40`.
 | 4101 | `PRESET_DURATION_DUPLICATE` |
 | 4102 | `PRESET_LABEL_TOO_LONG` |
 | 4103 | `PRESET_LIMIT_REACHED` |
+| 4104 | `PRESET_LABEL_CHARACTER_INVALID` (added at the review) |
 | 4201 | `CHIME_HOUR_OUT_OF_RANGE` |
 | 4202 | `CHIME_HOURS_REVERSED` |
 
@@ -141,8 +149,10 @@ Chime volume reuses `TIMER_VOLUME_OUT_OF_RANGE` (same `Volume` value object).
 ## Acceptance criteria
 
 - [ ] Fresh file: favorites 15, 30, 45 min appear; one click on "15 min" starts a 15:00 countdown.
-- [ ] Add, edit, reorder, delete favorites; changes survive a restart.
-- [ ] Favorites are disabled while the timer runs, is paused or rings.
+- [ ] Add, edit, reorder, delete favorites; changes survive a restart. Amended at the review: no
+      reordering.
+- [ ] Favorites are disabled while the timer runs, is paused or rings. Amended at the review: they
+      stay enabled and replace the countdown.
 - [ ] Hourly chime enabled with hours covering the current hour: it chimes once at the next full
       hour, not during an alarm, not outside the hours.
 - [ ] Every new text switches language live.
@@ -150,6 +160,7 @@ Chime volume reuses `TIMER_VOLUME_OUT_OF_RANGE` (same `Volume` value object).
 ## Manual test script
 
 1. Use each default favorite; add "Pomodoro" 25 min; move it first; delete "45 min"; restart the app.
+   Amended at the review: no move step.
 2. Enable the chime; set the Windows clock or wait for the next hour (tip: set hours to the current
    one); start a timer that rings at the full hour and check that the chime is skipped.
 
