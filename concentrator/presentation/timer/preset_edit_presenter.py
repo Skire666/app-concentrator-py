@@ -8,7 +8,7 @@ from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.timer.preset_commands import PresetCommands
 from concentrator.application.timer.preset_queries import PresetQueries
 from concentrator.domain.common.validation_result import ValidationResult
-from concentrator.domain.timer.duration import SECONDS_PER_HOUR, Duration
+from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.timer_config_rules import DURATION_FIELD
 from concentrator.domain.timer.timer_preset import BLOCKED_LABEL_CHARACTERS
 from concentrator.domain.timer.timer_preset_rules import LABEL_FIELD
@@ -20,6 +20,7 @@ from concentrator.presentation.common.render_coordinator import RenderCoordinato
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
 from concentrator.presentation.common.ui_texts import UiTexts
 from concentrator.presentation.ports.editor_dialog_port import EditorDialogPort
+from concentrator.presentation.timer.duration_input import duration_input
 from concentrator.presentation.timer.preset_edit_form import PresetDraft, PresetEditForm
 from concentrator.presentation.timer.preset_edit_snapshot import LabelInputSnapshot, PresetEditSnapshot
 from concentrator.presentation.timer.timer_edit_snapshot import DurationInputSnapshot
@@ -208,17 +209,11 @@ class PresetEditPresenter:
         Returns:
             The field snapshot.
         """
-        tr = self._translator.tr
-        hours, minutes, seconds = form.draft.duration.hms
-        return DurationInputSnapshot(
-            label=tr("preset.edit.duration"),
-            hours=hours,
-            minutes=minutes,
-            seconds=seconds,
-            max_hours=self._queries.limits.max_duration_seconds // SECONDS_PER_HOUR,
-            hours_unit=tr("timer.edit.unit.hours"),
-            minutes_unit=tr("timer.edit.unit.minutes"),
-            seconds_unit=tr("timer.edit.unit.seconds"),
+        return duration_input(
+            self._translator,
+            label=self._translator.tr("preset.edit.duration"),
+            duration=form.draft.duration,
+            max_duration_seconds=self._queries.limits.max_duration_seconds,
             error=self._error(form, DURATION_FIELD),
         )
 
@@ -246,8 +241,7 @@ class PresetEditPresenter:
         Returns:
             The first message, ``""`` when the field is valid or the errors are not shown yet.
         """
-        issues = form.errors.issues_for(field) if form.shows_errors else ()
-        return self._texts.issue_message(issues[0]) if issues else ""
+        return self._texts.field_message(form.errors, field) if form.shows_errors else ""
 
     def _current_form(self) -> PresetEditForm:
         """Return the form being edited, a new favorite if none is open.

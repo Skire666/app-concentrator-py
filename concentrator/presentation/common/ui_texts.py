@@ -95,6 +95,19 @@ class UiTexts:
         """
         return self._translator.tr(error_message_key(issue.code), **dict(issue.params))
 
+    def field_message(self, result: ValidationResult, field: str) -> str:
+        """Return the inline message of a form field (failures and warnings).
+
+        Args:
+            result: Validation of a form draft.
+            field: Field path of the rules; ``sound`` also covers ``sound.kind``.
+
+        Returns:
+            The message of the first issue of the field, ``""`` when the field is valid.
+        """
+        issue = next((issue for issue in result.issues if issue.field.split(".")[0] == field), None)
+        return "" if issue is None else self.issue_message(issue)
+
     def field_errors(self, result: ValidationResult) -> tuple[FieldErrorSnapshot, ...]:
         """Return one inline error per failing issue.
 

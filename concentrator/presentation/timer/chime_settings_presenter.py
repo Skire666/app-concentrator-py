@@ -285,8 +285,7 @@ class ChimeSettingsPresenter:
         Returns:
             The first message, ``""`` when the field is valid.
         """
-        issues = [issue for issue in form.errors.issues if issue.field.split(".")[0] == field]
-        return self._texts.issue_message(issues[0]) if issues else ""
+        return self._texts.field_message(form.errors, field)
 
     def _current_form(self) -> ChimeSettingsForm:
         """Return the form being edited, created from the stored settings if none is open.

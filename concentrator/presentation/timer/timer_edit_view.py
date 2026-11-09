@@ -4,7 +4,6 @@ from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.timer.timer_queries import TimerQueries
-from concentrator.domain.timer.duration import SECONDS_PER_HOUR
 from concentrator.domain.timer.sound_ref import SoundRef
 from concentrator.domain.timer.timer_config_rules import (
     AUTO_STOP_FIELD,
@@ -16,10 +15,12 @@ from concentrator.domain.timer.timer_config_rules import (
 from concentrator.domain.timer.timer_limits import TimerLimits
 from concentrator.domain.timer.timer_state_enum import TimerStateEnum
 from concentrator.domain.timer.volume import MAX_VOLUME_PERCENT
+from concentrator.presentation.common.action_button import action_button
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
 from concentrator.presentation.common.ui_texts import UiTexts
+from concentrator.presentation.timer.duration_input import duration_input
 from concentrator.presentation.timer.sound_choices import SoundChoices
 from concentrator.presentation.timer.timer_edit_form import TimerEditForm
 from concentrator.presentation.timer.timer_edit_snapshot import (
@@ -102,17 +103,11 @@ class TimerEditView:
         Returns:
             The field snapshot.
         """
-        tr = self._translator.tr
-        hours, minutes, seconds = form.draft.duration.hms
-        return DurationInputSnapshot(
-            label=tr("timer.edit.duration"),
-            hours=hours,
-            minutes=minutes,
-            seconds=seconds,
-            max_hours=self._limits.max_duration_seconds // SECONDS_PER_HOUR,
-            hours_unit=tr("timer.edit.unit.hours"),
-            minutes_unit=tr("timer.edit.unit.minutes"),
-            seconds_unit=tr("timer.edit.unit.seconds"),
+        return duration_input(
+            self._translator,
+            label=self._translator.tr("timer.edit.duration"),
+            duration=form.draft.duration,
+            max_duration_seconds=self._limits.max_duration_seconds,
             error=self._error(form, DURATION_FIELD),
         )
 
@@ -204,8 +199,7 @@ class TimerEditView:
         Returns:
             The first message, ``""`` when the field is valid.
         """
-        issues = [issue for issue in form.errors.issues if issue.field.split(".")[0] == field]
-        return self._texts.issue_message(issues[0]) if issues else ""
+        return self._texts.field_message(form.errors, field)
 
     def _button(self, action: ActionIdEnum, *, enabled: bool = True) -> ButtonSnapshot:
         """Describe a dialog button.
@@ -217,10 +211,4 @@ class TimerEditView:
         Returns:
             The button snapshot.
         """
-        return ButtonSnapshot(
-            text=self._texts.action_label(action),
-            tooltip=self._texts.action_tooltip(action),
-            enabled=enabled and not self._gate.is_busy(action),
-            visible=True,
-            action=action,
-        )
+        return action_button(self._texts, self._gate, action, enabled=enabled)
