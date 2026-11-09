@@ -7,7 +7,7 @@ Read: TOML text -> ``tomllib.loads`` (native dates as text) -> schema version ch
 
 import json
 import logging
-from typing import Final
+from typing import Final, cast
 
 from pydantic import ValidationError
 
@@ -19,12 +19,14 @@ from concentrator.domain.common.validation_issue import ValidationIssue
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.infrastructure.persistence.mappers.user_data_mapper import UserDataMapper
 from concentrator.infrastructure.persistence.pydantic_error_mapper import validation_from_error
+from concentrator.infrastructure.persistence.schemas.timer_preset_schema import TimerPresetSchema
 from concentrator.infrastructure.persistence.schemas.user_data_schema import UserDataSchema
 from concentrator.infrastructure.persistence.toml_codec import TomlCodec
 
 _logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION_FIELD: Final = "schema_version"
+PRESETS_FIELD: Final = "timer_presets"
 HEADER: Final = (
     "# Concentrator user data. Schema version {version}.\n"
     "# Close Concentrator before editing this file by hand. Comments are not preserved.\n"
@@ -45,6 +47,49 @@ def _newer_version(document: dict[str, object]) -> int | None:
     if isinstance(version, int) and not isinstance(version, bool) and version > CURRENT_SCHEMA_VERSION:
         return version
     return None
+
+
+def _readable_preset(index: int, element: object) -> bool:
+    """Tell whether one ``[[timer_presets]]`` element has the expected structure.
+
+    Args:
+        index: Its position in the file.
+        element: Parsed element.
+
+    Returns:
+        Whether it is kept; a broken element is logged at WARNING (error types only, no value).
+    """
+    try:
+        TimerPresetSchema.model_validate_json(json.dumps(element, allow_nan=False, ensure_ascii=False))
+    except ValidationError as error:
+        details = [(".".join(map(str, item["loc"])), item["type"]) for item in error.errors(include_url=False)]
+        _logger.warning("Favorite %d of the data file ignored: %s", index, details)
+        return False
+    except ValueError:
+        _logger.warning("Favorite %d of the data file ignored: number that JSON cannot represent", index)
+        return False
+    return True
+
+
+def _without_broken_presets(document: dict[str, object]) -> dict[str, object]:
+    """Leave out the favorites whose structure is broken, so they never make the whole file unusable.
+
+    Owner decision at the phase 3 review. A ``timer_presets`` value that is not an array is left to the
+    schema, as any other structure error.
+
+    Args:
+        document: Parsed TOML document.
+
+    Returns:
+        The document with the readable favorites only.
+    """
+    elements = document.get(PRESETS_FIELD)
+    if not isinstance(elements, list):
+        return document
+    readable = [
+        element for index, element in enumerate(cast("list[object]", elements)) if _readable_preset(index, element)
+    ]
+    return {**document, PRESETS_FIELD: readable}
 
 
 class UserDataCodec:
@@ -81,7 +126,7 @@ class UserDataCodec:
                 field=SCHEMA_VERSION_FIELD,
             )
             return DataResult.fail(ValidationResult.of(issue))
-        return self._validate(parsed.data)
+        return self._validate(_without_broken_presets(parsed.data))
 
     def encode(self, stored: StoredUserData) -> str:
         """Run the write pipeline.

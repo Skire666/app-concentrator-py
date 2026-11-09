@@ -30,11 +30,6 @@ def _encode(data: UserData) -> str:
     return CODEC.encode(StoredUserData(data=data, saved_at=SAVED_AT))
 
 
-def _presets_edited(old: str, new: str) -> str:
-    assert old in PRESET_BLOCK
-    return SPEC_EXAMPLE_TEXT[:PRESETS_START] + PRESET_BLOCK.replace(old, new, 1) + SPEC_EXAMPLE_TEXT[CHIME_START:]
-
-
 def _chime_edited(old: str, new: str) -> str:
     chime = SPEC_EXAMPLE_TEXT[CHIME_START:]
     assert old in chime
@@ -109,54 +104,69 @@ def test_a_label_with_an_apostrophe_round_trips() -> None:
     assert decoded.data == data
 
 
+def _favorites(text: str) -> list[tuple[str, str, int]]:
+    result = CODEC.decode(text)
+    assert result.data is not None
+    assert result.validation.is_success
+    presets = result.data.data.timer_presets
+    assert presets is not None
+    return [(preset.id, preset.label, preset.duration.seconds) for preset in presets.ordered()]
+
+
 @pytest.mark.parametrize(
-    ("old", "new", "code", "field"),
+    ("old", "new"),
     [
-        ("label = ''", "label = '" + "x" * 41 + "'", ErrorCodeEnum.PRESET_LABEL_TOO_LONG, "timer_presets.0.label"),
-        (
-            "duration_seconds = 900",
-            "duration_seconds = 0",
-            ErrorCodeEnum.TIMER_DURATION_TOO_SHORT,
-            "timer_presets.0.duration_seconds",
-        ),
-        ("position = 0\n", "", ErrorCodeEnum.STORAGE_FIELD_MISSING, "timer_presets.0.position"),
-        ("position = 0", "position = '0'", ErrorCodeEnum.STORAGE_FIELD_INVALID_TYPE, "timer_presets.0.position"),
-        ("label = ''", "label = ''\ncolour = 1", ErrorCodeEnum.STORAGE_FIELD_UNEXPECTED, "timer_presets.0.colour"),
+        ("position = 1\n", ""),
+        ("position = 1", "position = '1'"),
+        ("label = ''", "label = ''\ncolour = 1"),
+        ("duration_seconds = 900", "duration_seconds = 0"),
+        ("created_at = '2026-11-06T16:40:00Z'", "created_at = 'yesterday'"),
     ],
 )
-def test_invalid_favorite_values_are_reported_per_field(old: str, new: str, code: ErrorCodeEnum, field: str) -> None:
-    result = CODEC.decode(_presets_edited(old, new))
+def test_a_broken_favorite_is_ignored_with_a_warning(old: str, new: str, caplog: pytest.LogCaptureFixture) -> None:
+    text = _with_presets(_preset_block("a", 600, 0), _preset_block("b", 900, 1).replace(old, new, 1))
 
-    assert result.data is None
-    assert result.validation.error_codes == (code,)
-    assert result.validation.issues[0].field == field
+    assert _favorites(text) == [("a", "", 600)]
+    assert "Favorite 1 " in caplog.text
+    assert "of the data file ignored" in caplog.text
 
 
-def test_duplicate_favorite_durations_are_reported() -> None:
-    text = _with_presets(_preset_block("a", 900, 0), _preset_block("b", 900, 1))
+@pytest.mark.parametrize("label", ["x" * 41, "a/b", "<b>x</b>"])
+def test_a_bad_label_is_cleared_and_the_favorite_kept(label: str, caplog: pytest.LogCaptureFixture) -> None:
+    text = _with_presets(_preset_block("a", 900, 0, label=label))
+
+    assert _favorites(text) == [("a", "", 900)]
+    assert "Favorite value ignored in the data file" in caplog.text
+    assert label not in caplog.text
+
+
+def test_a_label_written_on_two_lines_is_cleaned() -> None:
+    text = _with_presets(_preset_block("a", 900, 0).replace("label = ''", 'label = "  Deep\\nwork  "'))
+
+    assert _favorites(text) == [("a", "Deep work", 900)]
+
+
+def test_duplicate_durations_and_ids_keep_the_first_favorite() -> None:
+    text = _with_presets(_preset_block("a", 900, 0), _preset_block("b", 900, 1), _preset_block("a", 1800, 2))
+
+    assert _favorites(text) == [("a", "", 900)]
+
+
+def test_favorites_above_the_ini_limit_are_ignored() -> None:
+    limit = USER_DATA_LIMITS.timer.max_presets
+    blocks = [_preset_block(f"p{index}", 60 * (index + 1), index) for index in range(limit + 1)]
+
+    assert len(_favorites(_with_presets(*blocks))) == limit
+
+
+def test_favorites_that_are_not_a_list_still_make_the_file_invalid() -> None:
+    without_presets = SPEC_EXAMPLE_TEXT[:PRESETS_START] + SPEC_EXAMPLE_TEXT[CHIME_START:]
+    text = without_presets.replace("app_version = '0.1.0'\n", "app_version = '0.1.0'\ntimer_presets = 3\n")
 
     result = CODEC.decode(text)
 
-    assert result.validation.error_codes == (ErrorCodeEnum.PRESET_DURATION_DUPLICATE,)
-    assert result.validation.issues[0].field == "timer_presets.1.duration_seconds"
-
-
-def test_duplicate_favorite_ids_are_reported() -> None:
-    result = CODEC.decode(_with_presets(_preset_block("a", 900, 0), _preset_block("a", 1800, 1)))
-
-    assert result.validation.error_codes == (ErrorCodeEnum.ENTITY_DUPLICATE_ID,)
-    assert result.validation.issues[0].field == "timer_presets.1.id"
-
-
-def test_more_favorites_than_the_ini_limit_make_the_file_invalid() -> None:
-    blocks = [
-        _preset_block(f"p{index}", 60 * (index + 1), index) for index in range(USER_DATA_LIMITS.timer.max_presets + 1)
-    ]
-
-    result = CODEC.decode(_with_presets(*blocks))
-
-    assert result.validation.error_codes == (ErrorCodeEnum.PRESET_LIMIT_REACHED,)
-    assert result.validation.issues[0].field == "timer_presets"
+    assert result.data is None
+    assert result.validation.error_codes == (ErrorCodeEnum.STORAGE_FIELD_INVALID_TYPE,)
 
 
 @pytest.mark.parametrize(
@@ -259,3 +269,10 @@ class _LongerThan:
     def matches(self, entity: object) -> bool:
         duration = getattr(entity, "duration", Duration(0))
         return isinstance(duration, Duration) and duration.seconds > self._seconds
+
+
+def test_a_favorite_with_a_number_json_cannot_hold_is_ignored(caplog: pytest.LogCaptureFixture) -> None:
+    broken = _preset_block("b", 900, 1).replace("duration_seconds = 900", "duration_seconds = nan")
+
+    assert _favorites(_with_presets(_preset_block("a", 600, 0), broken)) == [("a", "", 600)]
+    assert "Favorite 1 of the data file ignored: number that JSON cannot represent" in caplog.text

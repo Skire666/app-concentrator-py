@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import pytest
 
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
+from concentrator.domain.common.severity_enum import SeverityEnum
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.timer_preset import TimerPreset, TimerPresetId, normalize_label
 from concentrator.domain.timer.timer_preset_rules import TimerPresetRules
@@ -122,30 +123,59 @@ def test_room_runs_out_at_the_limit() -> None:
     assert result.issues[0].params == (("max", "12"),)
 
 
-def test_collection_rules_accept_the_defaults() -> None:
-    assert TimerPresetRules.validate_collection(make_presets(), LIMITS).is_success
+def test_usable_favorites_keep_valid_ones_unchanged() -> None:
+    result = TimerPresetRules.usable(make_presets().items, LIMITS)
+
+    assert result.data == make_presets()
+    assert not result.validation.issues
 
 
-def test_collection_rules_report_each_problem_with_its_file_position() -> None:
-    presets = TimerPresetsCollection(
-        (make_preset(15, 0), make_preset(30, 1, label="y" * 41), make_preset(15, 2, preset_id="again"))
-    )
+def test_usable_favorites_clear_a_bad_label_and_keep_the_favorite() -> None:
+    presets = (make_preset(15, 0, label="y" * 41), make_preset(30, 1, label="a/b"))
 
-    result = TimerPresetRules.validate_collection(presets, LIMITS)
+    result = TimerPresetRules.usable(presets, LIMITS)
 
-    assert [(issue.code, issue.field) for issue in result.issues] == [
-        (ErrorCodeEnum.PRESET_LABEL_TOO_LONG, "1.label"),
-        (ErrorCodeEnum.PRESET_DURATION_DUPLICATE, "2.duration_seconds"),
+    assert result.data is not None
+    assert [preset.label for preset in result.data] == ["", ""]
+    assert [(issue.code, issue.field, issue.severity) for issue in result.validation.issues] == [
+        (ErrorCodeEnum.PRESET_LABEL_TOO_LONG, "0.label", SeverityEnum.WARNING),
+        (ErrorCodeEnum.PRESET_LABEL_CHARACTER_INVALID, "1.label", SeverityEnum.WARNING),
     ]
 
 
-def test_collection_rules_reject_more_favorites_than_the_limit() -> None:
-    too_many = make_presets(*range(1, LIMITS.max_presets + 2))
+def test_usable_favorites_drop_bad_durations_identities_and_duplicates() -> None:
+    presets = (
+        make_preset(15, 0),
+        make_preset(30, 1, seconds=0),
+        make_preset(45, 2, preset_id="preset-15"),
+        make_preset(15, 3, preset_id="again"),
+        replace(make_preset(60, 4), id=TimerPresetId(" ")),
+    )
 
-    result = TimerPresetRules.validate_collection(too_many, LIMITS)
+    result = TimerPresetRules.usable(presets, LIMITS)
 
-    assert result.error_codes == (ErrorCodeEnum.PRESET_LIMIT_REACHED,)
-    assert not result.issues[0].field
+    assert result.data is not None
+    assert [preset.id for preset in result.data] == ["preset-15"]
+    assert [(issue.code, issue.field) for issue in result.validation.issues] == [
+        (ErrorCodeEnum.TIMER_DURATION_TOO_SHORT, "1.duration_seconds"),
+        (ErrorCodeEnum.ENTITY_DUPLICATE_ID, "2.id"),
+        (ErrorCodeEnum.PRESET_DURATION_DUPLICATE, "3.duration_seconds"),
+        (ErrorCodeEnum.REQUIRED_VALUE_MISSING, "4.id"),
+    ]
+
+
+def test_usable_favorites_keep_the_first_ones_by_position_up_to_the_limit() -> None:
+    too_many = list(make_presets(*range(1, LIMITS.max_presets + 2)))
+    too_many.reverse()
+
+    result = TimerPresetRules.usable(too_many, LIMITS)
+
+    assert result.data is not None
+    assert len(result.data) == LIMITS.max_presets
+    assert result.data.get(f"preset-{LIMITS.max_presets + 1}").data is None
+    assert [(issue.code, issue.field) for issue in result.validation.issues] == [
+        (ErrorCodeEnum.PRESET_LIMIT_REACHED, "0")
+    ]
 
 
 @pytest.mark.parametrize("character", ["<", ">", "!", "/", "\\"])

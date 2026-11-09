@@ -1,14 +1,39 @@
 """``TimerPresetSchema`` elements <-> ``TimerPresetsCollection``."""
 
+import logging
 from collections.abc import Sequence
+from typing import Final
 
 from concentrator.domain.common.data_result import DataResult
+from concentrator.domain.common.validation_issue import ValidationIssue
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.timer_limits import TimerLimits
-from concentrator.domain.timer.timer_preset import TimerPreset, TimerPresetId
-from concentrator.domain.timer.timer_preset_rules import TimerPresetRules
+from concentrator.domain.timer.timer_preset import TimerPreset, TimerPresetId, normalize_label
+from concentrator.domain.timer.timer_preset_rules import LABEL_FIELD, TimerPresetRules
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 from concentrator.infrastructure.persistence.schemas.timer_preset_schema import TimerPresetSchema
+
+_logger = logging.getLogger(__name__)
+
+_FIELD_SEPARATOR: Final = "."
+
+
+def _log_ignored(issue: ValidationIssue, presets: Sequence[TimerPreset], field_prefix: str) -> None:
+    """Log one value ignored when the favorites were read, without the user's text.
+
+    Args:
+        issue: Warning of ``TimerPresetRules.usable`` (field ``<index>.<field>``).
+        presets: Favorites as read.
+        field_prefix: Dotted path of the collection in the file.
+    """
+    index, _separator, field = issue.field.partition(_FIELD_SEPARATOR)
+    preset_id = presets[int(index)].id
+    if field == LABEL_FIELD:
+        _logger.warning(
+            "Favorite value ignored in the data file: %s.%s.%s (%s)", field_prefix, index, field, issue.code.name
+        )
+        return
+    _logger.warning("Favorite %s (%s) of the data file ignored: %s", index, preset_id, issue.code.name)
 
 
 class TimerPresetsMapper:
@@ -18,7 +43,10 @@ class TimerPresetsMapper:
     def to_domain(
         schemas: Sequence[TimerPresetSchema], field_prefix: str, limits: TimerLimits
     ) -> DataResult[TimerPresetsCollection]:
-        """Build and validate the favorites.
+        """Build the favorites, keeping those that work (owner decision at the phase 3 review).
+
+        Labels are cleaned (``normalize_label``); a value that breaks a rule is ignored and logged at
+        WARNING (``TimerPresetRules.usable``), so a favorite never makes the whole file unusable.
 
         Args:
             schemas: Validated DTOs, in file order.
@@ -26,26 +54,23 @@ class TimerPresetsMapper:
             limits: Bounds from ``concentrator.ini``.
 
         Returns:
-            The favorites in file order, or the failures with fields such as ``timer_presets.1.label``.
+            The kept favorites (always a success).
         """
-        presets = (
+        presets = [
             TimerPreset(
                 id=TimerPresetId(schema.id),
                 created_at=schema.created_at,
                 updated_at=schema.updated_at,
-                label=schema.label,
+                label=normalize_label(schema.label),
                 duration=Duration(schema.duration_seconds),
                 position=schema.position,
             )
             for schema in schemas
-        )
-        collection = TimerPresetsCollection.from_items(presets, field_prefix)
-        if collection.data is None:
-            return DataResult.fail(collection.validation)
-        validation = TimerPresetRules.validate_collection(collection.data, limits).prefixed(field_prefix)
-        if validation.is_failure:
-            return DataResult.fail(validation)
-        return DataResult.ok(collection.data, validation)
+        ]
+        usable = TimerPresetRules.usable(presets, limits)
+        for issue in usable.validation.issues:
+            _log_ignored(issue, presets, field_prefix)
+        return DataResult.ok(usable.value_or(TimerPresetsCollection()))
 
     @staticmethod
     def to_schema(presets: TimerPresetsCollection) -> tuple[TimerPresetSchema, ...]:

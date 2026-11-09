@@ -1,9 +1,14 @@
 """Business rules of the timer favorites."""
 
+from collections.abc import Sequence
+from dataclasses import replace
 from typing import Final
 
-from concentrator.domain.common.entity_rules import EntityRules
+from concentrator.domain.common.data_result import DataResult
+from concentrator.domain.common.entity_rules import ID_FIELD, EntityRules
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
+from concentrator.domain.common.severity_enum import SeverityEnum
+from concentrator.domain.common.validation_issue import ValidationIssue
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.timer_config_rules import DURATION_FIELD, TimerConfigRules
@@ -108,29 +113,79 @@ class TimerPresetRules:
         return ValidationResult.failure(ErrorCodeEnum.PRESET_LIMIT_REACHED, max=limits.max_presets)
 
     @staticmethod
-    def validate_collection(presets: TimerPresetsCollection, limits: TimerLimits) -> ValidationResult:
-        """Check a whole collection read from a file: every favorite, the limit and the unique durations.
+    def usable(presets: Sequence[TimerPreset], limits: TimerLimits) -> DataResult[TimerPresetsCollection]:
+        """Keep the favorites read from a file that work, in position order (owner decision at the review).
+
+        A label that breaks a rule is cleared (the automatic label is shown) and the favorite is kept. A
+        favorite with a bad identity or duration, a repeated id or duration, or beyond
+        ``timer.max_presets`` is left out; the first favorites by position win.
 
         Args:
-            presets: Favorites in stored order.
+            presets: Favorites in file order.
             limits: Bounds from ``concentrator.ini``.
 
         Returns:
-            The merged result; fields are ``<position in the file>.<field>``.
+            The kept favorites, with one WARNING issue per ignored value (fields
+            ``<position in the file>.<field>``).
         """
-        results = [
-            TimerPresetRules.validate(preset, limits).prefixed(str(index)) for index, preset in enumerate(presets)
-        ]
-        seen: set[Duration] = set()
-        for index, preset in enumerate(presets):
-            if preset.duration in seen:
-                duplicate = ValidationResult.failure(
-                    ErrorCodeEnum.PRESET_DURATION_DUPLICATE,
-                    field=f"{index}.{DURATION_FIELD}",
-                    duration=preset.duration.as_clock_text(),
-                )
-                results.append(duplicate)
-            seen.add(preset.duration)
-        if len(presets) > limits.max_presets:
-            results.append(ValidationResult.failure(ErrorCodeEnum.PRESET_LIMIT_REACHED, max=limits.max_presets))
-        return ValidationResult.success().merge(*results)
+        kept: list[TimerPreset] = []
+        warnings: list[ValidationIssue] = []
+        for index, preset in sorted(enumerate(presets), key=lambda pair: pair[1].position):
+            cleared, label = TimerPresetRules._with_usable_label(preset, limits)
+            refused = TimerPresetRules._refusal(cleared, kept, limits)
+            warnings.extend(_as_warnings(label.merge(refused), index))
+            if not refused.is_failure:
+                kept.append(cleared)
+        return DataResult.ok(TimerPresetsCollection(kept), ValidationResult.of(*warnings))
+
+    @staticmethod
+    def _with_usable_label(preset: TimerPreset, limits: TimerLimits) -> tuple[TimerPreset, ValidationResult]:
+        """Clear a label that breaks a rule.
+
+        Args:
+            preset: Favorite read from a file.
+            limits: Bounds from ``concentrator.ini``.
+
+        Returns:
+            The favorite (with an empty label if its label was refused) and the label issues.
+        """
+        label = TimerPresetRules.validate_label(preset.label, limits)
+        if label.is_failure:
+            return replace(preset, label=""), label
+        return preset, label
+
+    @staticmethod
+    def _refusal(preset: TimerPreset, kept: Sequence[TimerPreset], limits: TimerLimits) -> ValidationResult:
+        """Tell why a favorite read from a file cannot be kept.
+
+        Args:
+            preset: Favorite with a usable label.
+            kept: Favorites kept so far.
+            limits: Bounds from ``concentrator.ini``.
+
+        Returns:
+            Success, the identity or duration failures, ``ENTITY_DUPLICATE_ID``,
+            ``PRESET_DURATION_DUPLICATE`` or ``PRESET_LIMIT_REACHED``.
+        """
+        own = EntityRules.validate_identity(preset).merge(TimerConfigRules.validate_duration(preset.duration, limits))
+        if own.is_failure:
+            return own
+        if any(item.id == preset.id for item in kept):
+            return ValidationResult.failure(ErrorCodeEnum.ENTITY_DUPLICATE_ID, field=ID_FIELD)
+        duplicate = TimerPresetRules.validate_unique_duration(TimerPresetsCollection(kept), preset.duration)
+        if duplicate.is_failure:
+            return duplicate
+        return TimerPresetRules.validate_room(TimerPresetsCollection(kept), limits)
+
+
+def _as_warnings(result: ValidationResult, index: int) -> list[ValidationIssue]:
+    """Turn the issues of one favorite into warnings placed under its position in the file.
+
+    Args:
+        result: Issues of the favorite.
+        index: Its position in the file.
+
+    Returns:
+        The warnings.
+    """
+    return [replace(issue, severity=SeverityEnum.WARNING) for issue in result.prefixed(str(index)).issues]
