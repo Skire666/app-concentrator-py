@@ -1,6 +1,6 @@
 """Deterministic clock."""
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone, tzinfo
 from typing import Final, override
 
 from concentrator.application.ports.clock_port import ClockPort
@@ -10,14 +10,16 @@ LOCAL_ZONE: Final = timezone(timedelta(hours=1))
 
 
 class FakeClock(ClockPort):
-    """Clock that only moves when ``advance`` is called; local time is UTC+1.
+    """Clock that only moves when ``advance`` is called; local time is UTC+1 unless ``local_zone`` changes.
 
     Like ``SystemClock``, wall-clock instants are whole seconds and the monotonic time is not rounded.
+    Changing ``local_zone`` simulates a daylight saving time change (no ``tzdata`` on Windows).
     """
 
     def __init__(self, start: datetime = DEFAULT_START) -> None:
         self._now = start
         self._monotonic = 1000.0
+        self.local_zone: tzinfo = LOCAL_ZONE
 
     def advance(self, *, ms: float = 0.0, seconds: float = 0.0) -> None:
         """Move wall-clock and monotonic time forward."""
@@ -35,7 +37,7 @@ class FakeClock(ClockPort):
 
     @override
     def to_local(self, moment: datetime) -> datetime:
-        return moment.astimezone(LOCAL_ZONE)
+        return moment.astimezone(self.local_zone)
 
     @override
     def monotonic(self) -> float:

@@ -7,12 +7,15 @@ from typing import Final
 from concentrator.application.ports.attention_port import AttentionPort
 from concentrator.application.ports.sound_catalog_port import SoundCatalogPort
 from concentrator.application.ports.sound_player_port import LOOP_FOREVER, SoundPlayback, SoundPlayerPort
+from concentrator.application.timer.sound_candidates import sound_candidates
 from concentrator.application.timer.timer_events import TimerChangedEvent
 from concentrator.domain.timer.sound_ref import SoundRef
 from concentrator.domain.timer.timer_settings import TimerSettings
 from concentrator.domain.timer.timer_transition_enum import TimerTransitionEnum
 
 _logger = logging.getLogger(__name__)
+
+ALARM_PURPOSE: Final = "Alarm"
 
 STOPPING_TRANSITIONS: Final = frozenset(
     {
@@ -73,27 +76,10 @@ class AlarmCoordinator:
         """Play the alarm and flash the taskbar button of an inactive application."""
         settings = self._settings()
         loops = LOOP_FOREVER if settings.loop_forever else settings.loop_count
-        playback = SoundPlayback(paths=self._candidates(settings.sound), volume=settings.volume, loops=loops)
+        paths = sound_candidates(self._catalog, settings.sound, self._fallback_sound, ALARM_PURPOSE)
+        playback = SoundPlayback(paths=paths, volume=settings.volume, loops=loops)
         played = self._player.play(playback)
         if played.is_failure:
             _logger.warning("Alarm sound not played: %s", [code.name for code in played.error_codes])
         if not self._attention.is_application_active():
             self._attention.request_attention()
-
-    def _candidates(self, sound: SoundRef) -> tuple[str, ...]:
-        """Return the files to try: the chosen sound, then the default sound.
-
-        Args:
-            sound: Configured alarm sound.
-
-        Returns:
-            Existing files, without duplicates; empty when none exists (the player then beeps).
-        """
-        paths: list[str] = []
-        for candidate in (sound, self._fallback_sound):
-            resolved = self._catalog.resolve(candidate)
-            if resolved.data is None:
-                _logger.warning("Alarm sound (%s) not found; falling back", candidate.kind.name)
-            elif resolved.data not in paths:
-                paths.append(resolved.data)
-        return tuple(paths)
