@@ -1,3 +1,4 @@
+import gc
 import logging
 import shutil
 from pathlib import Path
@@ -187,6 +188,32 @@ def test_built_shell_starts_ticks_saves_and_flushes_on_shutdown(qtbot: QtBot, in
     assert not shell.tick_timer.isActive()
     assert "layout" in config.paths.ui_state_file.read_text(encoding="utf-8")
     assert "language = 2" in config.paths.default_data_file.read_text(encoding="utf-8")
+
+
+def test_tick_timer_reaches_the_timer_engine_after_garbage_collection(qtbot: QtBot, install: _Install) -> None:
+    config = install.config()
+    core, storage, translator = _storage(config, install)
+    assert storage.startup.create_at(config.paths.default_data_file, LanguageEnum.ENGLISH).is_success
+    shell = build_shell(
+        _app(),
+        config,
+        install.paths,
+        translator,
+        ForwardingErrorReporter(),
+        core=core,
+        storage=storage,
+        instance=InstanceProtectionPresenter(translator, protected=True),
+    )
+    qtbot.addWidget(shell.window)
+    shell.shutdown_presenter.attach(FakeDialogs(confirm_answer=True))
+    ticks: list[int] = []
+    shell.heartbeat.ticker.register(lambda: ticks.append(1))
+    gc.collect()
+
+    shell.tick_timer.timeout.emit()
+
+    assert ticks == [1]
+    storage.writer.shutdown()
 
 
 def test_reopening_a_remembered_file_needs_no_dialog_and_follows_its_language(qtbot: QtBot, install: _Install) -> None:

@@ -1,6 +1,8 @@
 """Wiring of the window shell: presenters, window, ticker, on top of the core and storage services."""
 
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
@@ -41,6 +43,23 @@ from concentrator.ui.windows.timer_edit_dialog import TimerEditWindow
 _logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True, slots=True)
+class Heartbeat:
+    """The ticker and the Qt timer that drives it, kept alive together by the shell.
+
+    PySide6 does not keep alive the owner of a bound method connected to a signal: a ticker that only
+    the connection references is collected at once, and the timer then fires into nothing (the timer
+    never counted down and the chime never played, phase 3 review).
+
+    Attributes:
+        ticker: Calls the timer engine, then the chime service.
+        timer: Qt timer calling ``ticker.tick`` every ``timer.tick_interval_ms`` (not started).
+    """
+
+    ticker: AppTicker
+    timer: QTimer
+
+
 class Shell:
     """Everything the running window needs, kept alive together."""
 
@@ -53,7 +72,7 @@ class Shell:
         timer: TimerServices,
         extras: TimerExtras,
         alarm: AlarmCoordinator,
-        tick_timer: QTimer,
+        heartbeat: Heartbeat,
     ) -> None:
         """Keep the wired objects.
 
@@ -64,7 +83,7 @@ class Shell:
             timer: Timer services (its engine is registered on the ticker).
             extras: Favorites and hourly chime (its service is registered on the ticker).
             alarm: Plays the alarm when the timer rings.
-            tick_timer: Qt timer driving the ticker.
+            heartbeat: Ticker and the Qt timer driving it.
         """
         self.window = window
         self.core = core
@@ -72,7 +91,12 @@ class Shell:
         self.timer = timer
         self.extras = extras
         self.alarm = alarm
-        self.tick_timer = tick_timer
+        self.heartbeat = heartbeat
+
+    @property
+    def tick_timer(self) -> QTimer:
+        """Qt timer driving the ticker."""
+        return self.heartbeat.timer
 
     def start(self) -> None:
         """Render once, restore the layout, start the ticker and show the window (steps 7 and 8)."""
@@ -93,21 +117,24 @@ class Shell:
         self.core.preferences.sync()
 
 
-def _tick_timer(app: QApplication, config: AppConfig, ticker: AppTicker) -> QTimer:
-    """Create the Qt timer calling ``AppTicker.tick`` every ``timer.tick_interval_ms`` (not started).
+def _heartbeat(app: QApplication, config: AppConfig, handlers: tuple[Callable[[], None], ...]) -> Heartbeat:
+    """Create the ticker and the Qt timer calling it every ``timer.tick_interval_ms`` (not started).
 
     Args:
         app: Owner of the timer.
         config: Loaded configuration.
-        ticker: Ticker to drive.
+        handlers: Called on every tick, in order.
 
     Returns:
-        The timer.
+        The heartbeat; the shell keeps it alive.
     """
+    ticker = AppTicker()
+    for handler in handlers:
+        ticker.register(handler)
     timer = QTimer(app)
     timer.setInterval(config.timer.tick_interval_ms)
     timer.timeout.connect(ticker.tick)
-    return timer
+    return Heartbeat(ticker=ticker, timer=timer)
 
 
 def _status_bar(
@@ -192,9 +219,6 @@ def build_shell(
     window = _main_window(config, paths, core, presenters)
     dialogs = _attach_dialogs(window, config, presenters, (timer, extras), core)
     _connect_dialogs(dialogs, core, storage, translator, reporter)
-    ticker = AppTicker()
-    ticker.register(timer.engine.tick)
-    ticker.register(extras.chime_service.tick)
     return Shell(
         window=window,
         core=core,
@@ -202,7 +226,7 @@ def build_shell(
         timer=timer,
         extras=extras,
         alarm=connect_alarm(timer, window, core),
-        tick_timer=_tick_timer(app, config, ticker),
+        heartbeat=_heartbeat(app, config, (timer.engine.tick, extras.chime_service.tick)),
     )
 
 
