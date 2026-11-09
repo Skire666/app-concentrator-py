@@ -7,6 +7,7 @@ from pathlib import Path
 from concentrator.application.common.app_config import (
     AppConfig,
     AppSection,
+    ChimeSection,
     I18nSection,
     LoggingSection,
     PathsSection,
@@ -52,7 +53,7 @@ def make_storage_section(**changes: int | bool) -> StorageSection:
     return replace(section, **changes)
 
 
-def make_timer_section(**changes: int | str) -> TimerSection:
+def make_timer_section(**changes: int | str | tuple[int, ...]) -> TimerSection:
     section = TimerSection(
         tick_interval_ms=100,
         snooze_minutes=5,
@@ -66,6 +67,21 @@ def make_timer_section(**changes: int | str) -> TimerSection:
         default_auto_stop_seconds=120,
         min_auto_stop_seconds=5,
         max_auto_stop_seconds=3600,
+        default_presets_minutes=(15, 30, 45),
+        max_presets=12,
+        max_preset_label_length=40,
+    )
+    return replace(section, **changes)
+
+
+def make_chime_section(**changes: int | str | bool) -> ChimeSection:
+    section = ChimeSection(
+        default_enabled=False,
+        default_sound="chime",
+        default_volume=60,
+        default_start_hour=8,
+        default_end_hour=20,
+        trigger_window_seconds=59,
     )
     return replace(section, **changes)
 
@@ -75,6 +91,7 @@ def make_app_config(
     ui: UiSection | None = None,
     storage: StorageSection | None = None,
     timer: TimerSection | None = None,
+    chime: ChimeSection | None = None,
 ) -> AppConfig:
     return AppConfig(
         app=AppSection(
@@ -93,6 +110,7 @@ def make_app_config(
         ui=ui or make_ui_section(),
         storage=storage or make_storage_section(),
         timer=timer or make_timer_section(),
+        chime=chime or make_chime_section(),
         logging=LoggingSection(
             level=logging.INFO,
             file_name="concentrator.log",

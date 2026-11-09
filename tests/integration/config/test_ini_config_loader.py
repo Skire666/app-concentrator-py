@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from concentrator.application.common.app_config import ChimeSection
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.infrastructure.config.ini_config_loader import IniConfigLoader
@@ -46,6 +47,16 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
     assert config.timer.snooze_minutes == 5
     assert config.timer.default_sound == "alarm"
     assert config.timer.max_duration_seconds == 359_999
+    assert config.timer.default_presets_minutes == (15, 30, 45)
+    assert (config.timer.max_presets, config.timer.max_preset_label_length) == (12, 40)
+    assert config.chime == ChimeSection(
+        default_enabled=False,
+        default_sound="chime",
+        default_volume=60,
+        default_start_hour=8,
+        default_end_hour=20,
+        trigger_window_seconds=59,
+    )
     assert config.ui.timer_font_family == "Cascadia Mono"
     assert config.ui.alert_blink_interval_ms == 500
     assert config.storage.save_debounce_ms == 500
@@ -90,7 +101,7 @@ def test_missing_key_is_reported_with_its_path(paths: AppPaths, tmp_path: Path) 
 
 def test_missing_section_is_reported(paths: AppPaths, tmp_path: Path) -> None:
     text = SHIPPED_INI.read_text(encoding="utf-8")
-    section = text[text.index("[timer]") : text.index("[logging]")]
+    section = text[text.index("[timer]") : text.index("[chime]")]
     ini = _write_ini(tmp_path, {section: ""})
 
     result = IniConfigLoader(paths).load(ini)
@@ -137,6 +148,19 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("default_sound = alarm\n", "default_sound = sounds/alarm\n", "timer.default_sound"),
         ("default_volume = 80", "default_volume = 101", "timer.default_volume"),
         ("snooze_minutes = 5", "snooze_minutes = 0", "timer.snooze_minutes"),
+        ("default_presets_minutes = 15, 30, 45", "default_presets_minutes = 15, x", "timer.default_presets_minutes"),
+        ("default_presets_minutes = 15, 30, 45", "default_presets_minutes = 15,,30", "timer.default_presets_minutes"),
+        ("default_presets_minutes = 15, 30, 45", "default_presets_minutes = 15, 15", "timer"),
+        ("default_presets_minutes = 15, 30, 45", "default_presets_minutes = 15, 6000", "timer"),
+        ("max_presets = 12", "max_presets = 2", "timer"),
+        ("max_presets = 12", "max_presets = 51", "timer.max_presets"),
+        ("max_preset_label_length = 40", "max_preset_label_length = 0", "timer.max_preset_label_length"),
+        ("default_enabled = false", "default_enabled = maybe", "chime.default_enabled"),
+        ("default_sound = chime", "default_sound = sounds/chime", "chime.default_sound"),
+        ("default_volume = 60", "default_volume = -1", "chime.default_volume"),
+        ("default_start_hour = 8", "default_start_hour = 24", "chime.default_start_hour"),
+        ("default_end_hour = 20", "default_end_hour = 7", "chime"),
+        ("trigger_window_seconds = 59", "trigger_window_seconds = 3600", "chime.trigger_window_seconds"),
     ],
 )
 def test_invalid_value_is_reported(paths: AppPaths, tmp_path: Path, old: str, new: str, field: str) -> None:
@@ -173,3 +197,23 @@ def test_max_delay_equal_to_debounce_is_accepted(paths: AppPaths, tmp_path: Path
     ini = _write_ini(tmp_path, {"save_max_delay_ms = 1500": "save_max_delay_ms = 500"})
 
     assert IniConfigLoader(paths).load(ini).is_success
+
+
+def test_empty_default_favorites_are_accepted(paths: AppPaths, tmp_path: Path) -> None:
+    ini = _write_ini(tmp_path, {"default_presets_minutes = 15, 30, 45": "default_presets_minutes ="})
+
+    config = IniConfigLoader(paths).load(ini).data
+
+    assert config is not None
+    assert config.timer.default_presets_minutes == ()
+
+
+def test_chime_all_day_is_accepted(paths: AppPaths, tmp_path: Path) -> None:
+    ini = _write_ini(
+        tmp_path, {"default_start_hour = 8": "default_start_hour = 0", "default_end_hour = 20": "default_end_hour = 23"}
+    )
+
+    config = IniConfigLoader(paths).load(ini).data
+
+    assert config is not None
+    assert (config.chime.default_start_hour, config.chime.default_end_hour) == (0, 23)

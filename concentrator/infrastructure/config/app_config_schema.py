@@ -15,6 +15,12 @@ _DURATION_ORDER: Final = "min_duration_seconds <= default_duration_seconds <= ma
 _LOOP_COUNT_ABOVE_MAX: Final = "default_loop_count must not exceed max_loop_count"
 _AUTO_STOP_ORDER: Final = "min_auto_stop_seconds must not exceed max_auto_stop_seconds"
 _AUTO_STOP_DEFAULT: Final = "default_auto_stop_seconds must be 0 or between min and max_auto_stop_seconds"
+_PRESET_OUT_OF_RANGE: Final = "every default_presets_minutes value must be within the duration range"
+_PRESET_DUPLICATE: Final = "default_presets_minutes values must be unique"
+_PRESETS_ABOVE_MAX: Final = "default_presets_minutes must not have more values than max_presets"
+_CHIME_HOURS_REVERSED: Final = "default_start_hour must not exceed default_end_hour"
+_LIST_SEPARATOR: Final = ","
+_SECONDS_PER_MINUTE: Final = 60
 
 type Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 type FileName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=r"^[^/\\:*?\"<>|]+$")]
@@ -25,6 +31,9 @@ type LevelName = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 type SoundName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=r"^[A-Za-z0-9_.-]+$")]
 type TimerSeconds = Annotated[int, Field(ge=1, le=359_999)]
 type AutoStopSeconds = Annotated[int, Field(ge=1, le=86_400)]
+type MinutesList = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^(\d+(\s*,\s*\d+)*)?$")]
+type Volume = Annotated[int, Field(ge=0, le=100)]
+type Hour = Annotated[int, Field(ge=0, le=23)]
 
 
 class AppSectionSchema(BaseModel):
@@ -112,12 +121,23 @@ class TimerSectionSchema(BaseModel):
     min_duration_seconds: TimerSeconds
     max_duration_seconds: TimerSeconds
     default_sound: SoundName
-    default_volume: Annotated[int, Field(ge=0, le=100)]
+    default_volume: Volume
     default_loop_count: Annotated[int, Field(ge=1, le=999)]
     max_loop_count: Annotated[int, Field(ge=1, le=999)]
     default_auto_stop_seconds: Annotated[int, Field(ge=0, le=86_400)]
     min_auto_stop_seconds: AutoStopSeconds
     max_auto_stop_seconds: AutoStopSeconds
+    default_presets_minutes: MinutesList
+    max_presets: Annotated[int, Field(ge=1, le=50)]
+    max_preset_label_length: Annotated[int, Field(ge=1, le=200)]
+
+    def preset_minutes(self) -> tuple[int, ...]:
+        """Return the values of ``default_presets_minutes``.
+
+        Returns:
+            The minutes, in order; empty for an empty value.
+        """
+        return tuple(int(part) for part in self.default_presets_minutes.split(_LIST_SEPARATOR) if part.strip())
 
     @model_validator(mode="after")
     def _check_limits(self) -> Self:
@@ -130,6 +150,37 @@ class TimerSectionSchema(BaseModel):
         stop = self.default_auto_stop_seconds
         if stop and not self.min_auto_stop_seconds <= stop <= self.max_auto_stop_seconds:
             raise ValueError(_AUTO_STOP_DEFAULT)
+        return self
+
+    @model_validator(mode="after")
+    def _check_presets(self) -> Self:
+        minutes = self.preset_minutes()
+        seconds = [value * _SECONDS_PER_MINUTE for value in minutes]
+        if any(not self.min_duration_seconds <= value <= self.max_duration_seconds for value in seconds):
+            raise ValueError(_PRESET_OUT_OF_RANGE)
+        if len(set(minutes)) != len(minutes):
+            raise ValueError(_PRESET_DUPLICATE)
+        if len(minutes) > self.max_presets:
+            raise ValueError(_PRESETS_ABOVE_MAX)
+        return self
+
+
+class ChimeSectionSchema(BaseModel):
+    """``[chime]``."""
+
+    model_config = _STRICT
+
+    default_enabled: bool
+    default_sound: SoundName
+    default_volume: Volume
+    default_start_hour: Hour
+    default_end_hour: Hour
+    trigger_window_seconds: Annotated[int, Field(ge=1, le=3_599)]
+
+    @model_validator(mode="after")
+    def _check_hours(self) -> Self:
+        if self.default_start_hour > self.default_end_hour:
+            raise ValueError(_CHIME_HOURS_REVERSED)
         return self
 
 
@@ -164,5 +215,6 @@ class AppConfigSchema(BaseModel):
     ui: UiSectionSchema
     storage: StorageSectionSchema
     timer: TimerSectionSchema
+    chime: ChimeSectionSchema
     logging: LoggingSectionSchema
     i18n: I18nSectionSchema

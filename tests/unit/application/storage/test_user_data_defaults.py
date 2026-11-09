@@ -47,7 +47,10 @@ def test_timer_defaults_come_from_the_ini_section() -> None:
         max_loop_count=99,
         min_auto_stop_seconds=5,
         max_auto_stop_seconds=3600,
+        max_presets=12,
+        max_preset_label_length=40,
     )
+    assert defaults.presets == (Duration(900), Duration(1800), Duration(2700))
 
 
 def _defaults(clock: FakeClock | None = None) -> UserDataDefaults:

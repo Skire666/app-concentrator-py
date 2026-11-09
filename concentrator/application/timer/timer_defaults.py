@@ -17,15 +17,17 @@ class TimerDefaults:
 
     Attributes:
         settings: Configuration of a new data file.
-        limits: Bounds checked by ``TimerConfigRules``.
+        limits: Bounds checked by ``TimerConfigRules`` and ``TimerPresetRules``.
         snooze: Length of a snooze.
         fallback_sound: Built-in sound played when the chosen one cannot be found.
+        presets: Favorites of a data file that has none yet, in order.
     """
 
     settings: TimerSettings
     limits: TimerLimits
     snooze: Duration
     fallback_sound: SoundRef
+    presets: tuple[Duration, ...]
 
     @classmethod
     def from_section(cls, section: TimerSection) -> Self:
@@ -53,7 +55,13 @@ class TimerDefaults:
             max_loop_count=section.max_loop_count,
             min_auto_stop_seconds=section.min_auto_stop_seconds,
             max_auto_stop_seconds=section.max_auto_stop_seconds,
+            max_presets=section.max_presets,
+            max_preset_label_length=section.max_preset_label_length,
         )
         return cls(
-            settings=settings, limits=limits, snooze=Duration.from_minutes(section.snooze_minutes), fallback_sound=sound
+            settings=settings,
+            limits=limits,
+            snooze=Duration.from_minutes(section.snooze_minutes),
+            fallback_sound=sound,
+            presets=tuple(Duration.from_minutes(minutes) for minutes in section.default_presets_minutes),
         )

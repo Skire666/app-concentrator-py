@@ -22,6 +22,8 @@ LIMITS: Final = TimerLimits(
     max_loop_count=99,
     min_auto_stop_seconds=5,
     max_auto_stop_seconds=3600,
+    max_presets=12,
+    max_preset_label_length=40,
 )
 
 DEFAULT_SETTINGS: Final = TimerSettings(

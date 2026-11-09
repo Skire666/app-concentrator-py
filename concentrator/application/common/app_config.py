@@ -68,7 +68,7 @@ class StorageSection:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class TimerSection:
-    """``[timer]``: heartbeat, snooze, limits and defaults of the timer configuration."""
+    """``[timer]``: heartbeat, snooze, limits and defaults of the timer configuration and favorites."""
 
     tick_interval_ms: int
     snooze_minutes: int
@@ -82,6 +82,21 @@ class TimerSection:
     default_auto_stop_seconds: int
     min_auto_stop_seconds: int
     max_auto_stop_seconds: int
+    default_presets_minutes: tuple[int, ...]
+    max_presets: int
+    max_preset_label_length: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ChimeSection:
+    """``[chime]``: defaults of the hourly chime and its trigger window."""
+
+    default_enabled: bool
+    default_sound: str
+    default_volume: int
+    default_start_hour: int
+    default_end_hour: int
+    trigger_window_seconds: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -112,5 +127,6 @@ class AppConfig:
     ui: UiSection
     storage: StorageSection
     timer: TimerSection
+    chime: ChimeSection
     logging: LoggingSection
     i18n: I18nSection

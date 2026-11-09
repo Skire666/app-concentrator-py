@@ -11,6 +11,7 @@ from pydantic_core import ErrorDetails
 from concentrator.application.common.app_config import (
     AppConfig,
     AppSection,
+    ChimeSection,
     I18nSection,
     LoggingSection,
     PathsSection,
@@ -24,7 +25,12 @@ from concentrator.domain.common.severity_enum import SeverityEnum
 from concentrator.domain.common.validation_issue import ValidationIssue
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.settings.language_enum import LanguageEnum
-from concentrator.infrastructure.config.app_config_schema import AppConfigSchema, PathsSectionSchema
+from concentrator.infrastructure.config.app_config_schema import (
+    AppConfigSchema,
+    LoggingSectionSchema,
+    PathsSectionSchema,
+    TimerSectionSchema,
+)
 from concentrator.infrastructure.system.app_paths import AppPaths
 
 _logger = logging.getLogger(__name__)
@@ -34,6 +40,7 @@ _ERROR_TYPE_CODES: Final = {
     "extra_forbidden": ErrorCodeEnum.CONFIG_KEY_UNEXPECTED,
 }
 _PATH_KEYS: Final = ("default_data_file", "ui_state_file", "log_dir", "backup_dir")
+_PRESETS_KEY: Final = "default_presets_minutes"
 
 
 def _issue_from_error(error: ErrorDetails) -> ValidationIssue:
@@ -48,6 +55,36 @@ def _issue_from_error(error: ErrorDetails) -> ValidationIssue:
     code = _ERROR_TYPE_CODES.get(error["type"], ErrorCodeEnum.CONFIG_VALUE_INVALID)
     field_path = ".".join(str(part) for part in error["loc"])
     return ValidationIssue(code=code, severity=SeverityEnum.ERROR, field=field_path)
+
+
+def _timer_section(section: TimerSectionSchema) -> TimerSection:
+    """Map ``[timer]``, turning the favorites list into integers.
+
+    Args:
+        section: Validated DTO.
+
+    Returns:
+        The section.
+    """
+    return TimerSection(**section.model_dump(exclude={_PRESETS_KEY}), default_presets_minutes=section.preset_minutes())
+
+
+def _logging_section(section: LoggingSectionSchema) -> LoggingSection:
+    """Map ``[logging]``, turning the level name into its number.
+
+    Args:
+        section: Validated DTO.
+
+    Returns:
+        The section.
+    """
+    return LoggingSection(
+        level=logging.getLevelNamesMapping()[section.level],
+        file_name=section.file_name,
+        file_max_bytes=section.file_max_bytes,
+        file_backup_count=section.file_backup_count,
+        journal_buffer_size=section.journal_buffer_size,
+    )
 
 
 class IniConfigLoader:
@@ -125,14 +162,9 @@ class IniConfigLoader:
                 paths=paths.data,
                 ui=UiSection(**schema.ui.model_dump()),
                 storage=StorageSection(**schema.storage.model_dump()),
-                timer=TimerSection(**schema.timer.model_dump()),
-                logging=LoggingSection(
-                    level=logging.getLevelNamesMapping()[schema.logging.level],
-                    file_name=schema.logging.file_name,
-                    file_max_bytes=schema.logging.file_max_bytes,
-                    file_backup_count=schema.logging.file_backup_count,
-                    journal_buffer_size=schema.logging.journal_buffer_size,
-                ),
+                timer=_timer_section(schema.timer),
+                chime=ChimeSection(**schema.chime.model_dump()),
+                logging=_logging_section(schema.logging),
                 i18n=I18nSection(
                     default_language=LanguageEnum.from_iso_code(schema.i18n.default_language),
                     fallback_language=LanguageEnum.from_iso_code(schema.i18n.fallback_language),
