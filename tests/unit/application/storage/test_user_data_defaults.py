@@ -7,15 +7,18 @@ from concentrator.application.storage.save_state_enum import SaveStateEnum
 from concentrator.application.storage.startup_commands import StartupCommands
 from concentrator.application.storage.storage_events import UserDataChangedEvent
 from concentrator.application.storage.user_data import StoredUserData
-from concentrator.application.storage.user_data_defaults import UserDataDefaults
+from concentrator.application.storage.user_data_defaults import SectionDefaults, UserDataDefaults
+from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.timer.duration import Duration
+from concentrator.domain.timer.hourly_chime import HourlyChime, HourlyChimeId
 from concentrator.domain.timer.sound_ref import SoundRef
 from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
 from concentrator.domain.timer.timer_limits import TimerLimits
+from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 from concentrator.domain.timer.volume import Volume
-from tests.fakes.app_config_factory import make_storage_section, make_timer_section
+from tests.fakes.app_config_factory import make_chime_section, make_storage_section, make_timer_section
 from tests.fakes.fake_clock import FakeClock
 from tests.fakes.fake_id_generator import FakeIdGenerator
 from tests.fakes.fake_user_data_file import FakeUserDataFile, report, valid
@@ -23,6 +26,7 @@ from tests.fakes.in_memory_session import InMemorySession
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.manual_scheduler import ManualScheduler
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
+from tests.fakes.timer_extras_factory import DEFAULT_CHIME_SETTINGS, DEFAULT_SECTIONS
 from tests.fakes.timer_factory import DEFAULT_SETTINGS
 from tests.fakes.user_data_factory import SAVED_AT, make_settings, make_user_data
 
@@ -54,7 +58,7 @@ def test_timer_defaults_come_from_the_ini_section() -> None:
 
 
 def _defaults(clock: FakeClock | None = None) -> UserDataDefaults:
-    return UserDataDefaults(FakeIdGenerator("timer"), clock or FakeClock(), DEFAULT_SETTINGS)
+    return UserDataDefaults(FakeIdGenerator("timer"), clock or FakeClock(), DEFAULT_SECTIONS)
 
 
 def test_initial_data_has_a_timer_from_the_defaults() -> None:
@@ -66,11 +70,56 @@ def test_initial_data_has_a_timer_from_the_defaults() -> None:
     assert data.settings == make_settings()
 
 
+def test_initial_data_seeds_the_favorites_and_the_chime() -> None:
+    clock = FakeClock()
+
+    data = _defaults(clock).initial(make_settings())
+
+    assert data.timer_presets is not None
+    assert [(preset.id, preset.label, preset.duration.seconds, preset.position) for preset in data.timer_presets] == [
+        ("timer-0002", "", 900, 0),
+        ("timer-0003", "", 1800, 1),
+        ("timer-0004", "", 2700, 2),
+    ]
+    assert {preset.created_at for preset in data.timer_presets} == {clock.now_utc()}
+    assert data.hourly_chime == HourlyChime.create(
+        HourlyChimeId("timer-0005"), clock.now_utc(), enabled=False, settings=DEFAULT_CHIME_SETTINGS
+    )
+
+
+def test_section_defaults_gather_the_ini_values() -> None:
+    timer = TimerDefaults.from_section(make_timer_section(default_presets_minutes=(5,)))
+    chime = ChimeDefaults.from_section(make_chime_section(default_enabled=True))
+
+    sections = SectionDefaults.from_defaults(timer, chime)
+
+    assert sections == SectionDefaults(
+        timer=timer.settings, presets=(Duration(300),), chime_enabled=True, chime=DEFAULT_CHIME_SETTINGS
+    )
+
+
 def test_complete_adds_a_missing_timer() -> None:
     completed = _defaults().complete(replace(make_user_data(), timer=None))
 
     assert completed.timer is not None
     assert completed.timer.settings == DEFAULT_SETTINGS
+
+
+def test_complete_seeds_favorites_only_when_the_key_is_absent() -> None:
+    seeded = _defaults().complete(replace(make_user_data(), timer_presets=None))
+    emptied = make_user_data().with_timer_presets(TimerPresetsCollection())
+
+    assert seeded.timer_presets is not None
+    assert [preset.duration.seconds for preset in seeded.timer_presets] == [900, 1800, 2700]
+    assert _defaults().complete(emptied) is emptied
+
+
+def test_complete_adds_a_missing_chime() -> None:
+    completed = _defaults().complete(replace(make_user_data(), hourly_chime=None))
+
+    assert completed.hourly_chime is not None
+    assert completed.hourly_chime.settings == DEFAULT_CHIME_SETTINGS
+    assert completed.timer_presets == make_user_data().timer_presets
 
 
 def test_complete_keeps_a_complete_file_as_it_is() -> None:
@@ -89,10 +138,13 @@ def test_complete_session_publishes_a_change_only_when_a_section_was_added() -> 
     defaults.complete_session(session)
     assert events == []
 
-    session.reset(replace(make_user_data(), timer=None))
+    session.reset(replace(make_user_data(), timer=None, timer_presets=None, hourly_chime=None))
     defaults.complete_session(session)
     assert len(events) == 1
-    assert session.current().timer is not None
+    current = session.current()
+    assert current.timer is not None
+    assert current.timer_presets is not None
+    assert current.hourly_chime is not None
 
 
 def test_opening_a_file_without_timer_saves_the_completed_file() -> None:

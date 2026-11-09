@@ -114,6 +114,15 @@ def test_self_check_fails_when_the_default_sound_is_missing(qtbot: QtBot, tmp_pa
     assert "alarm.mp3" in install.log_text
 
 
+def test_self_check_fails_when_the_default_chime_sound_is_missing(qtbot: QtBot, tmp_path: Path) -> None:
+    del qtbot
+    install = _Install(tmp_path, copy_assets=True)
+    (install.paths.sounds_dir / f"{install.config().chime.default_sound}.mp3").unlink()
+
+    assert run(install.paths, self_check=True) == 1
+    assert "chime.mp3" in install.log_text
+
+
 def test_self_check_audio_check_passes_with_the_ffmpeg_backend(qtbot: QtBot) -> None:
     del qtbot
     assert audio_failures() == []

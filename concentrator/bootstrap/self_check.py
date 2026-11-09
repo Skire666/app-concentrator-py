@@ -9,11 +9,15 @@ from PySide6.QtGui import QIcon, QImageReader
 
 from concentrator.application.common.app_config import AppConfig
 from concentrator.application.storage.user_data import StoredUserData, UserData, UserDataLimits
+from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.bootstrap.translator_loader import CATALOG_LANGUAGES
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
+from concentrator.domain.timer.hourly_chime import HourlyChime, HourlyChimeId
 from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
+from concentrator.domain.timer.timer_preset import TimerPreset, TimerPresetId
+from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 from concentrator.infrastructure.i18n.json_catalog_translator import CATALOG_SUFFIX, load_catalogs
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
 from concentrator.infrastructure.qt.qt_sound_player import MP3_MIME_TYPE, decodable_mime_types
@@ -27,6 +31,8 @@ SVG_FORMAT = b"svg"
 ICON_CHECK_SIZE_PX = 32
 ROUND_TRIP_ID: Final = UserSettingsId("00000000-0000-7000-8000-000000000000")
 ROUND_TRIP_TIMER_ID: Final = TimerConfigId("00000000-0000-7000-8000-000000000001")
+ROUND_TRIP_CHIME_ID: Final = HourlyChimeId("00000000-0000-7000-8000-000000000002")
+ROUND_TRIP_PRESET_ID: Final = "00000000-0000-7000-8001-{index:012d}"
 ROUND_TRIP_TIME: Final = datetime(2026, 1, 1, tzinfo=UTC)
 
 
@@ -35,15 +41,17 @@ def _required_files(paths: AppPaths, config: AppConfig) -> list[Path]:
 
     Args:
         paths: Application paths.
-        config: Loaded configuration (default alarm sound).
+        config: Loaded configuration (default alarm and chime sounds).
 
     Returns:
-        The ini, the catalogs, the icons and the default alarm sound.
+        The ini, the catalogs, the icons and the default alarm and chime sounds.
     """
     catalogs = [paths.i18n_dir / f"{language.iso_code}{CATALOG_SUFFIX}" for language in CATALOG_LANGUAGES]
     icons = [paths.icons_dir / name for name in MODULE_ICON_FILES.values()]
-    sound = paths.sounds_dir / f"{config.timer.default_sound}{SOUND_SUFFIX}"
-    return [paths.config_file, *catalogs, paths.app_icon_file, *icons, sound]
+    sounds = [
+        paths.sounds_dir / f"{name}{SOUND_SUFFIX}" for name in (config.timer.default_sound, config.chime.default_sound)
+    ]
+    return [paths.config_file, *catalogs, paths.app_icon_file, *icons, *sounds]
 
 
 def audio_failures() -> list[str]:
@@ -76,6 +84,34 @@ def _svg_failures(paths: AppPaths) -> list[str]:
     ]
 
 
+def _round_trip_data(timer: TimerDefaults, chime: ChimeDefaults) -> UserData:
+    """Content of a new data file with every section, built from the ini defaults.
+
+    Args:
+        timer: ``[timer]`` values (configuration and favorites).
+        chime: ``[chime]`` values.
+
+    Returns:
+        The data.
+    """
+    settings = UserSettings.create(ROUND_TRIP_ID, ROUND_TRIP_TIME, LanguageEnum.ENGLISH)
+    timer_config = TimerConfig.create(ROUND_TRIP_TIMER_ID, ROUND_TRIP_TIME, timer.settings)
+    presets = TimerPresetsCollection(
+        TimerPreset.create(
+            TimerPresetId(ROUND_TRIP_PRESET_ID.format(index=index)),
+            ROUND_TRIP_TIME,
+            label="",
+            duration=duration,
+            position=index,
+        )
+        for index, duration in enumerate(timer.presets)
+    )
+    hourly_chime = HourlyChime.create(
+        ROUND_TRIP_CHIME_ID, ROUND_TRIP_TIME, enabled=chime.enabled, settings=chime.settings
+    )
+    return UserData.initial(settings, timer_config, presets, hourly_chime)
+
+
 def storage_failures(app_version: str, config: AppConfig) -> list[str]:
     """Round-trip an in-memory ``UserData`` through codec, schemas and mappers (no file, ADR-034).
 
@@ -90,9 +126,9 @@ def storage_failures(app_version: str, config: AppConfig) -> list[str]:
     """
     timer = TimerDefaults.from_section(config.timer)
     codec = UserDataCodec(app_version, UserDataLimits(timer=timer.limits))
-    settings = UserSettings.create(ROUND_TRIP_ID, ROUND_TRIP_TIME, LanguageEnum.ENGLISH)
-    timer_config = TimerConfig.create(ROUND_TRIP_TIMER_ID, ROUND_TRIP_TIME, timer.settings)
-    stored = StoredUserData(data=UserData.initial(settings, timer_config), saved_at=ROUND_TRIP_TIME)
+    stored = StoredUserData(
+        data=_round_trip_data(timer, ChimeDefaults.from_section(config.chime)), saved_at=ROUND_TRIP_TIME
+    )
     decoded = codec.decode(codec.encode(stored))
     if decoded.data == stored:
         return []

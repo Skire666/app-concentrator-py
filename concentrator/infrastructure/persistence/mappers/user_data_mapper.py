@@ -1,5 +1,6 @@
 """``UserDataSchema`` <-> ``StoredUserData``."""
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Final
 
@@ -7,34 +8,35 @@ from concentrator.application.storage.user_data import StoredUserData, UserData,
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.common.time_rules import TimeRules
 from concentrator.domain.common.validation_result import ValidationResult
-from concentrator.domain.timer.timer_config import TimerConfig
-from concentrator.domain.timer.timer_limits import TimerLimits
+from concentrator.infrastructure.persistence.mappers.hourly_chime_mapper import HourlyChimeMapper
 from concentrator.infrastructure.persistence.mappers.timer_config_mapper import TimerConfigMapper
+from concentrator.infrastructure.persistence.mappers.timer_presets_mapper import TimerPresetsMapper
 from concentrator.infrastructure.persistence.mappers.user_settings_mapper import UserSettingsMapper
-from concentrator.infrastructure.persistence.schemas.timer_config_schema import TimerConfigSchema
 from concentrator.infrastructure.persistence.schemas.user_data_schema import UserDataSchema
 
 SETTINGS_FIELD: Final = "settings"
 TIMER_FIELD: Final = "timer"
+PRESETS_FIELD: Final = "timer_presets"
+CHIME_FIELD: Final = "hourly_chime"
 SAVED_AT_FIELD: Final = "saved_at"
 
 
-def _timer_to_domain(schema: TimerConfigSchema | None, limits: TimerLimits) -> DataResult[TimerConfig | None]:
-    """Map the optional ``[timer]`` section.
+def _optional[S, T](schema: S | None, convert: Callable[[S], DataResult[T]]) -> DataResult[T | None]:
+    """Map a section the file may not have yet.
 
     Args:
-        schema: The section, ``None`` when the file does not have it yet.
-        limits: Bounds from ``concentrator.ini``.
+        schema: The section, ``None`` when the file does not have it.
+        convert: Mapper of a present section.
 
     Returns:
-        The configuration, ``None`` for an absent section, or the rule failures.
+        The domain value, ``None`` for an absent section, or the rule failures.
     """
     if schema is None:
-        return DataResult[TimerConfig | None](data=None, validation=ValidationResult.success())
-    mapped = TimerConfigMapper.to_domain(schema, TIMER_FIELD, limits)
+        return DataResult[T | None](data=None, validation=ValidationResult.success())
+    mapped = convert(schema)
     if mapped.data is None:
         return DataResult.fail(mapped.validation)
-    return DataResult[TimerConfig | None](data=mapped.data, validation=mapped.validation)
+    return DataResult[T | None](data=mapped.data, validation=mapped.validation)
 
 
 class UserDataMapper:
@@ -53,13 +55,26 @@ class UserDataMapper:
             file does not have yet is ``None``.
         """
         settings = UserSettingsMapper.to_domain(schema.settings, SETTINGS_FIELD)
-        timer = _timer_to_domain(schema.timer, limits.timer)
+        timer = _optional(schema.timer, lambda section: TimerConfigMapper.to_domain(section, TIMER_FIELD, limits.timer))
+        presets = _optional(
+            schema.timer_presets, lambda section: TimerPresetsMapper.to_domain(section, PRESETS_FIELD, limits.timer)
+        )
+        chime = _optional(schema.hourly_chime, lambda section: HourlyChimeMapper.to_domain(section, CHIME_FIELD))
         validation = settings.validation.merge(
-            timer.validation, TimeRules.validate_utc(schema.saved_at, SAVED_AT_FIELD)
+            timer.validation,
+            presets.validation,
+            chime.validation,
+            TimeRules.validate_utc(schema.saved_at, SAVED_AT_FIELD),
         )
         if settings.data is None or validation.is_failure:
             return DataResult.fail(validation)
-        data = UserData(schema_version=schema.schema_version, settings=settings.data, timer=timer.data)
+        data = UserData(
+            schema_version=schema.schema_version,
+            settings=settings.data,
+            timer=timer.data,
+            timer_presets=presets.data,
+            hourly_chime=chime.data,
+        )
         return DataResult.ok(StoredUserData(data=data, saved_at=schema.saved_at), validation)
 
     @staticmethod
@@ -74,10 +89,13 @@ class UserDataMapper:
         Returns:
             The DTO; a section that is ``None`` is not written.
         """
+        presets = data.timer_presets
         return UserDataSchema(
             schema_version=data.schema_version,
             saved_at=saved_at,
             app_version=app_version,
             settings=UserSettingsMapper.to_schema(data.settings),
             timer=None if data.timer is None else TimerConfigMapper.to_schema(data.timer),
+            timer_presets=None if presets is None else TimerPresetsMapper.to_schema(presets),
+            hourly_chime=None if data.hourly_chime is None else HourlyChimeMapper.to_schema(data.hourly_chime),
         )

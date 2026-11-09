@@ -23,7 +23,7 @@ def test_encode_writes_exactly_the_spec_example() -> None:
 def test_encode_converts_a_non_utc_saved_at_and_drops_nothing_else() -> None:
     text = CODEC.encode(make_stored(saved_at=datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)))
 
-    assert text.endswith("auto_restart = false\n")
+    assert text.endswith("end_hour = 20\n")
     assert "\r" not in text
     assert text.startswith("# Concentrator user data. Schema version 1.\n")
 

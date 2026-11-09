@@ -12,7 +12,8 @@ from concentrator.application.storage.external_change_commands import ExternalCh
 from concentrator.application.storage.save_coordinator import SaveCoordinator
 from concentrator.application.storage.startup_commands import StartupCommands
 from concentrator.application.storage.user_data import UserDataLimits
-from concentrator.application.storage.user_data_defaults import UserDataDefaults
+from concentrator.application.storage.user_data_defaults import SectionDefaults, UserDataDefaults
+from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.bootstrap.core import Core
 from concentrator.infrastructure.persistence.store_user_settings import StoreUserSettingsReader, StoreUserSettingsWriter
@@ -31,6 +32,7 @@ class Storage:
         writer: The single writer thread (stopped on exit).
         store: In-memory data of the open file.
         timer_defaults: Timer values of ``concentrator.ini``.
+        chime_defaults: Hourly chime values of ``concentrator.ini``.
         coordinator: Debounced saves and the shutdown flush.
         startup: First-run and recovery use cases.
         external: Answers to an external modification.
@@ -42,6 +44,7 @@ class Storage:
     writer: WriterThread
     store: UserDataStore
     timer_defaults: TimerDefaults
+    chime_defaults: ChimeDefaults
     coordinator: SaveCoordinator
     startup: StartupCommands
     external: ExternalChangeCommands
@@ -107,6 +110,20 @@ def _startup_commands(
     )
 
 
+def _user_data_defaults(core: Core, timer: TimerDefaults, chime: ChimeDefaults) -> UserDataDefaults:
+    """Create the builder of new and completed data files.
+
+    Args:
+        core: Main-thread services (ids and clock).
+        timer: ``[timer]`` values.
+        chime: ``[chime]`` values.
+
+    Returns:
+        The builder.
+    """
+    return UserDataDefaults(core.ids, core.clock, SectionDefaults.from_defaults(timer, chime))
+
+
 def build_storage(
     core: Core, config: AppConfig, translator: TranslatorPort, reporter: ErrorReporterPort, app_version: str
 ) -> Storage:
@@ -124,9 +141,10 @@ def build_storage(
     """
     writer = WriterThread(core.dispatcher, reporter)
     timer_defaults = TimerDefaults.from_section(config.timer)
+    chime_defaults = ChimeDefaults.from_section(config.chime)
     file = _data_file(core, config, writer, app_version, UserDataLimits(timer=timer_defaults.limits))
     store = UserDataStore(core.event_bus)
-    defaults = UserDataDefaults(core.ids, core.clock, timer_defaults.settings)
+    defaults = _user_data_defaults(core, timer_defaults, chime_defaults)
     coordinator = SaveCoordinator(
         session=store, file=file, scheduler=core.scheduler, event_bus=core.event_bus, storage=config.storage
     )
@@ -136,6 +154,7 @@ def build_storage(
         writer=writer,
         store=store,
         timer_defaults=timer_defaults,
+        chime_defaults=chime_defaults,
         coordinator=coordinator,
         startup=_startup_commands(core, config, file, store, coordinator, defaults),
         external=ExternalChangeCommands(file, store, coordinator, defaults),

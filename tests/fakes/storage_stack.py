@@ -28,7 +28,7 @@ from tests.fakes.in_memory_user_settings import InMemoryUserSettings
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.manual_scheduler import ManualScheduler
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
-from tests.fakes.timer_factory import DEFAULT_SETTINGS
+from tests.fakes.timer_extras_factory import DEFAULT_SECTIONS
 from tests.fakes.user_data_factory import make_settings
 
 DATA_PATH: Final = Path("D:/sync/concentrator.toml")
@@ -67,7 +67,7 @@ class StorageStack:
             storage=make_storage_section(),
         )
         ids = FakeIdGenerator()
-        defaults = UserDataDefaults(ids, self.clock, DEFAULT_SETTINGS)
+        defaults = UserDataDefaults(ids, self.clock, DEFAULT_SECTIONS)
         self.commands = StartupCommands(
             file=self.file,
             session=self.session,

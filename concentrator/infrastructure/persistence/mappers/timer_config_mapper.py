@@ -2,14 +2,13 @@
 
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.timer.duration import Duration
-from concentrator.domain.timer.sound_kind_enum import SoundKindEnum
-from concentrator.domain.timer.sound_ref import SoundRef
 from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
 from concentrator.domain.timer.timer_config_rules import TimerConfigRules
 from concentrator.domain.timer.timer_limits import TimerLimits
 from concentrator.domain.timer.timer_settings import TimerSettings
 from concentrator.domain.timer.volume import Volume
-from concentrator.infrastructure.persistence.schemas.timer_config_schema import SoundRefSchema, TimerConfigSchema
+from concentrator.infrastructure.persistence.mappers.sound_ref_mapper import sound_to_domain, sound_to_schema
+from concentrator.infrastructure.persistence.schemas.timer_config_schema import TimerConfigSchema
 
 
 class TimerConfigMapper:
@@ -29,7 +28,7 @@ class TimerConfigMapper:
         """
         settings = TimerSettings(
             duration=Duration(schema.duration_seconds),
-            sound=SoundRef.of(SoundKindEnum.parse(schema.sound.kind), schema.sound.value),
+            sound=sound_to_domain(schema.sound),
             volume=Volume(schema.volume),
             loop_count=schema.loop_count,
             loop_forever=schema.loop_forever,
@@ -60,7 +59,7 @@ class TimerConfigMapper:
             created_at=config.created_at,
             updated_at=config.updated_at,
             duration_seconds=settings.duration.seconds,
-            sound=SoundRefSchema(kind=settings.sound.kind.value, value=settings.sound.value),
+            sound=sound_to_schema(settings.sound),
             volume=settings.volume.percent,
             loop_count=settings.loop_count,
             loop_forever=settings.loop_forever,

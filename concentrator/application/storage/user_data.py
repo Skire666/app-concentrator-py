@@ -5,8 +5,10 @@ from datetime import datetime
 from typing import Final, Self
 
 from concentrator.domain.settings.user_settings import UserSettings
+from concentrator.domain.timer.hourly_chime import HourlyChime
 from concentrator.domain.timer.timer_config import TimerConfig
 from concentrator.domain.timer.timer_limits import TimerLimits
+from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 
 CURRENT_SCHEMA_VERSION: Final = 1
 
@@ -22,24 +24,43 @@ class UserData:
         schema_version: Version of the file layout (``CURRENT_SCHEMA_VERSION`` for new files).
         settings: Personal settings.
         timer: Timer configuration (``[timer]``, phase 2).
+        timer_presets: Favorites (``[[timer_presets]]``, phase 3); ``None`` when the file has no
+            ``timer_presets`` key, an empty collection when the user deleted every favorite.
+        hourly_chime: Hourly chime (``[hourly_chime]``, phase 3).
     """
 
     schema_version: int
     settings: UserSettings
     timer: TimerConfig | None = None
+    timer_presets: TimerPresetsCollection | None = None
+    hourly_chime: HourlyChime | None = None
 
     @classmethod
-    def initial(cls, settings: UserSettings, timer: TimerConfig) -> Self:
+    def initial(
+        cls,
+        settings: UserSettings,
+        timer: TimerConfig,
+        timer_presets: TimerPresetsCollection,
+        hourly_chime: HourlyChime,
+    ) -> Self:
         """Content of a new data file.
 
         Args:
             settings: Settings of the new file.
             timer: Timer configuration of the new file.
+            timer_presets: Favorites of the new file.
+            hourly_chime: Hourly chime of the new file.
 
         Returns:
             The data, at the current schema version.
         """
-        return cls(schema_version=CURRENT_SCHEMA_VERSION, settings=settings, timer=timer)
+        return cls(
+            schema_version=CURRENT_SCHEMA_VERSION,
+            settings=settings,
+            timer=timer,
+            timer_presets=timer_presets,
+            hourly_chime=hourly_chime,
+        )
 
     def with_settings(self, settings: UserSettings) -> Self:
         """Return a copy with other settings.
@@ -63,13 +84,35 @@ class UserData:
         """
         return replace(self, timer=timer)
 
+    def with_timer_presets(self, timer_presets: TimerPresetsCollection) -> Self:
+        """Return a copy with other favorites.
+
+        Args:
+            timer_presets: New favorites.
+
+        Returns:
+            The changed data.
+        """
+        return replace(self, timer_presets=timer_presets)
+
+    def with_hourly_chime(self, hourly_chime: HourlyChime) -> Self:
+        """Return a copy with another hourly chime.
+
+        Args:
+            hourly_chime: New chime.
+
+        Returns:
+            The changed data.
+        """
+        return replace(self, hourly_chime=hourly_chime)
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class UserDataLimits:
     """Limits from ``concentrator.ini`` that the domain rules apply when a file is read.
 
     Attributes:
-        timer: Bounds of the timer configuration.
+        timer: Bounds of the timer configuration and of the favorites.
     """
 
     timer: TimerLimits
