@@ -32,7 +32,7 @@ class GateOutcome:
 
 GATES: Final = (
     Gate("ruff format", ("uv", "run", "ruff", "format")),
-    Gate("ruff check", ("uv", "run", "ruff", "check")),
+    Gate("ruff check", ("uv", "run", "ruff", "check", "--fix")),
     Gate("basedpyright", ("uv", "run", "basedpyright")),
     Gate("furryp", ("furryp", "check", "concentrator")),
     Gate("pytest", ("uv", "run", "pytest", "--cov", "--cov-report=term-missing", "--cov-report=json")),
