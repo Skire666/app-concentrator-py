@@ -22,7 +22,7 @@ from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.storage_stack import StorageStack
 from tests.fakes.timer_factory import LIMITS
 from tests.fakes.timer_stack import BLINK_MS, TimerStack
-from tests.fakes.timer_ui_stack import FakeTimerEditDialog
+from tests.fakes.timer_ui_stack import FakeEditorDialog
 
 
 class ShellHarness:
@@ -78,7 +78,7 @@ class ShellHarness:
             self.timer.preview,
             LIMITS,
         )
-        self.editor.attach(FakeTimerEditDialog(), self.stack.dialogs)
+        self.editor.attach(FakeEditorDialog(), self.stack.dialogs)
         self.timer_presenter = TimerPresenter(
             self.translator,
             self.stack.gate,

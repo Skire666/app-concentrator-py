@@ -11,7 +11,7 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
-from concentrator.presentation.ports.timer_edit_dialog_port import TimerEditDialogPort
+from concentrator.presentation.ports.editor_dialog_port import EditorDialogPort
 from concentrator.presentation.timer.timer_edit_presenter import TimerEditPresenter
 from concentrator.presentation.timer.timer_edit_snapshot import TimerEditSnapshot
 from concentrator.presentation.timer.timer_presenter import TimerPresenter
@@ -24,7 +24,7 @@ from tests.fakes.timer_stack import BLINK_MS, TimerStack
 COOLDOWN_MS: Final = 100
 
 
-class FakeTimerEditDialog(TimerEditDialogPort):
+class FakeEditorDialog(EditorDialogPort):
     """``while_open`` runs inside ``show_editor``, as the user would act on the modal dialog."""
 
     def __init__(self) -> None:
@@ -59,7 +59,7 @@ class TimerUiStack(TimerStack):
             self.clock, self.scheduler, self.renderer, cooldown_ms=COOLDOWN_MS, slow_threshold_ms=200
         )
         self.dialogs = FakeDialogs()
-        self.window = FakeTimerEditDialog()
+        self.window = FakeEditorDialog()
         self.editor = TimerEditPresenter(
             self.translator, self.gate, self.renderer, self.queries, self.commands, self.preview, LIMITS
         )

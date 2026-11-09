@@ -1,12 +1,10 @@
 """Snapshot of the timer edit dialog, built from its form (``TIMER_EDIT``)."""
 
-from pathlib import PurePosixPath
 from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.timer.timer_queries import TimerQueries
 from concentrator.domain.timer.duration import SECONDS_PER_HOUR
-from concentrator.domain.timer.sound_kind_enum import SoundKindEnum
 from concentrator.domain.timer.sound_ref import SoundRef
 from concentrator.domain.timer.timer_config_rules import (
     AUTO_STOP_FIELD,
@@ -22,6 +20,7 @@ from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
 from concentrator.presentation.common.ui_texts import UiTexts
+from concentrator.presentation.timer.sound_choices import SoundChoices
 from concentrator.presentation.timer.timer_edit_form import TimerEditForm
 from concentrator.presentation.timer.timer_edit_snapshot import (
     AutoStopInputSnapshot,
@@ -54,11 +53,11 @@ class TimerEditView:
         self._gate = gate
         self._queries = queries
         self._limits = limits
-        self._custom_sounds: list[SoundRef] = []
+        self._sounds = SoundChoices(translator, queries.builtin_sounds)
 
     def reset(self) -> None:
         """Forget the custom sounds (the dialog opens again)."""
-        self._custom_sounds = []
+        self._sounds.reset()
 
     def build(self, form: TimerEditForm) -> TimerEditSnapshot:
         """Describe the dialog.
@@ -92,25 +91,7 @@ class TimerEditView:
         Returns:
             The choices, without duplicates.
         """
-        builtin = self._queries.builtin_sounds()
-        for sound in (form.baseline.sound, form.draft.sound):
-            if sound not in builtin and sound not in self._custom_sounds:
-                self._custom_sounds.append(sound)
-        return (*builtin, *self._custom_sounds)
-
-    def _sound_label(self, sound: SoundRef) -> tuple[str, str]:
-        """Return the text and tooltip of a sound choice.
-
-        Args:
-            sound: Choice.
-
-        Returns:
-            The label and the tooltip.
-        """
-        if sound.kind is SoundKindEnum.FILE:
-            return self._translator.tr("sound.file.label", name=PurePosixPath(sound.value).name), sound.value
-        key = f"sound.builtin.{sound.value}"
-        return (self._translator.tr(key) if self._translator.has(key) else sound.value), ""
+        return self._sounds.choices(form.baseline.sound, form.draft.sound)
 
     def _duration_input(self, form: TimerEditForm) -> DurationInputSnapshot:
         """Describe the duration field.
@@ -144,13 +125,10 @@ class TimerEditView:
         Returns:
             The field snapshot.
         """
-        choices = self.sound_choices(form)
-        labels = [self._sound_label(sound) for sound in choices]
-        return SoundPickerSnapshot(
+        return self._sounds.picker(
             label=self._translator.tr("timer.edit.sound"),
-            options=tuple(text for text, _tooltip in labels),
-            tooltips=tuple(tooltip for _text, tooltip in labels),
-            selected=choices.index(form.draft.sound),
+            baseline=form.baseline.sound,
+            draft=form.draft.sound,
             choose_file=self._button(ActionIdEnum.TIMER_SOUND_CHOOSE_FILE),
             error=self._error(form, SOUND_FIELD),
         )

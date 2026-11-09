@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QDialog, QVBoxLayout, QWidget
 
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
-from concentrator.presentation.ports.timer_edit_dialog_port import TimerEditDialogPort
+from concentrator.presentation.ports.editor_dialog_port import EditorDialogPort
 from concentrator.presentation.timer.timer_edit_presenter import TimerEditPresenter
 from concentrator.presentation.timer.timer_edit_snapshot import TimerEditSnapshot
 from concentrator.presentation.timer.timer_layout import TimerLayout
@@ -43,8 +43,8 @@ class TimerEditDialog(QDialog):
         self._panel.render_snapshot(snapshot)
 
 
-class TimerEditWindow(TimerEditDialogPort):
-    """``TimerEditDialogPort`` on one ``TimerEditDialog``, wired to its presenter."""
+class TimerEditWindow(EditorDialogPort):
+    """``EditorDialogPort`` on one ``TimerEditDialog``, wired to its presenter."""
 
     def __init__(
         self, presenter: TimerEditPresenter, renderer: RenderCoordinator, runner: DialogRunner, layout: TimerLayout

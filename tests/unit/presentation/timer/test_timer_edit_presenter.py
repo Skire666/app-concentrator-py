@@ -14,7 +14,7 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.timer.timer_edit_presenter import TimerEditPresenter
 from tests.fakes.fake_sound import SOUNDS_DIR
 from tests.fakes.timer_factory import DEFAULT_SETTINGS, LIMITS
-from tests.fakes.timer_ui_stack import FakeTimerEditDialog, TimerUiStack
+from tests.fakes.timer_ui_stack import FakeEditorDialog, TimerUiStack
 
 A = ActionIdEnum
 SETTINGS: TimerSettings = replace(DEFAULT_SETTINGS, duration=Duration(1500), auto_stop_seconds=120)
@@ -281,7 +281,7 @@ def test_using_the_presenter_before_attach_is_a_wiring_error(stack: TimerUiStack
 
 
 def test_fake_dialog_counts_shows() -> None:
-    window = FakeTimerEditDialog()
+    window = FakeEditorDialog()
     window.show_editor()
 
     assert window.shows == 1

@@ -2,24 +2,21 @@
 
 from collections.abc import Callable
 
-from concentrator.domain.common.severity_enum import SeverityEnum
-from concentrator.domain.common.validation_issue import ValidationIssue
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.sound_ref import SoundRef
-from concentrator.domain.timer.timer_config_rules import SOUND_FIELD, TimerConfigRules
+from concentrator.domain.timer.timer_config_rules import TimerConfigRules
 from concentrator.domain.timer.timer_limits import TimerLimits
 from concentrator.domain.timer.timer_settings import TimerSettings
 from concentrator.domain.timer.volume import Volume
 from concentrator.presentation.common.form_state import FormState
+from concentrator.presentation.timer.sound_check import SoundCheck
 
 
 class TimerEditForm:
     """``FormState`` over ``TimerSettings``: domain rules plus a check that the sound can be played.
 
-    The sound check reads the disk, so it runs only when the sound changes. A problem with the stored
-    sound (a custom file deleted since) is a warning: the other settings can still be saved, and the
-    alarm falls back to the default sound. A problem with a newly chosen sound blocks saving.
+    The sound check (``SoundCheck``) runs once per sound; a problem with the stored sound is a warning.
     """
 
     def __init__(
@@ -33,9 +30,7 @@ class TimerEditForm:
             check_sound: Tells whether a sound exists and can be played.
         """
         self._limits = limits
-        self._check_sound = check_sound
-        self._checked: dict[SoundRef, ValidationResult] = {}
-        self._stored_sound = baseline.sound
+        self._sound_check = SoundCheck(baseline.sound, check_sound)
         self._state = FormState(baseline, self._validate)
 
     @property
@@ -123,7 +118,7 @@ class TimerEditForm:
 
     def commit(self) -> None:
         """Make the draft the stored settings (after a successful save)."""
-        self._stored_sound = self._state.draft.sound
+        self._sound_check.commit(self._state.draft.sound)
         self._state.commit()
         self._state.set_draft(self._state.draft)
 
@@ -136,24 +131,6 @@ class TimerEditForm:
         Returns:
             The rule issues, plus the sound check on ``sound``.
         """
-        return TimerConfigRules.validate_settings(settings, self._limits).merge(self._sound_issues(settings.sound))
-
-    def _sound_issues(self, sound: SoundRef) -> ValidationResult:
-        """Check a sound once; issues of the stored sound are downgraded to warnings.
-
-        Args:
-            sound: Sound of the draft.
-
-        Returns:
-            The issues on ``sound``.
-        """
-        if not TimerConfigRules.validate_sound(sound).is_success:
-            return ValidationResult.success()
-        if sound not in self._checked:
-            self._checked[sound] = self._check_sound(sound)
-        severity = SeverityEnum.WARNING if sound == self._stored_sound else SeverityEnum.ERROR
-        issues = (
-            ValidationIssue(code=issue.code, severity=severity, field=SOUND_FIELD, params=issue.params)
-            for issue in self._checked[sound].issues
+        return TimerConfigRules.validate_settings(settings, self._limits).merge(
+            self._sound_check.issues(settings.sound)
         )
-        return ValidationResult.of(*issues)

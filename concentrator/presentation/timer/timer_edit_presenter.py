@@ -2,7 +2,6 @@
 
 import logging
 from collections.abc import Callable
-from pathlib import PurePosixPath
 from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
@@ -10,15 +9,14 @@ from concentrator.application.timer.sound_preview import SoundPreview
 from concentrator.application.timer.timer_commands import TimerCommands
 from concentrator.application.timer.timer_queries import TimerQueries
 from concentrator.domain.common.validation_result import ValidationResult
-from concentrator.domain.timer.sound_kind_enum import SoundKindEnum
-from concentrator.domain.timer.sound_ref import SoundRef
 from concentrator.domain.timer.timer_limits import TimerLimits
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
 from concentrator.presentation.ports.dialog_port import DialogPort
-from concentrator.presentation.ports.timer_edit_dialog_port import TimerEditDialogPort
+from concentrator.presentation.ports.editor_dialog_port import EditorDialogPort
+from concentrator.presentation.timer.sound_file_picker import pick_sound_file
 from concentrator.presentation.timer.timer_edit_form import TimerEditForm
 from concentrator.presentation.timer.timer_edit_snapshot import TimerEditSnapshot
 from concentrator.presentation.timer.timer_edit_view import TimerEditView
@@ -59,7 +57,7 @@ class TimerEditPresenter:
         self._commands = commands
         self._preview = preview
         self._limits = limits
-        self._window: TimerEditDialogPort | None = None
+        self._window: EditorDialogPort | None = None
         self._dialogs: DialogPort | None = None
         self._form: TimerEditForm | None = None
         self._view = TimerEditView(translator, gate, queries, limits)
@@ -70,7 +68,7 @@ class TimerEditPresenter:
             ActionIdEnum.TIMER_SOUND_CHOOSE_FILE: (self._choose_file, True),
         }
 
-    def attach(self, window: TimerEditDialogPort, dialogs: DialogPort) -> None:
+    def attach(self, window: EditorDialogPort, dialogs: DialogPort) -> None:
         """Set the dialog and the dialog service (built with the main window).
 
         Args:
@@ -228,14 +226,9 @@ class TimerEditPresenter:
         Returns:
             Success (also when the picker is cancelled).
         """
-        tr = self._translator.tr
-        draft_sound = self._current_form().draft.sound
-        directory = str(PurePosixPath(draft_sound.value).parent) if draft_sound.kind is SoundKindEnum.FILE else ""
-        path = self._attached_dialogs().choose_open_file(
-            tr("sound.file_dialog.title"), directory, tr("sound.file_dialog.filter")
-        )
-        if path is not None:
-            sound = SoundRef.file(path)
+        title = self._translator.tr("sound.file_dialog.title")
+        sound = pick_sound_file(self._attached_dialogs(), self._translator, self._current_form().draft.sound, title)
+        if sound is not None:
             self._edit(lambda form: form.set_sound(sound))
         return ValidationResult.success()
 
@@ -249,7 +242,7 @@ class TimerEditPresenter:
             self._form = TimerEditForm(self._queries.settings(), self._limits, self._queries.check_sound)
         return self._form
 
-    def _attached_window(self) -> TimerEditDialogPort:
+    def _attached_window(self) -> EditorDialogPort:
         """The dialog.
 
         Returns:
