@@ -146,3 +146,15 @@ def test_collection_rules_reject_more_favorites_than_the_limit() -> None:
 
     assert result.error_codes == (ErrorCodeEnum.PRESET_LIMIT_REACHED,)
     assert not result.issues[0].field
+
+
+@pytest.mark.parametrize("character", ["<", ">", "!", "/", "\\"])
+def test_label_refuses_the_blocked_characters(character: str) -> None:
+    result = TimerPresetRules.validate_label(f"Deep{character}work", LIMITS)
+
+    assert result.error_codes == (ErrorCodeEnum.PRESET_LABEL_CHARACTER_INVALID,)
+    assert (result.issues[0].field, result.issues[0].params) == ("label", (("characters", "< > ! / \\"),))
+
+
+def test_label_accepts_accents_apostrophes_and_punctuation() -> None:
+    assert TimerPresetRules.validate_label("Thé d'après-midi : 1,5 h ?", LIMITS).is_success

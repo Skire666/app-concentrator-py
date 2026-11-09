@@ -162,3 +162,12 @@ def test_unhandled_dialog_action_is_logged(stack: TimerUiStack, caplog: pytest.L
     stack.preset_edit(ActionIdEnum.TIMER_START)
 
     assert "Favorite dialog action TIMER_START" in caplog.text
+
+
+def test_snapshot_lists_the_blocked_characters_and_reports_them(stack: TimerUiStack) -> None:
+    stack.preset_editor.on_label_changed("a<b")
+
+    label = stack.preset_editor.build_snapshot().label
+
+    assert label.blocked_characters == "<>!/\\"
+    assert label.error == "en:error.preset_label_character_invalid(characters=< > ! / \\)"

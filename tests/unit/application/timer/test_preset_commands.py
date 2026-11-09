@@ -153,3 +153,10 @@ def test_delete_of_an_unknown_favorite_is_not_found(stack: TimerStack) -> None:
 def test_queries_give_one_favorite_and_the_limits(stack: TimerStack) -> None:
     assert stack.preset_queries.preset("preset-30").data == stack.presets.presets.get("preset-30").data
     assert stack.preset_queries.limits is LIMITS
+
+
+def test_create_refuses_a_label_with_a_blocked_character(stack: TimerStack) -> None:
+    result = stack.preset_commands.create("1/2 h", Duration(1800 + 60))
+
+    assert result.validation.error_codes == (ErrorCodeEnum.PRESET_LABEL_CHARACTER_INVALID,)
+    assert stack.presets.writes == 0

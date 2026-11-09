@@ -14,12 +14,14 @@ class LabelInputSnapshot:
         label: Field label.
         text: Label of the draft, as typed.
         placeholder: Automatic label shown while the field is empty.
+        blocked_characters: Characters the field refuses to take.
         error: Inline message, ``""`` when valid.
     """
 
     label: str
     text: str
     placeholder: str
+    blocked_characters: str
     error: str
 
 

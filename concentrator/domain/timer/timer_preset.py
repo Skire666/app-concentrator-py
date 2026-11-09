@@ -2,11 +2,14 @@
 
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import NewType, Self
+from typing import Final, NewType, Self
 
 from concentrator.domain.timer.duration import Duration
 
 TimerPresetId = NewType("TimerPresetId", str)
+
+BLOCKED_LABEL_CHARACTERS: Final = "<>!/\\"
+"""Characters a favorite label may not contain (owner decision at the phase 3 review)."""
 
 
 def normalize_label(text: str) -> str:

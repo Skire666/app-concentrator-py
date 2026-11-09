@@ -69,6 +69,7 @@
   "error.preset_duration_duplicate": "Un favori de durée {duration} existe déjà.",
   "error.preset_label_too_long": "Le libellé ne doit pas dépasser {max} caractères.",
   "error.preset_limit_reached": "Vous pouvez garder au plus {max} favoris.",
+  "error.preset_label_character_invalid": "Le libellé ne peut pas contenir ces caractères : {characters}",
   "error.chime_hour_out_of_range": "L'heure doit être comprise entre {min} et {max}.",
   "error.chime_hours_reversed": "Le dernier carillon ne peut pas précéder le premier.",
   "error.audio_file_not_found": "Le fichier son est introuvable.",

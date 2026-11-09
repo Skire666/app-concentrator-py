@@ -8,10 +8,11 @@ from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.timer_config_rules import DURATION_FIELD, TimerConfigRules
 from concentrator.domain.timer.timer_limits import TimerLimits
-from concentrator.domain.timer.timer_preset import TimerPreset
+from concentrator.domain.timer.timer_preset import BLOCKED_LABEL_CHARACTERS, TimerPreset
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 
 LABEL_FIELD: Final = "label"
+CHARACTER_SEPARATOR: Final = " "
 
 
 class TimerPresetRules:
@@ -50,15 +51,21 @@ class TimerPresetRules:
 
     @staticmethod
     def validate_label(label: str, limits: TimerLimits) -> ValidationResult:
-        """Check the length of a label (an empty label means the automatic one).
+        """Check the characters and the length of a label (an empty label means the automatic one).
 
         Args:
             label: Label.
             limits: Bounds from ``concentrator.ini``.
 
         Returns:
-            Success or ``PRESET_LABEL_TOO_LONG`` (``max``).
+            Success, ``PRESET_LABEL_CHARACTER_INVALID`` (``characters``: the blocked characters) or
+            ``PRESET_LABEL_TOO_LONG`` (``max``).
         """
+        if any(character in BLOCKED_LABEL_CHARACTERS for character in label):
+            characters = CHARACTER_SEPARATOR.join(BLOCKED_LABEL_CHARACTERS)
+            return ValidationResult.failure(
+                ErrorCodeEnum.PRESET_LABEL_CHARACTER_INVALID, field=LABEL_FIELD, characters=characters
+            )
         if len(label) <= limits.max_preset_label_length:
             return ValidationResult.success()
         return ValidationResult.failure(

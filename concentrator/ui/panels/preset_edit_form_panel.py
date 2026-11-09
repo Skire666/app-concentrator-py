@@ -1,6 +1,9 @@
 """Fields of the favorite dialog: label and duration."""
 
-from PySide6.QtCore import QSignalBlocker, Signal
+import re
+
+from PySide6.QtCore import QRegularExpression, QSignalBlocker, Signal
+from PySide6.QtGui import QRegularExpressionValidator
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget
 
 from concentrator.presentation.timer.preset_edit_snapshot import PresetEditSnapshot
@@ -29,6 +32,7 @@ class PresetEditFormPanel(QWidget):
         self.setStyleSheet(INVALID_INPUT_STYLE)
         self._label = QLineEdit(self)
         self._label.setClearButtonEnabled(True)
+        self._blocked: str | None = None
         self._duration = DurationInputWidget(self)
         self._label_caption = QLabel(self)
         self._duration_caption = QLabel(self)
@@ -86,6 +90,7 @@ class PresetEditFormPanel(QWidget):
             self._label.setText(label.text)
             blocker.unblock()
         self._label.setPlaceholderText(label.placeholder)
+        self._block_characters(label.blocked_characters)
         set_dynamic_property(self._label, INVALID_PROPERTY, bool(label.error))
         self._label_error.set_error(label.error)
         duration = snapshot.duration
@@ -100,6 +105,18 @@ class PresetEditFormPanel(QWidget):
         self._save.apply(snapshot.save)
         self._cancel.apply(snapshot.cancel)
         self.setUpdatesEnabled(True)
+
+    def _block_characters(self, characters: str) -> None:
+        """Make the label field refuse some characters (typed or pasted).
+
+        Args:
+            characters: Characters to refuse, ``""`` for none.
+        """
+        if self._blocked == characters:
+            return
+        self._blocked = characters
+        pattern = f"[^{re.escape(characters)}]*" if characters else ".*"
+        self._label.setValidator(QRegularExpressionValidator(QRegularExpression(pattern), self._label))
 
     def _build_layout(self, spacing_px: int) -> None:
         """Lay the two rows out, then the buttons.

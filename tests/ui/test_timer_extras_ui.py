@@ -396,3 +396,15 @@ def test_favorite_dialog_shows_a_stored_label_and_cancel_closes_it(qtbot: QtBot)
     assert window.dialog.windowTitle() == "en:preset.edit.title.edit"
     assert not window.dialog.isVisible()
     assert stack.presets.writes == 0
+
+
+def test_favorite_label_field_blocks_the_forbidden_characters(qtbot: QtBot) -> None:
+    stack = TimerUiStack(register_editor=False)
+    window = PresetEditWindow(stack.preset_editor, stack.renderer, ScreenDialogRunner(), LAYOUT)
+    qtbot.addWidget(window.dialog)
+    panel = window.dialog.panel
+    window.dialog.render_snapshot(stack.preset_editor.build_snapshot())
+
+    QTest.keyClicks(panel.label_input, "a<b>c!d/e\\f")
+
+    assert panel.label_input.text() == "abcdef"

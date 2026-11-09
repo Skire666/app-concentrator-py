@@ -10,6 +10,7 @@ from concentrator.application.timer.preset_queries import PresetQueries
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.timer.duration import SECONDS_PER_HOUR, Duration
 from concentrator.domain.timer.timer_config_rules import DURATION_FIELD
+from concentrator.domain.timer.timer_preset import BLOCKED_LABEL_CHARACTERS
 from concentrator.domain.timer.timer_preset_rules import LABEL_FIELD
 from concentrator.presentation.common.action_button import action_button
 from concentrator.presentation.common.action_gate import ActionGate
@@ -110,6 +111,7 @@ class PresetEditPresenter:
                 label=tr("preset.edit.label"),
                 text=form.draft.label,
                 placeholder=self._placeholder(form),
+                blocked_characters=BLOCKED_LABEL_CHARACTERS,
                 error=self._error(form, LABEL_FIELD),
             ),
             duration=self._duration_input(form),
