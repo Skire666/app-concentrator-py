@@ -59,7 +59,7 @@ def make_timer_section(**changes: int | str) -> TimerSection:
         default_duration_seconds=1500,
         min_duration_seconds=1,
         max_duration_seconds=359_999,
-        default_sound="alarm-lesiakower-reverby-notification-sound",
+        default_sound="alarm",
         default_volume=80,
         default_loop_count=3,
         max_loop_count=99,

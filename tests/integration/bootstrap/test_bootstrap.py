@@ -111,7 +111,7 @@ def test_self_check_fails_when_the_default_sound_is_missing(qtbot: QtBot, tmp_pa
     (install.paths.sounds_dir / f"{install.config().timer.default_sound}.mp3").unlink()
 
     assert run(install.paths, self_check=True) == 1
-    assert "alarm-lesiakower-reverby-notification-sound.mp3" in install.log_text
+    assert "alarm.mp3" in install.log_text
 
 
 def test_self_check_audio_check_passes_with_the_ffmpeg_backend(qtbot: QtBot) -> None:

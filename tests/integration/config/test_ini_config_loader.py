@@ -44,7 +44,7 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
     assert config.ui.zone1_ratio_percent == 70
     assert config.timer.tick_interval_ms == 100
     assert config.timer.snooze_minutes == 5
-    assert config.timer.default_sound == "alarm-lesiakower-reverby-notification-sound"
+    assert config.timer.default_sound == "alarm"
     assert config.timer.max_duration_seconds == 359_999
     assert config.ui.timer_font_family == "Cascadia Mono"
     assert config.ui.alert_blink_interval_ms == 500
@@ -134,7 +134,7 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("max_loop_count = 99", "max_loop_count = 2", "timer"),
         ("max_auto_stop_seconds = 3600", "max_auto_stop_seconds = 4", "timer"),
         ("default_auto_stop_seconds = 120", "default_auto_stop_seconds = 4000", "timer"),
-        ("default_sound = alarm-lesiakower", "default_sound = sounds/alarm", "timer.default_sound"),
+        ("default_sound = alarm\n", "default_sound = sounds/alarm\n", "timer.default_sound"),
         ("default_volume = 80", "default_volume = 101", "timer.default_volume"),
         ("snooze_minutes = 5", "snooze_minutes = 0", "timer.snooze_minutes"),
     ],
