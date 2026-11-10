@@ -4,7 +4,7 @@ Day, month, hour, minute and second are zero-padded before they fill the templat
 reads ``06/11/2026``, never ``6/11/2026``. The ``locale`` module is not used.
 """
 
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Final
 
 from concentrator.application.ports.clock_port import ClockPort
@@ -94,6 +94,46 @@ class DateTimeFormatter:
             month=format(local.month, _TWO_DIGITS),
             year=format(local.year, _FOUR_DIGITS),
         )
+
+    def calendar_date(self, value: date) -> str:
+        """A local calendar date (a due date), for example ``10/11/2026`` in French.
+
+        Args:
+            value: Date.
+
+        Returns:
+            The text.
+        """
+        return self._translator.tr(
+            "format.date",
+            day=format(value.day, _TWO_DIGITS),
+            month=format(value.month, _TWO_DIGITS),
+            year=format(value.year, _FOUR_DIGITS),
+        )
+
+    def clock_time(self, value: time) -> str:
+        """A local time of day (a due time), for example ``14:30``.
+
+        Args:
+            value: Time.
+
+        Returns:
+            The text.
+        """
+        return self._translator.tr(
+            "format.time", hour=format(value.hour, _TWO_DIGITS), minute=format(value.minute, _TWO_DIGITS)
+        )
+
+    def date_time_minutes(self, moment: datetime) -> str:
+        """Local date and time without seconds (created and updated columns).
+
+        Args:
+            moment: Timezone-aware instant.
+
+        Returns:
+            The text.
+        """
+        return self._translator.tr("format.datetime", date=self.date(moment), time=self.time(moment))
 
     def date_time(self, moment: datetime) -> str:
         """Local date and time with seconds.

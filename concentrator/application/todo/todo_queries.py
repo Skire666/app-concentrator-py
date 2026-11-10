@@ -1,5 +1,6 @@
 """Read use cases of the TODO manager."""
 
+from collections import Counter
 from dataclasses import dataclass
 
 from concentrator.application.ports.task_list_reader_port import TaskListReaderPort
@@ -14,15 +15,17 @@ from concentrator.domain.todo.tasks_collection import TasksCollection
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ListOverview:
-    """One tab: a list and its number of open tasks.
+    """One tab: a list and its number of tasks.
 
     Attributes:
         task_list: The list.
         open_count: Its open tasks.
+        task_count: All its tasks, whatever their state.
     """
 
     task_list: TaskList
     open_count: int
+    task_count: int
 
 
 class TodoQueries:
@@ -52,8 +55,13 @@ class TodoQueries:
         Returns:
             The overviews.
         """
-        counts = self.all_tasks().open_counts()
-        return tuple(ListOverview(task_list=item, open_count=counts[item.id]) for item in self.lists())
+        tasks = self.all_tasks()
+        open_counts = tasks.open_counts()
+        task_counts = Counter(task.list_id for task in tasks)
+        return tuple(
+            ListOverview(task_list=item, open_count=open_counts[item.id], task_count=task_counts[item.id])
+            for item in self.lists()
+        )
 
     def task_list(self, list_id: str) -> DataResult[TaskList]:
         """Return one list.

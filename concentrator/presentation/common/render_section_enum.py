@@ -23,3 +23,10 @@ class RenderSectionEnum(BaseIntEnum):
     CHIME_EDIT = 11
     JOURNAL = 12
     SETTINGS = 13
+    TODO_TABS = 14
+    TODO_TOOLBAR = 15
+    TODO_TABLE = 16
+    TODO_DETAILS = 17
+    TASK_EDIT = 18
+    LIST_EDIT = 19
+    QUICK_ADD = 20
