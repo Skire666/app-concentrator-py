@@ -52,7 +52,6 @@ class QuickAddPanel(QWidget):
             self._input.setText(snapshot.text)
         self._input.setPlaceholderText(snapshot.placeholder)
         self._input.setToolTip(snapshot.tooltip)
-        self._input.setEnabled(snapshot.enabled)
         blocker.unblock()
         self._error.set_error(snapshot.error)
         set_dynamic_property(self._input, INVALID_PROPERTY, bool(snapshot.error))

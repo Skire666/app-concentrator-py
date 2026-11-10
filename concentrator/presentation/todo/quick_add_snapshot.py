@@ -12,11 +12,15 @@ class QuickAddSnapshot:
         placeholder: "Add a task..." hint.
         tooltip: Says that Enter adds the task to the current list.
         error: Inline message of the last refused text, ``""`` when none.
-        enabled: Whether the field accepts input (not during the cooldown).
+        added_count: Tasks added from the field; it changes on every addition, so the field is emptied even
+            when the last rendered snapshot already had an empty text (keys typed between two renders).
+
+    The field is never disabled, so it keeps the focus between two tasks typed in a row; an Enter during
+    the cooldown is ignored by the action gate.
     """
 
     text: str
     placeholder: str
     tooltip: str
     error: str
-    enabled: bool
+    added_count: int

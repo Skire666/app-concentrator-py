@@ -47,6 +47,7 @@ class QuickAddPresenter:
         self._commands = commands
         self._text = ""
         self._error = ValidationResult.success()
+        self._added = 0
 
     def build_snapshot(self) -> QuickAddSnapshot:
         """Describe the field now.
@@ -60,7 +61,7 @@ class QuickAddPresenter:
             placeholder=self._translator.tr("todo.quick_add.placeholder"),
             tooltip=self._texts.action_tooltip(ActionIdEnum.TASK_QUICK_ADD),
             error="" if issue is None else self._texts.issue_message(issue),
-            enabled=not self._gate.is_busy(ActionIdEnum.TASK_QUICK_ADD),
+            added_count=self._added,
         )
 
     def on_text_changed(self, text: str) -> None:
@@ -96,6 +97,7 @@ class QuickAddPresenter:
             self._error = ValidationResult.success() if failing <= SILENT_CODES else created.validation
             return created.validation
         self._text = ""
+        self._added += 1
         self._error = ValidationResult.success()
         self._view.state.select_tasks((created.data.id,))
         return created.validation
