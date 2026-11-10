@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 
 from concentrator.presentation.journal.journal_presenter import JournalPresenter
+from concentrator.presentation.settings.settings_files_presenter import SettingsFilesPresenter
+from concentrator.presentation.settings.settings_presenter import SettingsPresenter
 from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
 from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
@@ -23,6 +25,8 @@ class MainWindowPresenters:
         presets: Favorites panel.
         chime: Special options panel.
         journal: Journal page.
+        settings: Settings form.
+        settings_files: File sections of the settings page.
     """
 
     shell: ShellPresenter
@@ -32,3 +36,5 @@ class MainWindowPresenters:
     presets: PresetsPresenter
     chime: ChimePresenter
     journal: JournalPresenter
+    settings: SettingsPresenter
+    settings_files: SettingsFilesPresenter

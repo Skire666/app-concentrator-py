@@ -14,6 +14,7 @@ from concentrator.presentation.journal.journal_layout import JournalLayout
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
 from concentrator.presentation.shell.main_window_presenters import MainWindowPresenters
 from concentrator.presentation.shell.shell_layout import ShellLayout
+from concentrator.presentation.shell.shell_page_enum import ShellPageEnum
 from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
 from concentrator.presentation.shell.window_layouts import WindowLayouts
@@ -31,6 +32,7 @@ from concentrator.ui.windows.main_window import MainWindow
 from tests.fakes.app_config_factory import make_app_config
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.journal_stack import JournalStack
+from tests.fakes.settings_stack import SettingsStack
 from tests.fakes.storage_stack import StorageStack
 from tests.fakes.timer_factory import LIMITS
 from tests.fakes.timer_stack import BLINK_MS, TimerStack
@@ -76,6 +78,9 @@ class ShellHarness:
             journal_badge=self.journal_presenter.badge_count,
         )
         self.presenter.add_page_listener(self.journal_presenter.on_page_changed)
+        self.settings = SettingsStack(attached=False, stacks=(self.stack, self.timer), register=False)
+        self.presenter.add_page_listener(self.settings.presenter.on_page_changed)
+        self.presenter.set_leave_guard(ShellPageEnum.SETTINGS, self.settings.presenter.may_leave)
         self.status_bar = StatusBarPresenter(
             self.translator,
             self.stack.gate,
@@ -87,6 +92,7 @@ class ShellHarness:
         )
         self.shutdown = ShutdownPresenter(self.stack.coordinator, self.translator)
         self.shutdown.attach(self.stack.dialogs)
+        self.shutdown.watch_edits(self.settings.presenter)
         self.editor = TimerEditPresenter(
             self.translator,
             self.stack.gate,
@@ -121,6 +127,8 @@ class ShellHarness:
                 presets=self.presets,
                 chime=self.chime,
                 journal=self.journal_presenter,
+                settings=self.settings.presenter,
+                settings_files=self.settings.files,
             ),
             renderer=self.stack.renderer,
             layout_keeper=LayoutStateKeeper(self.preferences),

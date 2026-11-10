@@ -3,7 +3,7 @@
 import logging
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib import metadata
 from typing import Final
 
@@ -15,7 +15,8 @@ from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.bootstrap.core import build_core
 from concentrator.bootstrap.runtime import Runtime, configure_runtime
 from concentrator.bootstrap.self_check import run_self_check
-from concentrator.bootstrap.shell import Shell, ShellServices, build_shell
+from concentrator.bootstrap.shell import Shell, build_shell
+from concentrator.bootstrap.shell_services import ShellServices
 from concentrator.bootstrap.startup import open_data_file
 from concentrator.bootstrap.startup_errors import show_config_error
 from concentrator.bootstrap.storage import build_storage
@@ -199,7 +200,9 @@ def _run_window(app: QApplication, config: AppConfig, paths: AppPaths, runtime: 
         instance.guard.set_activation_handler(bring_modal_dialog_to_front)
     try:
         protection = InstanceProtectionPresenter(translator, protected=instance.guard is not None)
-        services = ShellServices(core=core, storage=storage, instance=protection, feed=runtime.logging.ring_buffer)
+        services = ShellServices(
+            core=core, storage=storage, instance=protection, feed=runtime.logging.ring_buffer, startup=None
+        )
         return _run_with_data_file(app, (config, paths, translator), runtime, services, instance.guard)
     finally:
         storage.writer.shutdown()
@@ -229,9 +232,10 @@ def _run_with_data_file(
     config, paths, translator = setup
     icon = QIcon(str(paths.app_icon_file))
     layout = StartupDialogLayout.from_ui_section(config.ui)
-    if not open_data_file(services.core, services.storage, translator, services.instance, icon, layout):
+    flow = open_data_file(services.core, services.storage, translator, services.instance, icon, layout)
+    if flow is None:
         return EXIT_OK
-    shell = build_shell(app, config, paths, translator, runtime.reporter, services)
+    shell = build_shell(app, config, paths, translator, runtime.reporter, replace(services, startup=flow))
     return _run_shell(app, shell, guard)
 
 

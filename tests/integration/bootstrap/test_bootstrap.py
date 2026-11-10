@@ -329,3 +329,40 @@ def test_forwarding_reporter_forwards_once_connected() -> None:
     reporter.report(KeyError("after"))
 
     assert [type(error) for error in target.errors] == [KeyError]
+
+
+def test_built_shell_wires_the_journal_and_the_settings_pages(qtbot: QtBot, install: _Install) -> None:
+    config = install.config()
+    core, storage, translator = _storage(config, install)
+    assert storage.startup.create_at(config.paths.default_data_file, LanguageEnum.ENGLISH).is_success
+    feed = RingBufferHandler(100)
+    feed.handle(logging.LogRecord("concentrator.test", logging.ERROR, __file__, 1, "boom", None, None))
+    shell = build_shell(
+        _app(),
+        config,
+        install.paths,
+        translator,
+        ForwardingErrorReporter(),
+        ShellServices(
+            core=core, storage=storage, instance=InstanceProtectionPresenter(translator, protected=True), feed=feed
+        ),
+    )
+    qtbot.addWidget(shell.window)
+    shell.shutdown_presenter.attach(FakeDialogs(confirm_answer=True))
+    shell.start()
+    shell.heartbeat.ticker.tick()
+    core.renderer.flush()
+    journal_button = shell.window.module_bar.button(ActionIdEnum.SHELL_SHOW_JOURNAL)
+    assert getattr(journal_button, "badge", "") == "1"
+
+    journal_button.click()
+    qtbot.waitUntil(lambda: shell.window.journal_page.table.model.rowCount() == 1, timeout=2000)
+    qtbot.waitUntil(lambda: not core.gate.is_busy(ActionIdEnum.SHELL_SHOW_JOURNAL), timeout=2000)
+    shell.window.module_bar.button(ActionIdEnum.SHELL_SHOW_SETTINGS).click()
+    qtbot.waitUntil(lambda: shell.window.current_page_index == 2, timeout=2000)
+    qtbot.waitUntil(lambda: not core.gate.is_busy(ActionIdEnum.SHELL_SHOW_SETTINGS), timeout=2000)
+
+    assert shell.window.settings_page.files.data_path.path == config.paths.default_data_file.as_posix()
+    shell.shutdown()
+    core.renderer.flush()  # renders what the last release requested while the window still exists
+    storage.writer.shutdown()

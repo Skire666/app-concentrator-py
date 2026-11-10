@@ -1,6 +1,7 @@
 """Startup step inserted after the catalogs (ADR-027): language hint, unguarded warning, data file."""
 
 import logging
+from dataclasses import dataclass
 
 from PySide6.QtGui import QIcon
 
@@ -16,6 +17,19 @@ from concentrator.ui.support.qt_dialog_service import QtDialogService
 from concentrator.ui.windows.startup_dialogs import StartupDialogs
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class StartupFlow:
+    """The startup flow and its dialogs, kept for the recovery of a file chosen on the settings page.
+
+    Attributes:
+        presenter: First-run and recovery flow.
+        dialogs: Its two dialogs.
+    """
+
+    presenter: StartupFlowPresenter
+    dialogs: StartupDialogs
 
 
 def apply_language_hint(storage: Storage, translator: TranslatorPort) -> None:
@@ -40,7 +54,7 @@ def open_data_file(
     instance: InstanceProtectionPresenter,
     icon: QIcon,
     layout: StartupDialogLayout,
-) -> bool:
+) -> StartupFlow | None:
     """Warn when unguarded, then resolve the data file through the startup dialogs.
 
     Args:
@@ -52,7 +66,7 @@ def open_data_file(
         layout: Sizes of the dialogs (``[ui]``).
 
     Returns:
-        Whether a data file is open (``False``: the user quit).
+        The flow once a data file is open, ``None`` when the user quit.
     """
     apply_language_hint(storage, translator)
     dialogs = QtDialogService(ScreenDialogRunner())
@@ -65,10 +79,11 @@ def open_data_file(
         translator=translator,
         formatter=DateTimeFormatter(translator, core.clock),
     )
-    flow.attach(StartupDialogs(flow, core.renderer, icon, layout))
+    startup_dialogs = StartupDialogs(flow, core.renderer, icon, layout)
+    flow.attach(startup_dialogs)
     if not flow.run():
-        return False
+        return None
     settings = storage.settings_queries.current_settings()
     if settings.data is not None:
         storage.switcher.follow(settings.data.language)
-    return True
+    return StartupFlow(flow, startup_dialogs)

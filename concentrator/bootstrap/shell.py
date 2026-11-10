@@ -10,14 +10,16 @@ from PySide6.QtWidgets import QApplication
 
 from concentrator.application.common.app_config import AppConfig
 from concentrator.application.common.app_ticker import AppTicker
-from concentrator.application.ports.log_feed_port import LogFeedPort
 from concentrator.application.ports.translator_port import TranslatorPort
-from concentrator.application.storage.storage_events import SaveStatusChangedEvent
+from concentrator.application.settings.settings_events import UserSettingsChangedEvent
+from concentrator.application.storage.storage_events import SaveStatusChangedEvent, UserDataReplacedEvent
 from concentrator.application.timer.alarm_coordinator import AlarmCoordinator
-from concentrator.application.timer.timer_events import TimerChangedEvent
+from concentrator.application.timer.timer_events import HourlyChimeChangedEvent, TimerChangedEvent
 from concentrator.bootstrap.core import Core
 from concentrator.bootstrap.journal import build_journal
 from concentrator.bootstrap.runtime import ForwardingErrorReporter
+from concentrator.bootstrap.settings import build_settings
+from concentrator.bootstrap.shell_services import ShellServices
 from concentrator.bootstrap.storage import Storage
 from concentrator.bootstrap.timer import TimerServices, build_timer, connect_alarm
 from concentrator.bootstrap.timer_extras import TimerExtras, build_timer_extras
@@ -26,9 +28,12 @@ from concentrator.presentation.common.date_time_formatter import DateTimeFormatt
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
 from concentrator.presentation.journal.journal_layout import JournalLayout
 from concentrator.presentation.journal.journal_presenter import JournalPresenter
+from concentrator.presentation.settings.settings_files_presenter import SettingsFilesPresenter
+from concentrator.presentation.settings.settings_presenter import SettingsPresenter
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
 from concentrator.presentation.shell.main_window_presenters import MainWindowPresenters
 from concentrator.presentation.shell.shell_layout import ShellLayout
+from concentrator.presentation.shell.shell_page_enum import ShellPageEnum
 from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
 from concentrator.presentation.shell.unexpected_error_presenter import UnexpectedErrorPresenter
@@ -48,21 +53,13 @@ from concentrator.ui.windows.timer_edit_dialog import TimerEditWindow
 _logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class ShellServices:
-    """Services built before the window that the shell needs.
+@dataclass(frozen=True, slots=True)
+class _Pages:
+    """Presenters of the Journal and Settings pages."""
 
-    Attributes:
-        core: Main-thread services.
-        storage: Storage services.
-        instance: Unguarded single-instance indicator.
-        feed: In-memory log buffer read by the journal page.
-    """
-
-    core: Core
-    storage: Storage
-    instance: InstanceProtectionPresenter
-    feed: LogFeedPort
+    journal: JournalPresenter
+    settings: SettingsPresenter
+    settings_files: SettingsFilesPresenter
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,11 +230,10 @@ def build_shell(
     core, storage = services.core, services.storage
     timer = build_timer(app, config, paths, translator, core=core, storage=storage)
     extras = build_timer_extras(app, translator, core=core, storage=storage, timer=timer)
-    journal = build_journal(config, translator, core, services.feed)
-    presenters = _presenters(services, translator, (timer, extras), journal)
+    pages = _pages(config, paths, translator, services, timer)
+    presenters = _presenters(services, translator, (timer, extras), pages)
     window = _main_window(config, paths, core, presenters)
-    dialogs = _attach_dialogs(window, config, presenters, (timer, extras), core)
-    _connect_dialogs(dialogs, core, storage, translator, reporter)
+    _wire_window(window, config, presenters, (timer, extras), (services, translator, reporter))
     return Shell(
         window=window,
         core=core,
@@ -245,8 +241,65 @@ def build_shell(
         timer=timer,
         extras=extras,
         alarm=connect_alarm(timer, window, core, storage.settings_queries.notify_when_inactive),
-        heartbeat=_heartbeat(app, config, (timer.engine.tick, extras.chime_service.tick, journal.on_tick)),
+        heartbeat=_heartbeat(app, config, (timer.engine.tick, extras.chime_service.tick, pages.journal.on_tick)),
     )
+
+
+def _wire_window(
+    window: MainWindow,
+    config: AppConfig,
+    presenters: MainWindowPresenters,
+    timer: tuple[TimerServices, TimerExtras],
+    context: tuple[ShellServices, TranslatorPort, ForwardingErrorReporter],
+) -> None:
+    """Attach the dialogs over the window and connect the presenters that need the window.
+
+    Args:
+        window: Main window.
+        config: Loaded configuration.
+        presenters: Presenters of the window.
+        timer: Timer services and timer extras.
+        context: Shell services, translator and the reporter of the global hooks.
+    """
+    services, translator, reporter = context
+    dialogs = _attach_dialogs(window, config, presenters, timer, services)
+    _connect_dialogs(dialogs, services.core, services.storage, translator, reporter)
+    _connect_settings(window, presenters, services.core)
+
+
+def _pages(
+    config: AppConfig, paths: AppPaths, translator: TranslatorPort, services: ShellServices, timer: TimerServices
+) -> _Pages:
+    """Create the presenters of the Journal and Settings pages.
+
+    Args:
+        config: Loaded configuration.
+        paths: Application paths.
+        translator: Current-language translator.
+        services: Core, storage, log buffer and startup flow.
+        timer: Sounds and preview of the chime fields.
+
+    Returns:
+        The presenters.
+    """
+    settings, settings_files = build_settings(config, paths, translator, services, timer)
+    return _Pages(build_journal(config, translator, services.core, services.feed), settings, settings_files)
+
+
+def _connect_settings(window: MainWindow, presenters: MainWindowPresenters, core: Core) -> None:
+    """Let the settings follow stored values, reset the layout and guard the window close.
+
+    Args:
+        window: Main window (applies the default layout).
+        presenters: Presenters of the window.
+        core: Main-thread services (event bus).
+    """
+    settings = presenters.settings
+    for event_type in (UserSettingsChangedEvent, HourlyChimeChangedEvent, UserDataReplacedEvent):
+        core.event_bus.subscribe(event_type, settings.on_stored_values_changed)
+    presenters.settings_files.add_layout_reset_listener(window.reset_layout)
+    presenters.settings_files.add_layout_reset_listener(presenters.journal.reset_layout)
+    presenters.shutdown.watch_edits(settings)
 
 
 def _main_window(config: AppConfig, paths: AppPaths, core: Core, presenters: MainWindowPresenters) -> MainWindow:
@@ -281,37 +334,41 @@ def _attach_dialogs(
     config: AppConfig,
     presenters: MainWindowPresenters,
     timer: tuple[TimerServices, TimerExtras],
-    core: Core,
+    services: ShellServices,
 ) -> QtDialogService:
     """Give the presenters the window and its dialogs, all run over the window (ADR-036).
+
+    The startup dialogs move over the window too: the settings page runs the recovery dialog.
 
     Args:
         window: Main window.
         config: Loaded configuration.
         presenters: Presenters of the window.
         timer: Timer services and timer extras (edit, favorite and chime dialogs).
-        core: Main-thread services.
+        services: Core services and the startup flow.
 
     Returns:
         The dialog service of the window.
     """
-    services, extras = timer
+    timer_services, extras = timer
+    renderer = services.core.renderer
     host = ModalHost.create(window, config.ui.dialog_overlay_opacity_percent)
     dialogs = QtDialogService(host)
     presenters.shutdown.attach(dialogs)
+    presenters.settings.attach(dialogs)
     layout = TimerLayout.from_ui_section(config.ui)
-    services.editor.attach(TimerEditWindow(services.editor, core.renderer, host, layout), dialogs)
-    extras.preset_editor.attach(PresetEditWindow(extras.preset_editor, core.renderer, host, layout))
+    timer_services.editor.attach(TimerEditWindow(timer_services.editor, renderer, host, layout), dialogs)
+    extras.preset_editor.attach(PresetEditWindow(extras.preset_editor, renderer, host, layout))
     extras.presets.attach(dialogs)
-    extras.chime_editor.attach(ChimeSettingsWindow(extras.chime_editor, core.renderer, host, layout), dialogs)
+    extras.chime_editor.attach(ChimeSettingsWindow(extras.chime_editor, renderer, host, layout), dialogs)
+    if services.startup is not None:
+        services.startup.dialogs.move_to_window(host)
+        services.startup.presenter.attach_session(services.startup.dialogs, dialogs)
     return dialogs
 
 
 def _presenters(
-    services: ShellServices,
-    translator: TranslatorPort,
-    timer: tuple[TimerServices, TimerExtras],
-    journal: JournalPresenter,
+    services: ShellServices, translator: TranslatorPort, timer: tuple[TimerServices, TimerExtras], pages: _Pages
 ) -> MainWindowPresenters:
     """Create the presenters of the main window panels.
 
@@ -319,18 +376,21 @@ def _presenters(
         services: Core, storage and single-instance indicator.
         translator: Current-language translator.
         timer: Timer services and timer extras.
-        journal: Journal page presenter.
+        pages: Journal and Settings presenters.
 
     Returns:
         The presenters; the shell presenter follows the timer to highlight the Focus button, shows the
-        journal badge and tells the journal when it is shown.
+        journal badge, tells the pages when they are shown and asks the settings before leaving them.
     """
     core, storage = services.core, services.storage
     timer_services, extras = timer
+    journal, settings = pages.journal, pages.settings
     shell = ShellPresenter(
         translator, core.gate, core.renderer, timer_services.ringing, journal_badge=journal.badge_count
     )
     shell.add_page_listener(journal.on_page_changed)
+    shell.add_page_listener(settings.on_page_changed)
+    shell.set_leave_guard(ShellPageEnum.SETTINGS, settings.may_leave)
     core.event_bus.subscribe(TimerChangedEvent, shell.on_timer_changed)
     return MainWindowPresenters(
         shell=shell,
@@ -340,4 +400,6 @@ def _presenters(
         presets=extras.presets,
         chime=extras.chime,
         journal=journal,
+        settings=settings,
+        settings_files=pages.settings_files,
     )

@@ -38,14 +38,12 @@ class ShellSnapshot:
         module_buttons: Focus, Journal and Settings buttons, in bar order.
         active_page_index: Index of the visible page, in the same order.
         focus_zone1_placeholder: Temporary text of zone 1 until the TODO manager exists (phase 5).
-        settings_placeholder: Temporary text of the Settings page (phase 4).
     """
 
     window_title: str
     module_buttons: tuple[ModuleButtonSnapshot, ...]
     active_page_index: int
     focus_zone1_placeholder: str
-    settings_placeholder: str
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

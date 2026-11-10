@@ -33,9 +33,10 @@ ABOUT: Final = AboutInfo(
 class SettingsStack:
     """Renders ``SETTINGS`` into ``renders``; the data file ``DATA_PATH`` is open."""
 
-    def __init__(self, *, attached: bool = True) -> None:
-        self.storage = StorageStack()
-        self.timer = TimerStack()
+    def __init__(
+        self, *, attached: bool = True, stacks: tuple[StorageStack, TimerStack] | None = None, register: bool = True
+    ) -> None:
+        self.storage, self.timer = stacks or (StorageStack(), TimerStack())
         self.timer.catalog.builtin = (*self.timer.catalog.builtin, "chime")
         storage = self.storage
         if attached:
@@ -61,7 +62,8 @@ class SettingsStack:
         storage.bus.subscribe(UserSettingsChangedEvent, self.presenter.on_stored_values_changed)
         self.timer.bus.subscribe(HourlyChimeChangedEvent, self.presenter.on_stored_values_changed)
         self.renders: list[SettingsSnapshot] = []
-        storage.renderer.register(RenderSectionEnum.SETTINGS, self.presenter.build_snapshot, self.renders.append)
+        if register:
+            storage.renderer.register(RenderSectionEnum.SETTINGS, self.presenter.build_snapshot, self.renders.append)
 
     @property
     def last(self) -> SettingsSnapshot:

@@ -79,7 +79,7 @@ class MainWindow(QWidget):
         self._pages = QStackedWidget(self)
         self._focus_page = FocusPage(layouts.shell.zone1_ratio_percent, layouts.timer, self._pages)
         self._journal_page = JournalPage(layouts.journal, self._pages)
-        self._settings_page = SettingsPage(self._pages)
+        self._settings_page = SettingsPage(layouts.timer.spacing_px, self._pages)
         self._build_layout()
         self._wire(presenters, renderer)
 
@@ -102,6 +102,11 @@ class MainWindow(QWidget):
     def journal_page(self) -> JournalPage:
         """Menu B page."""
         return self._journal_page
+
+    @property
+    def settings_page(self) -> SettingsPage:
+        """Menu C page."""
+        return self._settings_page
 
     @property
     def timer_panel(self) -> TimerPanel:
@@ -133,7 +138,6 @@ class MainWindow(QWidget):
         self.setWindowTitle(snapshot.window_title)
         self._module_bar.render_snapshot(snapshot)
         self._focus_page.render_snapshot(snapshot)
-        self._settings_page.render_snapshot(snapshot.settings_placeholder)
         self._pages.setCurrentIndex(snapshot.active_page_index)
         self.setUpdatesEnabled(True)
 
@@ -209,6 +213,7 @@ class MainWindow(QWidget):
         renderer.register(RenderSectionEnum.TIMER, timer.build_snapshot, self.timer_panel.render_snapshot)
         self._wire_timer_extras(presenters, renderer)
         self._journal_page.connect_presenter(presenters.journal, renderer)
+        self._settings_page.connect_presenters(presenters.settings, presenters.settings_files, renderer)
 
     def _wire_timer_extras(self, presenters: MainWindowPresenters, renderer: RenderCoordinator) -> None:
         """Connect the favorites and the special options and register their render sections.

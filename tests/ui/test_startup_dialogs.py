@@ -4,6 +4,7 @@ from datetime import timedelta
 import pytest
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QWidget
 from pytestqt.qtbot import QtBot
 
 from concentrator.application.storage.startup_commands import DATA_FILE_PATH_KEY
@@ -12,6 +13,7 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
 from concentrator.presentation.storage.startup_dialog_layout import StartupDialogLayout
 from concentrator.presentation.storage.startup_flow_presenter import StartupFlowPresenter
+from concentrator.ui.support.modal_host import ModalHost
 from concentrator.ui.widgets.button_column_widget import ButtonColumnWidget
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
 from concentrator.ui.windows.startup_dialogs import StartupDialogs
@@ -138,3 +140,27 @@ def test_dialog_ignores_an_empty_snapshot(setup: Setup) -> None:
 
     assert not setup.dialogs.first_run.windowTitle()
     assert not setup.dialogs.recovery.windowTitle()
+
+
+def test_moved_dialogs_run_over_the_window_and_offer_cancel(setup: Setup, qtbot: QtBot) -> None:
+    window = QWidget()
+    qtbot.addWidget(window)
+    window.resize(900, 700)
+    window.show()
+    qtbot.waitExposed(window)
+    host = ModalHost.create(window, 10)
+    setup.dialogs.move_to_window(host)
+    setup.presenter.attach_session(setup.dialogs, setup.stack.dialogs)
+    setup.stack.file.reports[DATA_PATH] = report(DATA_PATH, invalid(ErrorCodeEnum.STORAGE_FIELD_MISSING))
+    seen: dict[str, object] = {}
+
+    def look_and_cancel() -> None:
+        panel = setup.dialogs.recovery.panel
+        seen["parent"] = setup.dialogs.recovery.parentWidget() is window
+        seen["cancel"] = [button.text() for button in panel.buttons.buttons if not button.isHidden()][-1]
+        _button(panel.buttons, ActionIdEnum.STARTUP_CANCEL).click()
+
+    setup.later(look_and_cancel)
+
+    assert not setup.presenter.resume(setup.stack.commands.inspect(DATA_PATH))
+    assert seen == {"parent": True, "cancel": "en:action.startup_cancel"}
