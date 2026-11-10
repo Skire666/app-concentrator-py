@@ -67,10 +67,10 @@ def test_dots_open_the_chime_dialog_on_the_stored_settings(stack: TimerUiStack) 
     assert stack.chime_window.shows == 1
     snapshot = stack.chime_editor.build_snapshot()
     assert snapshot.title == "en:chime.edit.title"
-    assert snapshot.sound.options[snapshot.sound.selected] == "en:sound.builtin.chime"
-    assert (snapshot.volume.value, snapshot.hours.start, snapshot.hours.end) == (60, 8, 20)
-    assert snapshot.hours.options[0] == "en:format.time(hour=00,minute=00)"
-    assert len(snapshot.hours.options) == 24
+    assert snapshot.fields.sound.options[snapshot.fields.sound.selected] == "en:sound.builtin.chime"
+    assert (snapshot.fields.volume.value, snapshot.fields.hours.start, snapshot.fields.hours.end) == (60, 8, 20)
+    assert snapshot.fields.hours.options[0] == "en:format.time(hour=00,minute=00)"
+    assert len(snapshot.fields.hours.options) == 24
     assert snapshot.save.enabled is False
     assert stack.preview_player.stops == 1
 
@@ -99,8 +99,8 @@ def test_reversed_hours_show_an_inline_error_and_block_saving(stack: TimerUiStac
 
     snapshot = stack.chime_editor.build_snapshot()
 
-    assert snapshot.hours.end_error == "en:error.chime_hours_reversed"
-    assert not snapshot.hours.start_error
+    assert snapshot.fields.hours.end_error == "en:error.chime_hours_reversed"
+    assert not snapshot.fields.hours.start_error
     assert snapshot.save.enabled is False
 
 
@@ -135,7 +135,7 @@ def test_choose_file_makes_the_file_the_draft_sound(stack: TimerUiStack) -> None
 
     snapshot = stack.chime_editor.build_snapshot()
     assert stack.dialogs.texts("choose_open_file")[0][0] == "en:sound.file_dialog.chime_title"
-    assert snapshot.sound.options[snapshot.sound.selected] == "en:sound.file.label(name=bell.mp3)"
+    assert snapshot.fields.sound.options[snapshot.fields.sound.selected] == "en:sound.file.label(name=bell.mp3)"
     assert snapshot.save.enabled is True
 
 
@@ -147,7 +147,7 @@ def test_a_missing_stored_file_is_a_warning(stack: TimerUiStack) -> None:
     stack.chime_editor.on_volume_changed(10)
     snapshot = stack.chime_editor.build_snapshot()
 
-    assert snapshot.sound.error == "en:error.audio_file_not_found"
+    assert snapshot.fields.sound.error == "en:error.audio_file_not_found"
     assert snapshot.save.enabled is True
 
 
@@ -173,7 +173,7 @@ def test_save_failure_keeps_the_dialog_open(stack: TimerUiStack, caplog: pytest.
 def test_out_of_list_sound_index_is_ignored(stack: TimerUiStack) -> None:
     stack.chime_editor.on_sound_selected(99)
 
-    assert stack.chime_editor.build_snapshot().sound.options[0] == "en:sound.builtin.alarm-classic"
+    assert stack.chime_editor.build_snapshot().fields.sound.options[0] == "en:sound.builtin.alarm-classic"
     assert stack.chime_editor.build_snapshot().save.enabled is False
 
 

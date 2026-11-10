@@ -10,9 +10,6 @@ from concentrator.application.timer.chime_queries import ChimeQueries
 from concentrator.application.timer.sound_preview import SoundPreview
 from concentrator.application.timer.timer_queries import TimerQueries
 from concentrator.domain.common.validation_result import ValidationResult
-from concentrator.domain.timer.hourly_chime_rules import END_HOUR_FIELD, START_HOUR_FIELD
-from concentrator.domain.timer.timer_config_rules import SOUND_FIELD, VOLUME_FIELD
-from concentrator.domain.timer.volume import MAX_VOLUME_PERCENT
 from concentrator.presentation.common.action_button import action_button
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
@@ -21,12 +18,10 @@ from concentrator.presentation.common.render_section_enum import RenderSectionEn
 from concentrator.presentation.common.ui_texts import UiTexts
 from concentrator.presentation.ports.dialog_port import DialogPort
 from concentrator.presentation.ports.editor_dialog_port import EditorDialogPort
-from concentrator.presentation.timer.chime_hours import hour_options
+from concentrator.presentation.timer.chime_fields import ChimeFields
 from concentrator.presentation.timer.chime_settings_form import ChimeSettingsForm
-from concentrator.presentation.timer.chime_settings_snapshot import ChimeSettingsSnapshot, HourRangeSnapshot
-from concentrator.presentation.timer.sound_choices import SoundChoices
+from concentrator.presentation.timer.chime_settings_snapshot import ChimeSettingsSnapshot
 from concentrator.presentation.timer.sound_file_picker import pick_sound_file
-from concentrator.presentation.timer.timer_edit_snapshot import VolumeInputSnapshot
 
 _logger = logging.getLogger(__name__)
 
@@ -70,7 +65,9 @@ class ChimeSettingsPresenter:
         self._commands = commands
         self._sounds = sounds
         self._preview = preview
-        self._choices = SoundChoices(translator, sounds.builtin_sounds)
+        self._fields = ChimeFields(
+            translator, gate, sounds, actions=(ActionIdEnum.CHIME_PREVIEW, ActionIdEnum.CHIME_SOUND_CHOOSE_FILE)
+        )
         self._window: EditorDialogPort | None = None
         self._dialogs: DialogPort | None = None
         self._form: ChimeSettingsForm | None = None
@@ -98,7 +95,7 @@ class ChimeSettingsPresenter:
             Success once the dialog closed.
         """
         self._form = ChimeSettingsForm(self._queries.settings(), self._sounds.check_sound)
-        self._choices.reset()
+        self._fields.reset_choices()
         self._attached(self._window).show_editor()
         self._preview.stop()
         return ValidationResult.success()
@@ -113,15 +110,7 @@ class ChimeSettingsPresenter:
         form = self._current_form()
         return ChimeSettingsSnapshot(
             title=tr("chime.edit.title"),
-            sound=self._choices.picker(
-                label=tr("chime.edit.sound"),
-                baseline=form.baseline.sound,
-                draft=form.draft.sound,
-                choose_file=action_button(self._texts, self._gate, ActionIdEnum.CHIME_SOUND_CHOOSE_FILE),
-                error=self._error(form, SOUND_FIELD),
-            ),
-            volume=self._volume_input(form),
-            hours=self._hours(form),
+            fields=self._fields.snapshot(form),
             hint=tr("chime.edit.hint"),
             save=action_button(self._texts, self._gate, ActionIdEnum.CHIME_EDIT_SAVE, enabled=form.can_submit),
             cancel=action_button(self._texts, self._gate, ActionIdEnum.CHIME_EDIT_CANCEL),
@@ -133,10 +122,8 @@ class ChimeSettingsPresenter:
         Args:
             index: Index among the options of the snapshot.
         """
-        form = self._current_form()
-        choices = self._choices.choices(form.baseline.sound, form.draft.sound)
-        if 0 <= index < len(choices):
-            self._edit(lambda edited: edited.set_sound(choices[index]))
+        if self._fields.select_sound(self._current_form(), index):
+            self._renderer.request(RenderSectionEnum.CHIME_EDIT)
 
     def on_volume_changed(self, percent: int) -> None:
         """Handle a move of the volume slider.
@@ -235,57 +222,6 @@ class ChimeSettingsPresenter:
         if sound is not None:
             self._edit(lambda form: form.set_sound(sound))
         return ValidationResult.success()
-
-    def _volume_input(self, form: ChimeSettingsForm) -> VolumeInputSnapshot:
-        """Describe the volume field.
-
-        Args:
-            form: Current form.
-
-        Returns:
-            The field snapshot.
-        """
-        percent = form.draft.volume.percent
-        return VolumeInputSnapshot(
-            label=self._translator.tr("chime.edit.volume"),
-            value=percent,
-            maximum=MAX_VOLUME_PERCENT,
-            value_text=self._translator.tr("timer.edit.volume_value", percent=percent),
-            preview=action_button(self._texts, self._gate, ActionIdEnum.CHIME_PREVIEW),
-            error=self._error(form, VOLUME_FIELD),
-        )
-
-    def _hours(self, form: ChimeSettingsForm) -> HourRangeSnapshot:
-        """Describe the active hours.
-
-        Args:
-            form: Current form.
-
-        Returns:
-            The field snapshot.
-        """
-        tr = self._translator.tr
-        return HourRangeSnapshot(
-            start_label=tr("chime.edit.start_hour"),
-            end_label=tr("chime.edit.end_hour"),
-            options=hour_options(self._translator),
-            start=form.draft.start_hour,
-            end=form.draft.end_hour,
-            start_error=self._error(form, START_HOUR_FIELD),
-            end_error=self._error(form, END_HOUR_FIELD),
-        )
-
-    def _error(self, form: ChimeSettingsForm, field: str) -> str:
-        """Return the inline message of a field (failures and warnings).
-
-        Args:
-            form: Current form.
-            field: Field path of the rules, ``sound`` also covering ``sound.kind``.
-
-        Returns:
-            The first message, ``""`` when the field is valid.
-        """
-        return self._texts.field_message(form.errors, field)
 
     def _current_form(self) -> ChimeSettingsForm:
         """Return the form being edited, created from the stored settings if none is open.

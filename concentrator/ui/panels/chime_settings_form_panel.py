@@ -1,11 +1,11 @@
-"""Fields of the hourly chime dialog: sound, volume and preview, active hours."""
+"""Content of the hourly chime dialog: the chime fields, a hint, Cancel and Save."""
 
-from PySide6.QtCore import QSignalBlocker, Qt, Signal
-from PySide6.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
-from concentrator.presentation.timer.chime_settings_snapshot import ChimeSettingsSnapshot, HourRangeSnapshot
+from concentrator.presentation.timer.chime_settings_snapshot import ChimeSettingsSnapshot
 from concentrator.presentation.timer.timer_layout import TimerLayout
-from concentrator.ui.support.styles import INVALID_INPUT_STYLE, INVALID_PROPERTY, set_dynamic_property
+from concentrator.ui.panels.chime_fields_panel import ChimeFieldsPanel
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
 from concentrator.ui.widgets.sound_picker_widget import SoundPickerWidget
@@ -22,52 +22,54 @@ class ChimeSettingsFormPanel(QWidget):
     action_requested = Signal(int)
 
     def __init__(self, layout: TimerLayout, parent: QWidget | None = None) -> None:
-        """Build the fields.
+        """Build the panel.
 
         Args:
             layout: Spacing of the dialog.
             parent: Parent widget.
         """
         super().__init__(parent)
-        self.setStyleSheet(INVALID_INPUT_STYLE)
-        self._sound = SoundPickerWidget(self)
-        self._volume = VolumeSliderWidget(self)
-        self._start = QComboBox(self)
-        self._end = QComboBox(self)
-        self._captions = tuple(QLabel(self) for _row in range(4))
-        self._errors = tuple(FieldErrorLabel(self) for _row in range(4))
+        self._fields = ChimeFieldsPanel(layout.spacing_px, self)
         self._hint = QLabel(self)
         self._hint.setWordWrap(True)
         self._hint.setTextFormat(Qt.TextFormat.PlainText)
         self._save = SnapshotButton(self)
         self._cancel = SnapshotButton(self)
         self._connect()
-        self._build_layout(layout.spacing_px)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(self._cancel)
+        buttons.addWidget(self._save)
+        column = QVBoxLayout(self)
+        column.setSpacing(layout.spacing_px)
+        column.addWidget(self._fields)
+        column.addWidget(self._hint)
+        column.addLayout(buttons)
 
     @property
     def sound_picker(self) -> SoundPickerWidget:
         """Sound field (for tests)."""
-        return self._sound
+        return self._fields.sound_picker
 
     @property
     def volume_slider(self) -> VolumeSliderWidget:
         """Volume field (for tests)."""
-        return self._volume
+        return self._fields.volume_slider
 
     @property
     def start_hour(self) -> QComboBox:
         """First hour (for tests)."""
-        return self._start
+        return self._fields.start_hour
 
     @property
     def end_hour(self) -> QComboBox:
         """Last hour (for tests)."""
-        return self._end
+        return self._fields.end_hour
 
     @property
     def end_hour_error(self) -> FieldErrorLabel:
         """Inline error of the last hour (for tests)."""
-        return self._errors[3]
+        return self._fields.end_hour_error
 
     @property
     def save_button(self) -> SnapshotButton:
@@ -86,102 +88,19 @@ class ChimeSettingsFormPanel(QWidget):
             snapshot: Dialog state.
         """
         self.setUpdatesEnabled(False)
-        sound, volume, hours = snapshot.sound, snapshot.volume, snapshot.hours
-        self._sound.apply(
-            sound.options, sound.tooltips, sound.selected, choose=sound.choose_file, invalid=bool(sound.error)
-        )
-        self._volume.apply(
-            volume.value, volume.maximum, volume.value_text, preview=volume.preview, invalid=bool(volume.error)
-        )
-        self._render_hours(hours)
-        self._render_rows(snapshot)
+        self._fields.render_snapshot(snapshot.fields)
         self._hint.setText(snapshot.hint)
         self._save.apply(snapshot.save)
         self._cancel.apply(snapshot.cancel)
         self.setUpdatesEnabled(True)
 
-    def _render_rows(self, snapshot: ChimeSettingsSnapshot) -> None:
-        """Show the row labels and the inline errors.
-
-        Args:
-            snapshot: Dialog state.
-        """
-        sound, volume, hours = snapshot.sound, snapshot.volume, snapshot.hours
-        texts = (
-            (sound.label, sound.error),
-            (volume.label, volume.error),
-            (hours.start_label, hours.start_error),
-            (hours.end_label, hours.end_error),
-        )
-        for caption, error, (text, message) in zip(self._captions, self._errors, texts, strict=True):
-            caption.setText(text)
-            error.set_error(message)
-
-    def _render_hours(self, hours: HourRangeSnapshot) -> None:
-        """Show both hour lists.
-
-        Args:
-            hours: Active hours.
-        """
-        for combo, selected, error in (
-            (self._start, hours.start, hours.start_error),
-            (self._end, hours.end, hours.end_error),
-        ):
-            blocker = QSignalBlocker(combo)
-            if [combo.itemText(index) for index in range(combo.count())] != list(hours.options):
-                combo.clear()
-                combo.addItems(list(hours.options))
-            combo.setCurrentIndex(selected)
-            blocker.unblock()
-            set_dynamic_property(combo, INVALID_PROPERTY, bool(error))
-
     def _connect(self) -> None:
-        """Forward the widget signals."""
-        self._sound.sound_selected.connect(self.sound_selected)
-        self._sound.action_requested.connect(self.action_requested)
-        self._volume.volume_changed.connect(self.volume_changed)
-        self._volume.action_requested.connect(self.action_requested)
-        self._start.currentIndexChanged.connect(self.start_hour_changed)
-        self._end.currentIndexChanged.connect(self.end_hour_changed)
+        """Forward the field and button signals."""
+        fields = self._fields
+        fields.sound_selected.connect(self.sound_selected)
+        fields.volume_changed.connect(self.volume_changed)
+        fields.start_hour_changed.connect(self.start_hour_changed)
+        fields.end_hour_changed.connect(self.end_hour_changed)
+        fields.action_requested.connect(self.action_requested)
         self._save.action_requested.connect(self.action_requested)
         self._cancel.action_requested.connect(self.action_requested)
-
-    def _build_layout(self, spacing_px: int) -> None:
-        """Lay the rows out, then the hint and the buttons.
-
-        Args:
-            spacing_px: ``ui.dialog_spacing_px``.
-        """
-        form = QFormLayout()
-        form.setSpacing(spacing_px)
-        fields: tuple[QWidget, ...] = (self._sound, self._volume, self._start, self._end)
-        for caption, field, error in zip(self._captions, fields, self._errors, strict=True):
-            form.addRow(caption, self._cell(field, error))
-        buttons = QHBoxLayout()
-        buttons.addStretch(1)
-        buttons.addWidget(self._cancel)
-        buttons.addWidget(self._save)
-        column = QVBoxLayout(self)
-        column.setSpacing(spacing_px)
-        column.addLayout(form)
-        column.addWidget(self._hint)
-        column.addLayout(buttons)
-
-    def _cell(self, field: QWidget, error: FieldErrorLabel) -> QWidget:
-        """Put a field and its inline error in one cell.
-
-        Args:
-            field: Field widget.
-            error: Its inline error.
-
-        Returns:
-            The cell.
-        """
-        cell = QWidget(self)
-        column = QVBoxLayout(cell)
-        column.setContentsMargins(0, 0, 0, 0)
-        field.setParent(cell)
-        error.setParent(cell)
-        column.addWidget(field)
-        column.addWidget(error)
-        return cell

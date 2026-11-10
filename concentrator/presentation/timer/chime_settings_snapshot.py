@@ -47,23 +47,34 @@ class HourRangeSnapshot:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ChimeFieldsSnapshot:
+    """The four chime fields, shown by the chime dialog and by the settings page.
+
+    Attributes:
+        sound: Sound field.
+        volume: Volume field and "Preview".
+        hours: Active hours.
+    """
+
+    sound: SoundPickerSnapshot
+    volume: VolumeInputSnapshot
+    hours: HourRangeSnapshot
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ChimeSettingsSnapshot:
     """Everything the chime dialog shows.
 
     Attributes:
         title: Window title.
-        sound: Sound field.
-        volume: Volume field and "Preview".
-        hours: Active hours.
+        fields: Sound, volume and active hours.
         hint: How the hours are used.
         save: Save button (enabled when the draft changed and is valid).
         cancel: Cancel button.
     """
 
     title: str
-    sound: SoundPickerSnapshot
-    volume: VolumeInputSnapshot
-    hours: HourRangeSnapshot
+    fields: ChimeFieldsSnapshot
     hint: str
     save: ButtonSnapshot
     cancel: ButtonSnapshot

@@ -44,6 +44,29 @@ class ChimeSettingsForm:
         """Whether the draft changed and has no failing issue."""
         return self._state.can_submit
 
+    @property
+    def is_dirty(self) -> bool:
+        """Whether the draft differs from the baseline."""
+        return self._state.is_dirty
+
+    def reset(self) -> None:
+        """Discard the changes."""
+        self._state.reset()
+
+    def commit(self) -> None:
+        """Make the saved draft the baseline; its sound becomes the stored one."""
+        self._sound_check.commit(self._state.draft.sound)
+        self._state.commit()
+
+    def rebase(self, baseline: ChimeSettings) -> None:
+        """Follow stored settings changed elsewhere; edited fields keep their value.
+
+        Args:
+            baseline: New stored settings.
+        """
+        self._sound_check.commit(baseline.sound)
+        self._state.rebase(baseline)
+
     def set_sound(self, sound: SoundRef) -> None:
         """Change the sound.
 

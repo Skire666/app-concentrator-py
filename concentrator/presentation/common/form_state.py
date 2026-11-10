@@ -1,7 +1,7 @@
 """Editable draft of a form, validated on every change (AGENTS.md section 8.4)."""
 
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import fields, replace
 from typing import TYPE_CHECKING
 
 from concentrator.domain.common.validation_result import ValidationResult
@@ -78,3 +78,19 @@ class FormState[TDraft: DataclassInstance]:
     def commit(self) -> None:
         """Make the draft the new baseline (after it was saved)."""
         self._baseline = self._draft
+
+    def rebase(self, baseline: TDraft) -> None:
+        """Take another baseline (the stored value changed elsewhere); untouched fields follow it.
+
+        A field the user changed keeps the edited value; every other field takes the new stored value.
+
+        Args:
+            baseline: New stored value.
+        """
+        edited = {
+            field.name: getattr(self._draft, field.name)
+            for field in fields(self._draft)
+            if getattr(self._draft, field.name) != getattr(self._baseline, field.name)
+        }
+        self._baseline = baseline
+        self.set_draft(replace(baseline, **edited))

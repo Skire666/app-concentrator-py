@@ -73,6 +73,27 @@ def test_form_state_reset_and_commit() -> None:
     assert not form.is_dirty
 
 
+def test_form_state_rebase_keeps_edited_fields_and_follows_the_others() -> None:
+    form = FormState(_Draft(name="Read", minutes=15), _validate)
+    form.set_field("minutes", 45)
+
+    form.rebase(_Draft(name="Write", minutes=20))
+
+    assert form.baseline == _Draft(name="Write", minutes=20)
+    assert form.draft == _Draft(name="Write", minutes=45)
+    assert form.is_dirty
+
+
+def test_form_state_rebase_on_the_edited_value_is_clean() -> None:
+    form = FormState(_Draft(name="Read", minutes=15), _validate)
+    form.set_field("name", "")
+
+    form.rebase(_Draft(name="", minutes=15))
+
+    assert not form.is_dirty
+    assert form.errors.issues_for("name")
+
+
 def test_layout_state_keeper_round_trip_under_the_layout_prefix() -> None:
     preferences = InMemoryViewPreferences()
     keeper = LayoutStateKeeper(preferences)
