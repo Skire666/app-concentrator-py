@@ -272,8 +272,9 @@ class DataResult[T]:
 | cp business | Writer | `copy_business(entity_id, new_id, now) -> DataResult[T]` | duplicate: new id, new timestamps, history restarted with a `COPIED_FROM` event, stored |
 | cp technical | Writer | `copy_technical(entity_id) -> DataResult[T]` | exact copy (same id, timestamps, history), NOT stored; for export, backup, undo baseline |
 
-Singleton aggregates (`UserSettings`, `TimerConfig`, `HourlyChime`) expose only `read()` and
-`update(entity)`. A generic `StoreCollectionReader[E]` / `StoreCollectionWriter[E]` in
+Writers of aggregates changed in bulk (tasks, lists) also expose `update_many(entities)` and
+`delete_many(entity_ids)`: one write, all or nothing (ADR-041). Singleton aggregates (`UserSettings`,
+`TimerConfig`, `HourlyChime`) expose only `read()` and `update(entity)`. A generic `StoreCollectionReader[E]` / `StoreCollectionWriter[E]` in
 `infrastructure/persistence/` implements the table once; aggregates specialize it.
 
 ### 6.3 Use cases

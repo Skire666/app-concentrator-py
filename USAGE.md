@@ -1,10 +1,10 @@
 # Using Concentrator
 
-Concentrator keeps your settings in a data file you choose, and its countdown timer rings with an MP3
-alarm, even when the window is in the background. Favorites start the timer in one click, and an
-hourly chime can mark each full hour. The journal shows what Concentrator logs, and the settings page
-gathers your settings and the data file commands. The TODO lists and the focus queue arrive in the next
-phases.
+Concentrator keeps your TODO lists and your settings in a data file you choose, and its countdown timer
+rings with an MP3 alarm, even when the window is in the background. Favorites start the timer in one
+click, and an hourly chime can mark each full hour. The journal shows what Concentrator logs, and the
+settings page gathers your settings and the data file commands. Recurring tasks, search and clickable
+links, then the focus queue, arrive in the next phases.
 
 ## Starting
 
@@ -98,6 +98,72 @@ Concentrator notices it before its next save and asks:
 If your edit makes the file unreadable, the reload explains what is wrong (with the line and column of
 a syntax error); fix the file and choose again. Comments you add (`# ...`) are not kept at the next
 save.
+
+## TODO lists
+
+Zone 1 of the Focus page (left) is the TODO manager: your lists as tabs, a toolbar, a quick add field, the
+tasks of the current list in a table and, under it, the details of the selected task.
+
+### Lists
+
+- Each list is a tab: its name, a mark for its priority (`‼` urgent, `↑` high, none for normal, `↓` low)
+  and the number of open tasks. The tooltip shows the priority and the description; the description of
+  the current list is also shown under the tabs.
+- Tabs show the most urgent lists first, then, within a priority, the order you chose.
+- **+** creates a list: name (at most 80 characters, unique without regard to case: `Work` and `work`
+  are the same name), description (several lines) and priority (Normal by default,
+  `default_list_priority` in `concentrator.ini`).
+- **Right-click a tab** for **Edit list...**, **Move earlier**, **Move later** (only among the lists of
+  the same priority; a list whose priority changes goes after the others of its new priority) and
+  **Delete list...**. Deleting asks first; a list that still holds tasks is deleted with its tasks (the
+  question gives their number). The last list cannot be deleted.
+- A data file without any list gets one named **Inbox** (**Boîte de réception** in French), in the
+  language shown when the file is opened. It is a list like any other: rename it if you want.
+
+### Tasks
+
+- **Quick add**: type in the **Add a task...** field above the table and press Enter: the task is added
+  to the current list and selected, and the field empties so that you can type the next one. An empty
+  field does nothing; a text too long shows why under the field.
+- **New...** (or Ctrl+N in the table) opens the task dialog: the text (several lines; the first line is
+  the title shown in the table, at most 5000 characters in all), the list, and optionally a due date
+  (tick **Due date**, then pick it in the calendar) and a due time (tick **Time**; only with a date).
+- **Edit...**, a double click or Enter on a task opens the same dialog. **Save** is enabled once
+  something changed. **Cancel**, Escape or the close button ask **Discard the changes?** when you
+  changed something.
+- **Done** marks the selected open tasks done; **Reopen** reopens the selected done tasks; **Archive**
+  puts the selected tasks aside; **Unarchive** brings them back (done if they were done, open
+  otherwise). With a mixed selection, each button acts on the tasks it fits (Reopen only reopens the
+  done ones).
+- The **check box** of a row (or Space) marks the task done or reopens it without opening it. Archived
+  tasks have a greyed check box.
+- **Duplicate** copies the selected task as a new open task (its history starts again). **Move to list**
+  moves the selected tasks to another list. **Delete...** (or Del) always asks first, with the number
+  of tasks.
+- Select several tasks with Ctrl+click or Shift+click; the toolbar buttons and the context menu
+  (right-click in the table) follow the selection.
+
+### Table
+
+- Columns: done check box, task (first line, with `(+2 lines)` when the text has more), due date and
+  time, creation and change dates.
+- A task due today is bold; an overdue task (date past, or today with its time passed) is bold and
+  highlighted. Done and archived tasks are greyed and never marked overdue.
+- Click a column header to sort by it; click again to reverse the order. Tasks without a due date stay
+  at the end when sorting by due date. New data files sort by creation date, newest first
+  (`default_sort` and `default_sort_descending` in `concentrator.ini`).
+- **Show done** and **Show archived** show or hide those tasks (done shown, archived hidden at first).
+- Drag the headers to reorder or resize the columns, and the bar between the table and the details to
+  resize them (drag it down to hide the details).
+- The current list, the sort, the two toggles, the columns and the details size are restored at the
+  next start; **Reset layout** on the Settings page brings the defaults back.
+- The details pane shows the full text, list, due date, state and dates of the selected task.
+
+### History
+
+Each task keeps a short history (creation, text and due date changes, completions, reopenings,
+archiving, moves, copies): the last 10 events, the creation always kept (`max_history_events` in
+`concentrator.ini`). It is stored in the data file and shown in a later phase.
 
 ## The timer
 
@@ -258,14 +324,14 @@ The other sections act at once:
   button of the visible page is highlighted; the Journal button shows the number of new errors.
 - **Focus** page: zone 1 (TODO lists, left) and zone 2, separated by a splitter you can drag. Zone 2
   shows, from top to bottom, the timer, room for the focus queue (later), the favorites and the special
-  options. Zone 1 shows a "coming soon" text for now.
+  options. Zone 1 is the TODO manager (see "TODO lists").
 - **Journal** and **Settings** pages: see above.
 - **Status bar** (bottom, one line): the save state on the left, the language button on the right.
   The button shows the current language (`ENG` or `FRA`); click it to switch every text between
   English and French at once. The language is saved in your data file, and the startup dialogs use the
   language you used last.
-- The window size and position, the splitter positions and the journal columns are restored at the
-  next start; **Reset layout** on the Settings page brings the defaults back.
+- The window size and position, the splitter positions, the task and journal columns and the TODO view
+  (list, sort, toggles) are restored at the next start; **Reset layout** on the Settings page brings the defaults back.
 - **Dialogs**: while a message or a question is open, the window behind it is 10 % darker
   (`dialog_overlay_opacity_percent` in `concentrator.ini`, `[ui]`). The dialog opens centered on the
   window and cannot be dragged outside it; if the window was minimized, it comes back first. The Windows
@@ -276,13 +342,13 @@ The other sections act at once:
 
 | File | Location | Content |
 |---|---|---|
-| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings (language, journal detail level, taskbar alert), timer (`[timer]`), favorites (`[[timer_presets]]`, or `timer_presets = []` when you deleted them all) and hourly chime (`[hourly_chime]`) now, lists and tasks later. A file written by an older version gets the missing sections from `concentrator.ini` at the next start. |
+| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings (language, journal detail level, taskbar alert), timer (`[timer]`), favorites (`[[timer_presets]]`, or `timer_presets = []` when you deleted them all), hourly chime (`[hourly_chime]`), lists (`[[task_lists]]`) and tasks (`[[tasks]]`). A task whose list does not exist makes the file unreadable (the recovery dialog explains it). A file written by an older version gets the missing sections from `concentrator.ini` at the next start. |
 | `concentrator.toml.bak` | next to the data file | The version before the last save. |
 | `concentrator.toml.tmp` | next to the data file | Only while saving, or after an interrupted save. |
 | `*.corrupt-*`, `*.tmp.discarded-*`, `*.bak.discarded-*` | next to the data file | Files put aside by the recovery dialog; delete them when you no longer need them. |
 | `backups\concentrator-YYYY-MM-DD.toml` | `%APPDATA%\Concentrator\` | One copy per day, last 7 days. |
 | `concentrator.ini` | next to `Concentrator.exe` | Application constants: sizes, timings, paths, log level. Edit it with a text editor and restart; every key is documented in the file. |
-| `ui-state.ini` | `%APPDATA%\Concentrator\` | Window layout and journal level buttons, the path of your data file and the last language. **Reset layout** clears the layout only; deleting the file also forgets the data file, so the first-launch dialog asks for it again. |
+| `ui-state.ini` | `%APPDATA%\Concentrator\` | Window layout, task columns, TODO view and journal level buttons, the path of your data file and the last language. **Reset layout** clears the layout only; deleting the file also forgets the data file, so the first-launch dialog asks for it again. |
 | `concentrator.log` | `%LOCALAPPDATA%\Concentrator\logs\` | Technical log (rotated). Never contains the text of your tasks. |
 | `faulthandler.log` | `%LOCALAPPDATA%\Concentrator\logs\` | Low-level crash dumps, normally empty. |
 

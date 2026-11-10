@@ -928,3 +928,89 @@ superseded.
      (`TimerCommands.apply_config`): the countdown starts again at once with the new duration, as a
      click on a favorite does. A change of sound, volume, plays or automatic stop leaves the countdown
      alone and applies at the next ringing. `update_config` still only stores (favorites).
+
+## ADR-041 — Phase 5 TODO lists and tasks decisions
+
+- Status: accepted, owner decisions at the phase 5 plan review (2026-11-10: "Suit tes
+  recommandations"); the items "decided during the build" are to be approved at the phase 5 review.
+- Context: the phase 5 spec adds the TODO manager of zone 1. It leaves open the task priority, what
+  deleting a non-empty list does, the close behaviour of the two new dialogs, the reading of an
+  invalid task, the default sort and the delete confirmation; the owner's draft notes ask for a
+  history of 10 events where the spec writes 50.
+- Owner decisions (2026-11-10):
+  1. **History of 10 events**: `todo.max_history_events = 10` (the creation, or the `COPIED_FROM` event of
+     a duplicate, is always kept with the newest ones).
+  2. **No task priority** (spec review question 1): only lists have one.
+  3. **Deleting a non-empty list deletes its tasks** after a confirmation that gives their number (spec
+     review question 2); they are not moved.
+  4. **The task and list dialogs ask before discarding changes** (`AGENTS.md` section 8.4, unlike the
+     timer, favorite and chime dialogs): Cancel, Escape and the close button ask "Discard the changes?";
+     an unchanged dialog closes at once.
+  5. **Strict reading**: a task whose list does not exist (`TASK_LIST_NOT_FOUND`), an empty or too long
+     text, a duplicate list name or any other rule failure makes the data file invalid, as for the other
+     strict sections (the favorites stay lenient, ADR-039).
+  6. **Default sort**: creation date, newest first (`todo.default_sort = CREATED`,
+     `todo.default_sort_descending = true`), so a task added with quick add shows at the top, under the
+     field.
+  7. **Deleting tasks always asks**, even for one task ("Delete 1 task?").
+- Decided during the build (please approve):
+  1. **Bulk writes.** `TaskWriterPort` and `TaskListWriterPort` add `update_many` and `delete_many` to the
+     nine operations of `AGENTS.md` section 6.2: a bulk command writes once, all or nothing.
+     `EntityCollection.with_replaced_all` and `without_all` implement them. Deleting a list with its
+     tasks is two writes (tasks, then list) after every rule was checked.
+  2. **One event per changed task** for state changes (`TaskStateChangedEvent(task_id, old, new)`, as the
+     spec writes it); the other events carry the ids of every task concerned.
+  3. **Histories longer than the cap are shortened when a file is read** (INFO in the log), not refused:
+     lowering `max_history_events` must not make a file unusable. Event details hold only ids, states and
+     ISO dates (`from`, `to`, `source`), never the text of a task. Unknown event kinds of a newer version
+     are kept as `UNKNOWN`.
+  4. **The Inbox** is created when a file has no list (`task_lists` absent or empty), named in the current
+     UI language (`todo.default_list_name`), with `todo.default_list_priority`; a phase 4 file gets it at
+     its next opening and is saved (`UserDataDefaults.complete`, translator given to `UserDataDefaults`).
+  5. **List order**: positions are numbered across every list; tabs sort by priority (URGENT first), then
+     position. Move earlier and Move later swap with the neighbour of the same priority (disabled at the
+     edge of the group) and renumber the positions `0, 1, 2...`; a list whose priority changes goes last
+     of its new priority.
+  6. **Sorting**: ties are broken by id (UUIDv7, so creation order); tasks without a due date stay last in
+     both orders; a due date without time sorts as the end of that day; texts compare case-folded.
+  7. **Marks**: an open task is overdue when its date is past or it is due today and its time has passed
+     (ERROR tone: bold, highlight colour), due today otherwise (WARNING tone: bold); done and archived
+     tasks are never marked (MUTED tone). The table re-renders when the local minute changes
+     (`TaskTablePresenter.on_tick` on the heartbeat).
+  8. **Selection actions**: a state button acts on the selected tasks it fits (Reopen in a mixed
+     selection reopens the done ones); Space completes the open selected tasks, or reopens the done ones
+     when none is open; the check box of an archived task is disabled. Created, quick-added and
+     duplicated tasks are selected; a duplicate is open, in the same list, with the same text and due
+     date. Quick add trims the text and keeps the lines of a pasted text.
+  9. **View preferences are layout keys** (ADR-040): `layout/todo/list`, `layout/todo/sort`,
+     `layout/todo/sort_descending`, `layout/todo/show_done` (default on), `layout/todo/show_archived`
+     (default off); the table header is `layout/focus_page/todo_header` (widths and order) and the table
+     / details splitter `layout/focus_page/todo_splitter`. The spec's "details pane visible" preference is
+     the collapsed state of that splitter (drag the bar down). "Reset layout" restores the `[todo]`
+     defaults at once.
+  10. **New ini keys** beyond the spec: `todo.default_sort`, `todo.default_sort_descending`,
+      `todo.default_table_ratio_percent` (75) and `todo.default_column_widths_px` (state, due, created,
+      updated: 60, 140, 140, 140), with ranges for every `[todo]` key.
+  11. **Numbers**: `ActionIdEnum` 59 to 82 as listed in the spec; `RenderSectionEnum` 14 to 19, plus
+      `QUICK_ADD` (20) for the quick add field. Toolbar actions request `TODO_TOOLBAR` only (the context
+      menu of the table is rebuilt with the table), so a click does not rebuild a 1,000-row snapshot twice.
+  12. **File format**: due times are written `'HH:MM'` (seconds dropped); native TOML dates and times
+      typed by hand are accepted. Lists are written in tab order, tasks in stored order.
+  13. **Shared table model**: `TableRowSnapshot.key` is `int | str`; rows may carry a check box
+      (`checked`, `check_enabled`, `TableSnapshot.check_column`; a click emits `check_toggled(key)` and the
+      next snapshot shows the stored state); `TableSnapshot` carries the sort indicator. Changed cells of
+      the same rows are updated in place (`dataChanged`), so ticking row 500 keeps the scroll position; the
+      panel restores the scroll position after any other reset. The journal model test now expects that.
+  14. **Dialogs and keys**: the dialogs override `reject` (Escape, close button) to send the Cancel action;
+      table keys (Space, Enter, Del, Ctrl+N) are read by an event filter on the table, not `QShortcut`,
+      so Space does not also toggle the check box natively. The quick add field is never disabled (it
+      keeps the focus between two tasks); its snapshot counts the tasks added so the field always empties.
+  15. **Details**: `DateTimeFormatter` gains `calendar_date`, `clock_time` and `date_time_minutes`; the tab
+      badge has no mark for NORMAL; the date field format comes from the catalog
+      (`todo.task_edit.date_format`); a new due time starts at 09:00; `bench_storage.py --seed-tasks N
+      --into FILE` adds tasks to the first list of an existing file (seven open out of ten, two done, one
+      archived); the zone 1 placeholder (`placeholder.focus.zone1`, `PlaceholderWidget`) is removed; the
+      heartbeat moves to `bootstrap/heartbeat.py` (file size limit of `bootstrap/shell.py`).
+- Consequences: phase 6 adds recurrence, history display, filters, search and links on top of `Task`,
+  `TaskHistory` and the task table; phase 7 reuses `TaskCommands` for the focus queue and
+  `TaskStateChangedEvent` to remove completed items.

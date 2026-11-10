@@ -138,9 +138,15 @@ Load-time rules: every `list_id` must reference an existing list (`TASK_LIST_NOT
 max_task_text_length = 5000
 max_list_name_length = 80
 max_list_description_length = 2000
-max_history_events = 50
+max_history_events = 10
 default_list_priority = NORMAL
+default_sort = CREATED
+default_sort_descending = true
+default_table_ratio_percent = 75
+default_column_widths_px = 60, 140, 140, 140
 ```
+
+`max_history_events` is 10 and the last four keys were added at the plan review (ADR-041).
 
 ## Error codes
 
