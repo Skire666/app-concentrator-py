@@ -58,6 +58,15 @@ ACTION_SECTIONS: Final = MappingProxyType(
         ActionIdEnum.JOURNAL_COPY: (RenderSectionEnum.JOURNAL,),
         ActionIdEnum.JOURNAL_CLEAR_VIEW: (RenderSectionEnum.JOURNAL,),
         ActionIdEnum.JOURNAL_OPEN_LOG_FOLDER: (RenderSectionEnum.JOURNAL,),
+        ActionIdEnum.SETTINGS_SAVE: (RenderSectionEnum.SETTINGS,),
+        ActionIdEnum.SETTINGS_REVERT: (RenderSectionEnum.SETTINGS,),
+        ActionIdEnum.SETTINGS_SWITCH_DATA_FILE: (RenderSectionEnum.SETTINGS,),
+        ActionIdEnum.SETTINGS_MOVE_DATA_FILE: (RenderSectionEnum.SETTINGS,),
+        ActionIdEnum.SETTINGS_OPEN_FOLDER: (RenderSectionEnum.SETTINGS,),
+        ActionIdEnum.SETTINGS_RESET_LAYOUT: (RenderSectionEnum.SETTINGS,),
+        ActionIdEnum.SETTINGS_CHIME_PREVIEW: (RenderSectionEnum.SETTINGS,),
+        ActionIdEnum.SETTINGS_CHIME_SOUND_CHOOSE_FILE: (RenderSectionEnum.SETTINGS,),
+        ActionIdEnum.STARTUP_CANCEL: (RenderSectionEnum.RECOVERY,),
     }
 )
 

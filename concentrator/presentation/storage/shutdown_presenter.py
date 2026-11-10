@@ -8,6 +8,7 @@ from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.storage.save_coordinator import SaveCoordinator
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.presentation.common.pending_edits import CANCEL_ANSWER, DISCARD_ANSWER, SAVE_ANSWER, PendingEdits
 from concentrator.presentation.ports.dialog_port import DialogPort
 from concentrator.presentation.storage.storage_messages import StorageMessages
 
@@ -47,6 +48,7 @@ class ShutdownPresenter:
         self._session_ending = False
         self._messages = StorageMessages(translator)
         self._dialogs: DialogPort | None = None
+        self._edits: PendingEdits | None = None
 
     def attach(self, dialogs: DialogPort) -> None:
         """Set the dialog service, parented to the main window this presenter guards.
@@ -56,11 +58,20 @@ class ShutdownPresenter:
         """
         self._dialogs = dialogs
 
+    def watch_edits(self, edits: PendingEdits) -> None:
+        """Ask about the unsaved changes of a form when the window closes (settings page).
+
+        Args:
+            edits: The form.
+        """
+        self._edits = edits
+
     def may_close(self) -> bool:
         """Ask whether to quit, then flush (``closeEvent``: close button, notification area "Quit").
 
-        Escape keeps Concentrator open. Once Windows announced the end of the session, Qt closes the
-        windows itself: nothing is asked then (ADR-032, ADR-038).
+        Escape keeps Concentrator open. With unsaved settings, one question replaces the usual one:
+        Save and quit, Quit without saving, or Cancel. Once Windows announced the end of the session, Qt
+        closes the windows itself: nothing is asked then (ADR-032, ADR-038).
 
         Returns:
             Whether the window may close.
@@ -68,6 +79,8 @@ class ShutdownPresenter:
         if self._session_ending:
             _logger.info("Windows session ending: closing without the quit question")
             return self.can_close()
+        if self._edits is not None and self._edits.has_unsaved_edits():
+            return self._ask_unsaved_edits(self._edits)
         tr = self._translator.tr
         message = (
             tr("shutdown.confirm.message.countdown") if self._countdown_active() else tr("shutdown.confirm.message")
@@ -125,6 +138,29 @@ class ShutdownPresenter:
         if result.is_failure:
             codes = [code.name for code in result.error_codes]
             _logger.error("Pending changes not saved at the end of the Windows session: %s", codes)
+
+    def _ask_unsaved_edits(self, edits: PendingEdits) -> bool:
+        """Ask Save and quit / Quit without saving / Cancel, then flush.
+
+        Args:
+            edits: Form with unsaved changes.
+
+        Returns:
+            Whether the window may close.
+        """
+        tr = self._translator.tr
+        answer = self._attached_dialogs().choose(
+            tr("shutdown.confirm.title"),
+            tr("settings.quit.message"),
+            (tr("dialog.button.save_and_quit"), tr("dialog.button.quit_without_saving"), tr("dialog.button.cancel")),
+            CANCEL_ANSWER,
+        )
+        if answer == SAVE_ANSWER and not edits.save_edits().is_success:
+            return False
+        if answer not in {SAVE_ANSWER, DISCARD_ANSWER}:
+            _logger.info("Quit cancelled by the user")
+            return False
+        return self.can_close()
 
     def _ask_external_change(self) -> ValidationResult:
         """Ask about a file changed outside Concentrator while changes are pending.

@@ -41,6 +41,14 @@ class StartupSupport:
         self._texts = UiTexts(translator)
         self._messages = StorageMessages(translator)
 
+    def use_dialogs(self, dialogs: DialogPort) -> None:
+        """Show the pickers and messages with another dialog service (over the main window).
+
+        Args:
+            dialogs: New dialog service.
+        """
+        self._dialogs = dialogs
+
     @property
     def commands(self) -> StartupCommands:
         """Startup use cases."""

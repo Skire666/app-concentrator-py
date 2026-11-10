@@ -9,6 +9,7 @@ from concentrator.application.storage.startup_reason_enum import StartupReasonEn
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
+from concentrator.presentation.common.button_snapshot import ButtonSnapshot
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.storage.startup_choice import StartupChoice
 from concentrator.presentation.storage.startup_snapshots import CandidateSnapshot, RecoverySnapshot
@@ -22,6 +23,8 @@ RECOVERY_ACTIONS: Final = (
     ActionIdEnum.STARTUP_RETRY,
     ActionIdEnum.STARTUP_QUIT,
 )
+SESSION_RECOVERY_ACTIONS: Final = (*RECOVERY_ACTIONS[:-1], ActionIdEnum.STARTUP_CANCEL)
+LEAVING_ACTIONS: Final = frozenset({ActionIdEnum.STARTUP_QUIT, ActionIdEnum.STARTUP_CANCEL})
 _INTRO_KEYS: Final = MappingProxyType(
     {
         StartupReasonEnum.NEWER_TEMPORARY: "startup.recovery.intro.newer_temporary",
@@ -53,25 +56,21 @@ class RecoveryPresenter:
         self._support = support
         self._formatter = formatter
 
-    def build_snapshot(self, plan: StartupPlan, selected: int, busy: BusyCheck) -> RecoverySnapshot:
+    def build_snapshot(
+        self, plan: StartupPlan, selected: int, busy: BusyCheck, *, in_session: bool = False
+    ) -> RecoverySnapshot:
         """Describe the dialog for a ``NEEDS_RECOVERY`` or ``FATAL`` plan.
 
         Args:
             plan: Current situation.
             selected: Index of the selected candidate.
             busy: Tells whether an action is running.
+            in_session: Shown from the settings page: Cancel keeps the current file instead of Quit.
 
         Returns:
             The snapshot.
         """
         tr = self._support.translator.tr
-        visible = {
-            ActionIdEnum.STARTUP_RESTORE: bool(plan.candidates),
-            ActionIdEnum.STARTUP_KEEP_CURRENT_FILE: plan.can_keep_current,
-            ActionIdEnum.STARTUP_CHOOSE_ANOTHER_FILE: plan.can_choose_another,
-            ActionIdEnum.STARTUP_START_EMPTY: plan.can_start_empty,
-            ActionIdEnum.STARTUP_RETRY: plan.can_retry,
-        }
         return RecoverySnapshot(
             title=tr("startup.recovery.title"),
             intro=tr(_INTRO_KEYS.get(plan.reason, "startup.recovery.intro.file_damaged")),
@@ -81,10 +80,29 @@ class RecoveryPresenter:
             candidates=tuple(
                 self._candidate(candidate, position == selected) for position, candidate in enumerate(plan.candidates)
             ),
-            buttons=tuple(
-                self._support.button(action, busy, visible=visible.get(action, True)) for action in RECOVERY_ACTIONS
-            ),
+            buttons=self._buttons(plan, busy, in_session=in_session),
         )
+
+    def _buttons(self, plan: StartupPlan, busy: BusyCheck, *, in_session: bool) -> tuple[ButtonSnapshot, ...]:
+        """Describe the buttons the situation offers.
+
+        Args:
+            plan: Current situation.
+            busy: Tells whether an action is running.
+            in_session: Cancel instead of Quit.
+
+        Returns:
+            The buttons, in dialog order.
+        """
+        visible = {
+            ActionIdEnum.STARTUP_RESTORE: bool(plan.candidates),
+            ActionIdEnum.STARTUP_KEEP_CURRENT_FILE: plan.can_keep_current,
+            ActionIdEnum.STARTUP_CHOOSE_ANOTHER_FILE: plan.can_choose_another,
+            ActionIdEnum.STARTUP_START_EMPTY: plan.can_start_empty,
+            ActionIdEnum.STARTUP_RETRY: plan.can_retry,
+        }
+        actions = SESSION_RECOVERY_ACTIONS if in_session else RECOVERY_ACTIONS
+        return tuple(self._support.button(action, busy, visible=visible.get(action, True)) for action in actions)
 
     def handle(self, action: ActionIdEnum, plan: StartupPlan, selected: int) -> StartupChoice:
         """Perform one action.
@@ -97,7 +115,7 @@ class RecoveryPresenter:
         Returns:
             What the flow does next.
         """
-        if action is ActionIdEnum.STARTUP_QUIT:
+        if action in LEAVING_ACTIONS:
             return StartupChoice(quit=True)
         path = plan.path
         if path is None:

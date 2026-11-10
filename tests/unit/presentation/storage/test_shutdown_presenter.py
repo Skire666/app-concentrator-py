@@ -152,3 +152,56 @@ def test_a_question_without_attached_dialogs_is_a_wiring_error() -> None:
 
     with pytest.raises(RuntimeError, match="attach"):
         presenter.can_close()
+
+
+class _Edits:
+    def __init__(self, *, saves: bool = True) -> None:
+        self.unsaved = True
+        self.saves = saves
+        self.saved = 0
+        self.discarded = 0
+
+    def has_unsaved_edits(self) -> bool:
+        return self.unsaved
+
+    def save_edits(self) -> ValidationResult:
+        self.saved += 1
+        return ValidationResult.success() if self.saves else REPLACE_FAILED
+
+    def discard_edits(self) -> None:
+        self.discarded += 1
+
+
+@pytest.mark.parametrize(("choice", "closes", "saved"), [(0, True, 1), (1, True, 0), (2, False, 0)])
+def test_unsaved_settings_replace_the_quit_question(setup: Setup, choice: int, closes: bool, saved: int) -> None:
+    edits = _Edits()
+    setup.presenter.watch_edits(edits)
+    setup.stack.dialogs.choice = choice
+
+    assert setup.presenter.may_close() is closes
+
+    assert setup.stack.dialogs.kinds() == ["choose"]
+    assert setup.stack.dialogs.texts("choose")[0][1:] == (
+        "en:settings.quit.message",
+        "en:dialog.button.save_and_quit",
+        "en:dialog.button.quit_without_saving",
+        "en:dialog.button.cancel",
+    )
+    assert edits.saved == saved
+
+
+def test_settings_that_cannot_be_saved_keep_the_window_open(setup: Setup) -> None:
+    setup.presenter.watch_edits(_Edits(saves=False))
+    setup.stack.dialogs.choice = 0
+
+    assert not setup.presenter.may_close()
+
+
+def test_saved_settings_ask_the_usual_question(setup: Setup) -> None:
+    edits = _Edits()
+    edits.unsaved = False
+    setup.presenter.watch_edits(edits)
+
+    assert setup.presenter.may_close()
+
+    assert setup.stack.dialogs.kinds() == ["confirm"]

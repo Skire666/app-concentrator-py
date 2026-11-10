@@ -132,3 +132,13 @@ def test_ui_texts_translate_actions_and_issues() -> None:
     assert texts.field_errors(failure.merge(warning)) == (
         FieldErrorSnapshot(field="minutes", message="en:error.value_out_of_range(min=1,max=10)"),
     )
+
+
+def test_layout_state_keeper_reset_removes_only_layout_keys() -> None:
+    preferences = InMemoryViewPreferences(
+        {LAYOUT_MAIN_WINDOW_GEOMETRY: "AA==", "layout/journal_page/levels": "1", "storage/data_file_path": "C:/a"}
+    )
+
+    LayoutStateKeeper(preferences).reset()
+
+    assert preferences.values == {"storage/data_file_path": "C:/a"}

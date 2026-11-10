@@ -22,3 +22,4 @@ class RenderSectionEnum(BaseIntEnum):
     SPECIAL_OPTIONS = 10
     CHIME_EDIT = 11
     JOURNAL = 12
+    SETTINGS = 13

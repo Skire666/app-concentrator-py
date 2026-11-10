@@ -383,3 +383,38 @@ def test_without_attached_dialogs_the_flow_quits(caplog: pytest.LogCaptureFixtur
 
     assert not presenter.run()
     assert "not attached" in caplog.text
+
+
+def _damaged_plan(setup: Setup) -> None:
+    setup.stack.file.reports[DATA_PATH] = report(
+        DATA_PATH, invalid(ErrorCodeEnum.STORAGE_FIELD_INVALID_TYPE), valid(make_stored(saved_at=SAVED_AT))
+    )
+
+
+def test_resume_in_session_offers_cancel_and_restores(setup: Setup) -> None:
+    _damaged_plan(setup)
+    session_dialogs = FakeStartupDialogs()
+    setup.presenter.attach_session(session_dialogs, setup.stack.dialogs)
+    plan = setup.stack.commands.inspect(DATA_PATH)
+    session_dialogs.steps.extend([setup.look_recovery, setup.click(A.STARTUP_RESTORE)])
+
+    assert setup.presenter.resume(plan)
+
+    assert session_dialogs.shown == ["recovery"]
+    assert _visible(setup.seen_recovery[0].buttons)[-1] is A.STARTUP_CANCEL
+    assert A.STARTUP_QUIT not in _visible(setup.seen_recovery[0].buttons)
+    assert ("restore:TEMPORARY", DATA_PATH) in setup.stack.file.calls
+
+
+@pytest.mark.parametrize("closing", ["cancel", "window"])
+def test_resume_cancelled_opens_nothing(setup: Setup, closing: str) -> None:
+    _damaged_plan(setup)
+    session_dialogs = FakeStartupDialogs()
+    setup.presenter.attach_session(session_dialogs, setup.stack.dialogs)
+    plan = setup.stack.commands.inspect(DATA_PATH)
+    if closing == "cancel":
+        session_dialogs.steps.append(setup.click(A.STARTUP_CANCEL))
+
+    assert not setup.presenter.resume(plan)
+
+    assert setup.stack.session.resets == 0

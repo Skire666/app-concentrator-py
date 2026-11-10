@@ -39,7 +39,9 @@ class StartupFlowPresenter:
     """Owns the current plan; the dialogs render it and send their actions here.
 
     An action that changes which dialog is needed closes the current one, and the loop opens the next.
-    Closing a dialog any other way (window button, Escape) quits.
+    Closing a dialog any other way (window button, Escape) quits. Once the main window exists, the same
+    flow runs the recovery dialog for a file chosen on the settings page (``resume``): Quit becomes
+    Cancel, which keeps the current file.
     """
 
     def __init__(
@@ -63,6 +65,7 @@ class StartupFlowPresenter:
             formatter: Dates of the recovery candidates.
         """
         support = StartupSupport(commands, dialogs, translator)
+        self._support = support
         self._commands = commands
         self._gate = gate
         self._renderer = renderer
@@ -73,6 +76,7 @@ class StartupFlowPresenter:
         self._selected = 0
         self._quit = False
         self._closed_by_action = False
+        self._in_session = False
 
     @property
     def plan(self) -> StartupPlan | None:
@@ -86,6 +90,35 @@ class StartupFlowPresenter:
             ui: Startup dialogs.
         """
         self._ui = ui
+
+    def attach_session(self, ui: StartupDialogsPort, dialogs: DialogPort) -> None:
+        """Run the next flows over the main window (``resume``).
+
+        Args:
+            ui: Startup dialogs, now run by the main window's modal host.
+            dialogs: Pickers and messages over the main window.
+        """
+        self._ui = ui
+        self._support.use_dialogs(dialogs)
+        self._in_session = True
+
+    def resume(self, plan: StartupPlan) -> bool:
+        """Show the recovery dialog of a data file that is not ready, until it opens or the user cancels.
+
+        Args:
+            plan: ``NEEDS_RECOVERY`` or ``FATAL`` plan of the chosen file.
+
+        Returns:
+            Whether a data file was opened.
+        """
+        self._plan = plan
+        self._selected = 0
+        self._quit = False
+        while self._plan.step in {StartupStepEnum.NEEDS_RECOVERY, StartupStepEnum.FATAL} and not self._quit:
+            self._show(self._plan)
+        opened = self._plan.step is StartupStepEnum.READY and not self._quit
+        _logger.info("Recovery of another data file: %s", "opened" if opened else "cancelled")
+        return opened
 
     def run(self) -> bool:
         """Resolve the data file and show the dialogs until it is open.
@@ -119,7 +152,9 @@ class StartupFlowPresenter:
         """
         if self._plan is None or self._plan.step not in {StartupStepEnum.NEEDS_RECOVERY, StartupStepEnum.FATAL}:
             return None
-        return self._recovery.build_snapshot(self._plan, self._selected, self._gate.is_busy)
+        return self._recovery.build_snapshot(
+            self._plan, self._selected, self._gate.is_busy, in_session=self._in_session
+        )
 
     def on_action_requested(self, action_value: int) -> None:
         """Handle a button of either dialog.

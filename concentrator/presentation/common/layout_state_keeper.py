@@ -7,7 +7,7 @@ stores them through ``ViewPreferencesPort`` (ADR-022).
 from typing import Final
 
 from concentrator.application.ports.view_preferences_port import ViewPreferencesPort
-from concentrator.presentation.common.layout_keys import LAYOUT_PREFIX
+from concentrator.presentation.common.layout_keys import LAYOUT_GROUP, LAYOUT_PREFIX
 
 _KEY_OUTSIDE_LAYOUT: Final = f"layout keys must start with {LAYOUT_PREFIX!r}"
 
@@ -50,6 +50,10 @@ class LayoutStateKeeper:
             The base64 blob, or ``None`` when nothing was saved yet (the ui then uses the ini defaults).
         """
         return self._preferences.get_text(_checked(key))
+
+    def reset(self) -> None:
+        """Remove every ``layout/*`` key ("Reset layout"); the data file path and other keys are kept."""
+        self._preferences.remove_group(LAYOUT_GROUP)
 
     def save(self, key: str, value: str) -> None:
         """Store a layout blob.
