@@ -259,17 +259,18 @@ def test_reset_layout_applies_the_default_sizes_at_once(qtbot: QtBot) -> None:
 def test_selection_follows_its_entry_when_the_table_is_rebuilt(qtbot: QtBot) -> None:
     harness = ShellHarness()
     qtbot.addWidget(harness.window)
+    harness.journal.feed.log("first")
     harness.journal.feed.log("debug", logging.DEBUG)
     harness.journal.feed.log("kept")
     _show_journal(harness)
     page = harness.window.journal_page
-    page.table.table.selectRow(1)
+    page.table.table.selectRow(2)
     harness.turn()
 
     page.toolbar.level_toggles[0].click()
     harness.turn()
 
     selected = [index.row() for index in page.table.table.selectionModel().selectedRows()]
-    assert page.table.model.rowCount() == 1
-    assert selected == [0]
+    assert page.table.model.rowCount() == 2
+    assert selected == [1]
     assert page.detail.text.endswith("| kept")

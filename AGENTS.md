@@ -250,11 +250,13 @@ class DataResult[T]:
 `ClockPort` (`now_utc()` and `now_local()` in whole seconds, `monotonic()` at full precision,
 `to_local(moment)`; ADR-030), `IdGeneratorPort`, `SchedulerPort`
 (`call_soon`, `call_later` returning a cancellable handle), `MainThreadDispatcherPort`,
-`TranslatorPort`, `LogFeedPort`, `SoundPlayerPort` (plays a `SoundPlayback`: candidate files tried in
-order, then the system beep), `SoundCatalogPort` (built-in sounds, file of a `SoundRef`), `AttentionPort`
-(`is_application_active`, `request_attention`), `LinkOpenerPort`,
-`ViewPreferencesPort` (string key-value), `UserDataFilePort`, and one `*ReaderPort` / `*WriterPort`
-pair per aggregate.
+`TranslatorPort`, `LogFeedPort` (`entries_since`, `error_count`), `LoggingControlPort` (root level),
+`SoundPlayerPort` (plays a `SoundPlayback`: candidate files tried in order, then the system beep),
+`SoundCatalogPort` (built-in sounds, file of a `SoundRef`), `AttentionPort`
+(`is_application_active`, `request_attention`), `LinkOpenerPort` (`open_folder`, links in phase 6),
+`ViewPreferencesPort` (string key-value, `remove_group`), `UserDataFilePort`, and one `*ReaderPort` /
+`*WriterPort` pair per aggregate. Presenters use `presentation.ports` (`DialogPort`, `ClipboardPort`,
+...), implemented by `ui.support`.
 
 ### 6.2 Data operations (reads separated from writes)
 
@@ -362,7 +364,7 @@ shows the save state.
 | File | Owner | Content | Access |
 |---|---|---|---|
 | `concentrator.ini` | application (next to the exe; `assets/config/` in dev) | constants and defaults | read-only, validated by pydantic into `AppConfig` at startup |
-| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path (`storage/data_file_path`), language hint for the startup dialogs (`shell/language_hint`, ADR-027) | read-write only through `ViewPreferencesPort`; Qt blobs (geometry, splitter and header states) cross the presentation layer as opaque base64 strings via `LayoutStateKeeper`, under `layout/*` keys (ADR-022) |
+| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path (`storage/data_file_path`), language hint for the startup dialogs (`shell/language_hint`, ADR-027) | read-write only through `ViewPreferencesPort`; Qt blobs (geometry, splitter and header states) cross the presentation layer as opaque base64 strings via `LayoutStateKeeper`, under `layout/*` keys (ADR-022); persisted filters are layout keys too, so "Reset layout" removes exactly `layout/*` (ADR-040) |
 | user TOML file | user | business data and personal settings | `UserDataFilePort` only |
 
 `AppConfig` values support the tokens `{appdata}`, `{localappdata}` and `{app_dir}`, resolved by
@@ -376,18 +378,21 @@ silent code-level defaults for ini keys.
   `QAudio.convertVolume` (logarithmic to linear). Separate instances for alarm and chime.
 - `QtAttention`: `QApplication.alert(window, 0)` (taskbar button flashes until activated);
   `AlarmCoordinator` asks for it only when no Concentrator window is active
-  (`QGuiApplication.applicationState()`). Concentrator shows nothing in the notification area: no
-  icon, no Windows notification (owner decision, ADR-038).
+  (`QGuiApplication.applicationState()`) and the user setting `notify_when_inactive` is on.
+  Concentrator shows nothing in the notification area: no icon, no Windows notification (owner
+  decision, ADR-038, ADR-040).
 - `QtSingleInstanceGuard`: `QLockFile` (per user) for exclusivity plus `QLocalServer`/`QLocalSocket`
   so a second launch asks the first instance to show itself, then exits with code 0.
 - `QtScheduler`, `QtMainThreadDispatcher` (signal with queued connection), `QtLinkOpener`
-  (`QDesktopServices.openUrl`), `QSettingsViewPreferences`, Qt message handler bridge to logging.
+  (`QDesktopServices.openUrl` with `QUrl.fromLocalFile`; creates a missing application folder on
+  request), `QSettingsViewPreferences`, Qt message handler bridge to logging.
 - `infrastructure/system/windows_shell.py` sets the AppUserModelID (ctypes) before the
   `QApplication` exists, so the taskbar and toasts show Concentrator, not Python.
 
 ### 7.5 Logging
 
-- Standard `logging`. Root level from `logging.level`. Format:
+- Standard `logging`. Root level from `logging.level` until a data file is open, then from the
+  journal detail level of the user settings (`LoggingControlPort`, `LogLevelApplier`, ADR-040). Format:
   `%(asctime)s | %(levelname)-8s | %(threadName)s | %(name)s | %(message)s`.
 - Handlers: `RotatingFileHandler` in `paths.log_dir` (UTF-8) and a thread-safe in-memory ring buffer
   (`logging.journal_buffer_size`) read by the journal page through `LogFeedPort`. No stream handler
@@ -452,12 +457,14 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
 ### 8.4 Forms
 
 - `FormState[TDraft]`: `baseline`, `draft`, `errors: ValidationResult`, `is_dirty` (draft differs
-  from baseline), `can_submit` (dirty and no failure), `set_field(...)`, `reset()`, `commit()`.
+  from baseline), `can_submit` (dirty and no failure), `set_field(...)`, `reset()`, `commit()`,
+  `rebase(baseline)` (the stored value changed elsewhere: edited fields keep their value).
 - Validation runs on every change through the domain `*Rules`; inline errors appear under the field
   (`FieldErrorSnapshot(field, message)`) with an `invalid` dynamic property for styling.
 - Closing a dirty form asks for confirmation through `DialogPort`, except where the owner decided
   otherwise: the timer, favorite and hourly chime dialogs close on Cancel, Escape or their close
-  button without asking (ADR-038, ADR-039).
+  button without asking (ADR-038, ADR-039). Leaving the settings page, switching the data file or
+  quitting with unsaved settings asks Save / Discard / Cancel (`PendingEdits`, ADR-040).
 
 ### 8.5 Window / panel / widget
 

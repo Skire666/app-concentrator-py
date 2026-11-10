@@ -830,3 +830,93 @@ superseded.
   7. A save refused for a reason the favorite form does not check is still only logged (no change).
   8. The duration field, the field message lookup and the action buttons are shared by the dialogs;
      the favorites panel reads the favorites once per render.
+
+## ADR-040 — Phase 4 journal and settings decisions
+
+- Status: accepted, owner decisions at the phase 4 plan review (2026-11-10: "Suit tes
+  recommandations"); the items "decided during the build" are to be approved at the phase 4 review.
+- Context: the phase 4 spec adds the journal (Menu B) and the settings page (Menu C). It names a
+  `notify_when_inactive` setting although ADR-038 removed every Windows notification, writes one
+  `save_settings(draft)` use case over two aggregates, and leaves open how the journal badge, the
+  filters, the data file actions and a close with unsaved settings behave.
+- Owner decisions (2026-11-10):
+  1. **`notify_when_inactive`** keeps its name and becomes "Flash the taskbar button when the timer
+     rings while Concentrator is in the background" (default on, `settings.default_notify_when_inactive`).
+     Off, a ringing timer only plays its sound. No notification is added (ADR-038 stands).
+  2. **Closing with unsaved settings** asks one question instead of "Do you want to quit?": Save and
+     quit, Quit without saving, or Cancel (Escape).
+  3. **Journal filters:** the level toggles and Follow are layout keys (`layout/journal_page/*`), so
+     "Reset layout" restores them; the search, Pause and "Clear view" last for the session only.
+  4. **Journal detail level** applies when the settings are saved, and when a data file is opened or
+     reloaded; `logging.level` of the ini applies until then. No restart.
+  5. **The journal badge** shows the number of new ERROR and CRITICAL records, `99+` above 99.
+  6. **Move file** does not first write the pending changes to the old file: the old file keeps its
+     last saved content, and moving is possible even when the old file was changed outside.
+  7. **Spec review questions:** the journal shows the current session only (plus "Open log folder"),
+     and About does not list the ini constants.
+- Decided during the build (please approve):
+  1. **Two writes for one Save.** `SettingsCommands.save_general` stores language, log level and the
+     taskbar alert; `ChimeCommands.save(enabled, settings)` stores the chime; each writes once, only
+     when its part changed. The presenter calls both (AGENTS.md 6.3: a feature never calls the writer
+     of another feature), instead of the single `save_settings(draft)` of the spec. A new language goes
+     through `LanguageSwitcher.follow`; the log level through `UserSettingsChangedEvent` and
+     `LogLevelApplier`.
+  2. **The settings form follows stored values changed elsewhere** (status bar language, chime dialog,
+     check box of the special options, another data file): `FormState.rebase` keeps the fields the user
+     changed and takes the stored value for the others.
+  3. **`UserDataReplacedEvent`** is published when a data file is opened (startup, "Use another file")
+     or reloaded after an external change; the log level and the settings form follow it.
+  4. **Settings of older files:** `log_level` and `notify_when_inactive` are optional in the schema; a
+     file without them takes the `[settings]` defaults (`UserDataLimits.settings`) and gets the keys at
+     the next save. New settings are built by `UserDataDefaults.new_settings`.
+  5. **"Use another file..."** first resolves unsaved settings (Save / Discard / Cancel), then asks
+     Open a file / Create a file / Cancel. It refuses the open file (`STORAGE_TARGET_IS_CURRENT_FILE`,
+     2018, paths compared as Windows does) and saves the pending changes synchronously; a failure keeps
+     the current file. A file that is not ready runs the recovery dialog of ADR-027 over the main window,
+     where Quit becomes **Cancel** (`STARTUP_CANCEL`, 58) and keeps the current file; a missing file
+     without side files is reported as not found. A running countdown goes on with the new file.
+  6. **"Move file..."** writes the in-memory data with the atomic writer to a path that must not exist
+     (`STORAGE_FILE_ALREADY_EXISTS`), reloads it and compares it with the data
+     (`STORAGE_MOVE_FAILED`, 2019, on any difference; the written file is left in place), then saves
+     there and remembers it. A message names both files.
+  7. **`SaveCoordinator` generations:** each `attach` starts a generation and a save result of the
+     previous file is ignored. Moving does not reset the session, so a late failure of the old file
+     could otherwise stop the saves of the new one (fixed with a failing test first).
+  8. **Reset layout** asks first, removes `layout/*` (`ViewPreferencesPort.remove_group`), then the
+     window applies its default geometry, splitters and journal columns at once and the journal shows
+     every level and follows again. `journal.default_table_ratio_percent` (70) and
+     `journal.default_column_widths_px` (time, level, source, thread) are new ini keys for these
+     defaults.
+  9. **Journal reading:** `JournalPresenter` reads `LogFeedPort.entries_since` on each tick only while
+     the page is shown; while hidden it reads `LogFeedPort.error_count()` (a counter of the ring buffer,
+     evicted records included) for the badge. The badge counts errors since the journal was last shown,
+     or since the start, so startup errors are signalled. Nothing on the tick and render path logs: at
+     DEBUG level the journal would feed on itself (tested).
+  10. **Journal table:** `SnapshotTableModel` inserts appended rows and, once the buffer is full,
+      removes the rows dropped at its head before inserting (the spec only names the append path);
+      any other change resets the model and the panel selects the rows of the snapshot again. Rows are
+      built once per entry and language and reused, so an unchanged table compares fast. WARNING and
+      ERROR rows are bold, ERROR rows use the highlight color of the palette, DEBUG rows the
+      placeholder color (no hard-coded color).
+  11. **Journal search** applies `journal.search_debounce_ms` after the last key press, matches every
+      word of the message or source (case and accents ignored, `TextSearch`), and is retried when the
+      previous search is still cooling down; the field is never disabled. Copy (and Ctrl+C) writes the
+      selected entries in the log file format, the newest `journal.copy_max_rows` at most; the detail
+      pane shows the same full text. Counts next to the level toggles cover the entries of the view
+      (after "Clear view", matching the search) whatever their level.
+  12. **Ports added:** `LoggingControlPort`, `LinkOpenerPort.open_folder(path, create_missing=...)` (a
+      refusal is a logged `LINK_OPEN_FAILED` warning, 7003), `ClipboardPort` (a presentation port,
+      implemented by `ui.support.QtClipboard`, since presenters use it), `LogFeedPort.error_count`,
+      `ViewPreferencesPort.remove_group`, `UserDataFilePort.is_same_file` and `DialogPort.choose` (a
+      question with several answers).
+  13. **Shared chime fields:** `ChimeFields` (presentation) and `ChimeFieldsPanel` (a panel composed by
+      the chime dialog panel and by the settings form panel) replace the copy the settings page would
+      need; the settings page has its own preview and file actions (`SETTINGS_CHIME_PREVIEW`,
+      `SETTINGS_CHIME_SOUND_CHOOSE_FILE`, 57).
+  14. **Settings page layout:** the five sections are group boxes in a scroll area; Save, Revert and
+      "Unsaved changes" stay visible below it. The data file actions, folders and Reset layout act at
+      once and are not part of the form. "Open folder" creates a missing log, backup or UI state
+      folder first.
+- Consequences: the module bar buttons can carry a badge; `MainWindow` saves, restores and resets its
+  layout pieces from one table; the startup dialogs are reused over the main window. Phase 6 reuses
+  `TextSearch` for the TODO search and extends `LinkOpenerPort` for links.

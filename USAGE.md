@@ -2,7 +2,9 @@
 
 Concentrator keeps your settings in a data file you choose, and its countdown timer rings with an MP3
 alarm, even when the window is in the background. Favorites start the timer in one click, and an
-hourly chime can mark each full hour. The TODO lists and the focus queue arrive in the next phases.
+hourly chime can mark each full hour. The journal shows what Concentrator logs, and the settings page
+gathers your settings and the data file commands. The TODO lists and the focus queue arrive in the next
+phases.
 
 ## Starting
 
@@ -45,7 +47,8 @@ status bar shows the state; hover over it to see the file path and any problem:
 | **Save failed: ... Retrying.** | The file could not be written (locked by another program, disk full...). Your changes stay in memory and Concentrator tries again every 10 seconds, and at every new change. |
 | **Not saved: ...** | The file was changed outside Concentrator; you are asked what to do. |
 
-Closing the window first asks **Do you want to quit Concentrator?**; Escape or **Cancel** keeps it
+Closing the window first asks **Do you want to quit Concentrator?** (or, with unsaved changes on the
+Settings page, **Save and quit**, **Quit without saving** or **Cancel**); Escape or **Cancel** keeps it
 open. Concentrator then saves pending
 changes. If that fails, you choose **Quit without saving** or **Retry**; Retry keeps Concentrator open
 and it keeps trying. When Windows logs off or shuts down, pending changes are saved without asking
@@ -117,7 +120,8 @@ three buttons that change with the state.
 - **Stop automatically after** (edit dialog): after that many seconds of ringing the alarm stops by
   itself; with **Restart the countdown after the automatic stop**, the countdown starts again at once.
 - When the timer rings and no Concentrator window is active (window minimized, another application in
-  front), the taskbar button flashes until you come back. While the Journal or Settings page is shown,
+  front), the taskbar button flashes until you come back (unless you turned this off on the Settings
+  page). While the Journal or Settings page is shown,
   the **Focus** button of the module bar is highlighted. Concentrator shows nothing in the notification
   area next to the clock: no icon and no Windows notification.
 - After a click, the three timer buttons stay disabled for a tenth of a second, so the second click of
@@ -190,19 +194,77 @@ The **Special options** block, at the bottom of zone 2, holds **Chime every hour
   chime already playing when the alarm starts finishes on its own.
 - A chime sound that cannot be found falls back to the built-in **Chime**, then to the Windows beep.
 
+## The journal
+
+The **Journal** page shows what Concentrator wrote to its log since it started, live: the newest
+5000 entries (`journal_buffer_size` in `concentrator.ini`, `[logging]`). Older entries, and those of
+earlier sessions, are in the log files: **Open log folder**.
+
+- Each row shows the time (with milliseconds), the level, the source (the part of Concentrator that
+  wrote it), the thread and the first line of the message; errors are bold and highlighted, debug
+  entries greyed. Select a row to read the whole entry, traceback included, in the pane below; you can
+  select and copy that text.
+- **Debug**, **Info**, **Warning**, **Error** and **Critical** show or hide a level; each shows how many
+  entries of the list have that level. **Search** keeps the entries whose message or source contains
+  every word you type, whatever the case and the accents (`etat` finds `État`).
+- **Follow** keeps the newest entry in view. **Pause** freezes the list while you read; the number of
+  new entries hidden meanwhile shows next to it, and they appear when you click **Pause** again.
+- **Copy** (or Ctrl+C) puts the selected entries in the clipboard, as lines of the log file (at most
+  2000, `copy_max_rows` in `[journal]`). **Clear view** hides the entries shown so far; the log files
+  are not changed.
+- The level buttons and Follow are remembered; the search, Pause and Clear view are not.
+- While another page is shown, an error written to the log puts a small number on the **Journal**
+  button of the module bar (errors since you last opened the journal); it goes away when you open the
+  journal.
+- How much detail the log keeps is a setting: **Journal detail level** on the Settings page.
+
+## Settings
+
+The **Settings** page has five sections. **General** and **Hourly chime** are stored in your data
+file: change them, then **Save** (or **Revert** to show the stored values again). Both buttons stay at
+the bottom of the page and are enabled only when something changed; **Unsaved changes** shows next to
+them meanwhile. Errors show under the field as you type.
+
+- **General**: **Language** (the same as the status bar button), **Journal detail level** (Debug,
+  Info, Warning, Error or Critical: entries below that level are neither written to the log files nor
+  shown in the journal; it applies when you save) and **Flash the taskbar button when the timer rings
+  while Concentrator is in the background**. Unchecked, a timer that rings unseen only plays its sound.
+- **Hourly chime**: **Chime every hour** and the chime sound, volume (with **Preview**) and hours, as
+  in the chime settings of the Focus page.
+- If you leave the page, switch the data file or close Concentrator with unsaved changes, Concentrator
+  asks: **Save**, **Discard** or **Cancel** (when closing: **Save and quit**, **Quit without saving** or
+  **Cancel**).
+
+The other sections act at once:
+
+- **Data file** shows the file in use, with **Open folder**.
+  - **Use another file...** saves your changes, then lets you **Open a file...** or **Create a
+    file...** (with the default settings in your language). A file with a problem shows the recovery
+    dialog described above; there, **Cancel** keeps the current file. The current file is kept as it
+    is, and the new file is remembered for the next start. A countdown in progress goes on.
+  - **Move file...** writes your data to a new file (it must not exist yet), checks that it reads back
+    the same, then uses it from now on and remembers it. The previous file is kept as it was last
+    saved; the message names both files.
+- **Interface**: **Reset layout** brings back the default window size and position, splitter
+  positions, journal columns and journal level buttons, at once. Your data file path and language are
+  kept.
+- **About**: the version, and where `concentrator.ini`, `ui-state.ini`, the log files and the daily
+  backups are, each with **Open folder** (a folder that does not exist yet is created).
+
 ## The window
 
 - **Module bar** (left, full height): **Focus**, **Journal** and **Settings** switch the page. The
-  button of the visible page is highlighted.
+  button of the visible page is highlighted; the Journal button shows the number of new errors.
 - **Focus** page: zone 1 (TODO lists, left) and zone 2, separated by a splitter you can drag. Zone 2
   shows, from top to bottom, the timer, room for the focus queue (later), the favorites and the special
   options. Zone 1 shows a "coming soon" text for now.
-- **Journal** and **Settings** pages: "coming soon" texts for now.
+- **Journal** and **Settings** pages: see above.
 - **Status bar** (bottom, one line): the save state on the left, the language button on the right.
   The button shows the current language (`ENG` or `FRA`); click it to switch every text between
   English and French at once. The language is saved in your data file, and the startup dialogs use the
   language you used last.
-- The window size and position and the splitter position are restored at the next start.
+- The window size and position, the splitter positions and the journal columns are restored at the
+  next start; **Reset layout** on the Settings page brings the defaults back.
 - **Dialogs**: while a message or a question is open, the window behind it is 10 % darker
   (`dialog_overlay_opacity_percent` in `concentrator.ini`, `[ui]`). The dialog opens centered on the
   window and cannot be dragged outside it; if the window was minimized, it comes back first. The Windows
@@ -213,13 +275,13 @@ The **Special options** block, at the bottom of zone 2, holds **Chime every hour
 
 | File | Location | Content |
 |---|---|---|
-| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings, timer (`[timer]`), favorites (`[[timer_presets]]`, or `timer_presets = []` when you deleted them all) and hourly chime (`[hourly_chime]`) now, lists and tasks later. A file written by an older version gets the missing sections from `concentrator.ini` at the next start. |
+| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings (language, journal detail level, taskbar alert), timer (`[timer]`), favorites (`[[timer_presets]]`, or `timer_presets = []` when you deleted them all) and hourly chime (`[hourly_chime]`) now, lists and tasks later. A file written by an older version gets the missing sections from `concentrator.ini` at the next start. |
 | `concentrator.toml.bak` | next to the data file | The version before the last save. |
 | `concentrator.toml.tmp` | next to the data file | Only while saving, or after an interrupted save. |
 | `*.corrupt-*`, `*.tmp.discarded-*`, `*.bak.discarded-*` | next to the data file | Files put aside by the recovery dialog; delete them when you no longer need them. |
 | `backups\concentrator-YYYY-MM-DD.toml` | `%APPDATA%\Concentrator\` | One copy per day, last 7 days. |
 | `concentrator.ini` | next to `Concentrator.exe` | Application constants: sizes, timings, paths, log level. Edit it with a text editor and restart; every key is documented in the file. |
-| `ui-state.ini` | `%APPDATA%\Concentrator\` | Window layout, the path of your data file and the last language. Delete it to get the default layout back; the first-launch dialog then asks for the data file again. |
+| `ui-state.ini` | `%APPDATA%\Concentrator\` | Window layout and journal level buttons, the path of your data file and the last language. **Reset layout** clears the layout only; deleting the file also forgets the data file, so the first-launch dialog asks for it again. |
 | `concentrator.log` | `%LOCALAPPDATA%\Concentrator\logs\` | Technical log (rotated). Never contains the text of your tasks. |
 | `faulthandler.log` | `%LOCALAPPDATA%\Concentrator\logs\` | Low-level crash dumps, normally empty. |
 
