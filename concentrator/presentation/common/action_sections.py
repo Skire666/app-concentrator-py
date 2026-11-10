@@ -51,6 +51,13 @@ ACTION_SECTIONS: Final = MappingProxyType(
         ActionIdEnum.CHIME_EDIT_CANCEL: (RenderSectionEnum.CHIME_EDIT,),
         ActionIdEnum.CHIME_PREVIEW: (RenderSectionEnum.CHIME_EDIT,),
         ActionIdEnum.CHIME_SOUND_CHOOSE_FILE: (RenderSectionEnum.CHIME_EDIT,),
+        ActionIdEnum.JOURNAL_TOGGLE_LEVEL: (RenderSectionEnum.JOURNAL,),
+        ActionIdEnum.JOURNAL_SEARCH: (RenderSectionEnum.JOURNAL,),
+        ActionIdEnum.JOURNAL_TOGGLE_FOLLOW: (RenderSectionEnum.JOURNAL,),
+        ActionIdEnum.JOURNAL_TOGGLE_PAUSE: (RenderSectionEnum.JOURNAL,),
+        ActionIdEnum.JOURNAL_COPY: (RenderSectionEnum.JOURNAL,),
+        ActionIdEnum.JOURNAL_CLEAR_VIEW: (RenderSectionEnum.JOURNAL,),
+        ActionIdEnum.JOURNAL_OPEN_LOG_FOLDER: (RenderSectionEnum.JOURNAL,),
     }
 )
 

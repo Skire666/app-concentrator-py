@@ -22,8 +22,8 @@ class _Harness:
         self.translator = FakeTranslator()
         self.scheduler = ManualScheduler()
         self.coordinator = RenderCoordinator(self.scheduler)
-        gate = ActionGate(FakeClock(), self.scheduler, self.coordinator, cooldown_ms=100, slow_threshold_ms=200)
-        self.presenter = ShellPresenter(self.translator, gate, self.coordinator)
+        self.gate = ActionGate(FakeClock(), self.scheduler, self.coordinator, cooldown_ms=100, slow_threshold_ms=200)
+        self.presenter = ShellPresenter(self.translator, self.gate, self.coordinator)
         self.shell: list[ShellSnapshot] = []
         self.status: list[object] = []
         self.coordinator.register(RenderSectionEnum.SHELL, self.presenter.build_shell_snapshot, self.shell.append)
@@ -96,3 +96,62 @@ def test_unknown_action_value_is_logged_and_ignored(harness: _Harness, caplog: p
 
     assert "UNKNOWN" in caplog.records[0].getMessage()
     assert harness.scheduler.pending_count == 0
+
+
+class _Badge:
+    def __init__(self) -> None:
+        self.count = 0
+
+    def __call__(self) -> int:
+        return self.count
+
+
+def _badged(count: int) -> tuple[_Harness, _Badge]:
+    harness = _Harness()
+    badge = _Badge()
+    badge.count = count
+    harness.presenter = ShellPresenter(harness.translator, harness.gate, harness.coordinator, journal_badge=badge)
+    return harness, badge
+
+
+@pytest.mark.parametrize(("count", "text"), [(0, ""), (1, "1"), (99, "99"), (100, "en:shell.badge.overflow(max=99)")])
+def test_journal_button_shows_the_number_of_new_errors(count: int, text: str) -> None:
+    harness, _badge = _badged(count)
+
+    journal = harness.presenter.build_shell_snapshot().module_buttons[1]
+
+    assert journal.badge == text
+    assert ("en:shell.journal.badge.tooltip" in journal.tooltip) is (count > 0)
+    assert journal.tooltip.startswith("en:action.shell_show_journal.tooltip")
+
+
+def test_journal_page_itself_shows_no_badge() -> None:
+    harness, _badge = _badged(3)
+
+    harness.presenter.show_page(ShellPageEnum.JOURNAL)
+
+    assert not harness.presenter.build_shell_snapshot().module_buttons[1].badge
+
+
+def test_page_listeners_learn_the_page_shown(harness: _Harness) -> None:
+    pages: list[ShellPageEnum] = []
+    harness.presenter.add_page_listener(pages.append)
+
+    harness.click(ActionIdEnum.SHELL_SHOW_SETTINGS)
+    harness.scheduler.advance(100)
+    harness.click(ActionIdEnum.SHELL_SHOW_SETTINGS)
+
+    assert pages == [ShellPageEnum.SETTINGS]
+
+
+def test_leave_guard_can_keep_the_page(harness: _Harness) -> None:
+    answers = [False, True]
+    pages: list[ShellPageEnum] = []
+    harness.presenter.add_page_listener(pages.append)
+    harness.presenter.show_page(ShellPageEnum.SETTINGS)
+    harness.presenter.set_leave_guard(ShellPageEnum.SETTINGS, lambda: answers.pop(0))
+
+    assert harness.presenter.show_page(ShellPageEnum.FOCUS).is_skipped
+    assert harness.presenter.active_page is ShellPageEnum.SETTINGS
+    assert harness.presenter.show_page(ShellPageEnum.FOCUS).is_success
+    assert pages == [ShellPageEnum.SETTINGS, ShellPageEnum.FOCUS]

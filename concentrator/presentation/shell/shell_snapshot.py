@@ -17,6 +17,7 @@ class ModuleButtonSnapshot:
         highlighted: Whether it asks for attention (for example a ringing timer on another page).
         enabled: False while its action is busy.
         action: Page action requested on click.
+        badge: Small count shown on the button (new errors for the Journal), ``""`` for none.
     """
 
     text: str
@@ -25,6 +26,7 @@ class ModuleButtonSnapshot:
     highlighted: bool
     enabled: bool
     action: ActionIdEnum
+    badge: str = ""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

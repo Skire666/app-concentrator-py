@@ -25,3 +25,11 @@ def test_date_time_combines_both() -> None:
 
     assert text.startswith("en:format.datetime(date=en:format.date(day=02,month=01,year=2026),time=")
     assert "hour=04" in text
+
+
+def test_time_with_milliseconds_pads_the_milliseconds() -> None:
+    formatter = DateTimeFormatter(FakeTranslator(), FakeClock())
+
+    text = formatter.time_with_milliseconds(EARLY.replace(microsecond=7_900))
+
+    assert text == "en:format.time_with_milliseconds(hour=04,minute=04,second=05,millisecond=007)"

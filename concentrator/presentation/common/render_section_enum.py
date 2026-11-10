@@ -21,3 +21,4 @@ class RenderSectionEnum(BaseIntEnum):
     PRESET_EDIT = 9
     SPECIAL_OPTIONS = 10
     CHIME_EDIT = 11
+    JOURNAL = 12

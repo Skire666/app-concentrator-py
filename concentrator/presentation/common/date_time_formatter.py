@@ -11,7 +11,9 @@ from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.translator_port import TranslatorPort
 
 _TWO_DIGITS: Final = "02d"
+_THREE_DIGITS: Final = "03d"
 _FOUR_DIGITS: Final = "04d"
+_MICROSECONDS_PER_MILLISECOND: Final = 1000
 
 
 class DateTimeFormatter:
@@ -56,6 +58,24 @@ class DateTimeFormatter:
             hour=format(local.hour, _TWO_DIGITS),
             minute=format(local.minute, _TWO_DIGITS),
             second=format(local.second, _TWO_DIGITS),
+        )
+
+    def time_with_milliseconds(self, moment: datetime) -> str:
+        """Local time with milliseconds, for example ``17:44:03.250`` (journal).
+
+        Args:
+            moment: Timezone-aware instant with sub-second precision.
+
+        Returns:
+            The text.
+        """
+        local = self._clock.to_local(moment)
+        return self._translator.tr(
+            "format.time_with_milliseconds",
+            hour=format(local.hour, _TWO_DIGITS),
+            minute=format(local.minute, _TWO_DIGITS),
+            second=format(local.second, _TWO_DIGITS),
+            millisecond=format(local.microsecond // _MICROSECONDS_PER_MILLISECOND, _THREE_DIGITS),
         )
 
     def date(self, moment: datetime) -> str:
