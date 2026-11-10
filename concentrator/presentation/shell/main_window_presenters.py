@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from concentrator.presentation.journal.journal_presenter import JournalPresenter
 from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
 from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
@@ -21,6 +22,7 @@ class MainWindowPresenters:
         timer: Timer panel.
         presets: Favorites panel.
         chime: Special options panel.
+        journal: Journal page.
     """
 
     shell: ShellPresenter
@@ -29,3 +31,4 @@ class MainWindowPresenters:
     timer: TimerPresenter
     presets: PresetsPresenter
     chime: ChimePresenter
+    journal: JournalPresenter

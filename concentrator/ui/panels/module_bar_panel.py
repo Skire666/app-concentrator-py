@@ -10,6 +10,7 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.shell.shell_snapshot import ModuleButtonSnapshot, ShellSnapshot
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.support.styles import HIGHLIGHTED_PROPERTY, MODULE_BAR_STYLE
+from concentrator.ui.widgets.badge_button import BadgeButton
 
 MODULE_ICON_FILES: Final = MappingProxyType(
     {
@@ -22,8 +23,8 @@ _ICON_WIDTH_RATIO: Final = 0.4
 _MARGIN_PX: Final = 6
 
 
-class _ModuleButton(QToolButton):
-    """Checkable tool button whose checked state only comes from the snapshot."""
+class _ModuleButton(BadgeButton):
+    """Checkable tool button whose checked state only comes from the snapshot; it may show a badge."""
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
@@ -45,6 +46,7 @@ class _ModuleButton(QToolButton):
         self.setToolTip(snapshot.tooltip)
         self.setChecked(snapshot.checked)
         self.setEnabled(snapshot.enabled)
+        self.set_badge(snapshot.badge)
         if self.property(HIGHLIGHTED_PROPERTY) != snapshot.highlighted:
             self.setProperty(HIGHLIGHTED_PROPERTY, snapshot.highlighted)
             self.style().unpolish(self)

@@ -11,10 +11,11 @@ from PySide6.QtGui import QIcon, QSessionManager
 from PySide6.QtWidgets import QApplication
 
 from concentrator.application.common.app_config import AppConfig
+from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.bootstrap.core import build_core
 from concentrator.bootstrap.runtime import Runtime, configure_runtime
 from concentrator.bootstrap.self_check import run_self_check
-from concentrator.bootstrap.shell import Shell, build_shell
+from concentrator.bootstrap.shell import Shell, ShellServices, build_shell
 from concentrator.bootstrap.startup import open_data_file
 from concentrator.bootstrap.startup_errors import show_config_error
 from concentrator.bootstrap.storage import build_storage
@@ -194,23 +195,44 @@ def _run_window(app: QApplication, config: AppConfig, paths: AppPaths, runtime: 
     translator = load_translator(paths, config)
     core = build_core(app, config, runtime.reporter)
     storage = build_storage(core, config, translator, runtime.reporter, _version())
-    protection = InstanceProtectionPresenter(translator, protected=instance.guard is not None)
     if instance.guard is not None:
         instance.guard.set_activation_handler(bring_modal_dialog_to_front)
     try:
-        icon = QIcon(str(paths.app_icon_file))
-        if not open_data_file(
-            core, storage, translator, protection, icon, StartupDialogLayout.from_ui_section(config.ui)
-        ):
-            return EXIT_OK
-        shell = build_shell(
-            app, config, paths, translator, runtime.reporter, core=core, storage=storage, instance=protection
-        )
-        return _run_shell(app, shell, instance.guard)
+        protection = InstanceProtectionPresenter(translator, protected=instance.guard is not None)
+        services = ShellServices(core=core, storage=storage, instance=protection, feed=runtime.logging.ring_buffer)
+        return _run_with_data_file(app, (config, paths, translator), runtime, services, instance.guard)
     finally:
         storage.writer.shutdown()
         if instance.guard is not None:
             instance.guard.release()
+
+
+def _run_with_data_file(
+    app: QApplication,
+    setup: tuple[AppConfig, AppPaths, TranslatorPort],
+    runtime: Runtime,
+    services: ShellServices,
+    guard: QtSingleInstanceGuard | None,
+) -> int:
+    """Steps 5 to 9: data file (ADR-027), window, event loop.
+
+    Args:
+        app: The application.
+        setup: Loaded configuration, application paths and translator.
+        runtime: Installed services; its reporter receives the unexpected errors.
+        services: Core, storage, single-instance indicator and log buffer.
+        guard: Instance guard, ``None`` when unguarded.
+
+    Returns:
+        The process exit code (0 also when the user quits the startup dialogs).
+    """
+    config, paths, translator = setup
+    icon = QIcon(str(paths.app_icon_file))
+    layout = StartupDialogLayout.from_ui_section(config.ui)
+    if not open_data_file(services.core, services.storage, translator, services.instance, icon, layout):
+        return EXIT_OK
+    shell = build_shell(app, config, paths, translator, runtime.reporter, services)
+    return _run_shell(app, shell, guard)
 
 
 def run(paths: AppPaths, *, self_check: bool) -> int:

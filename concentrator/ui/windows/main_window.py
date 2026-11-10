@@ -2,20 +2,25 @@
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import override
 
 from PySide6.QtCore import QByteArray, QPoint, Qt
 from PySide6.QtGui import QCloseEvent, QIcon
 from PySide6.QtWidgets import QApplication, QHBoxLayout, QStackedWidget, QVBoxLayout, QWidget
 
-from concentrator.presentation.common.layout_keys import LAYOUT_FOCUS_PAGE_SPLITTER, LAYOUT_MAIN_WINDOW_GEOMETRY
+from concentrator.presentation.common.layout_keys import (
+    LAYOUT_FOCUS_PAGE_SPLITTER,
+    LAYOUT_JOURNAL_HEADER,
+    LAYOUT_JOURNAL_SPLITTER,
+    LAYOUT_MAIN_WINDOW_GEOMETRY,
+)
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
 from concentrator.presentation.shell.main_window_presenters import MainWindowPresenters
-from concentrator.presentation.shell.shell_layout import ShellLayout
 from concentrator.presentation.shell.shell_snapshot import ShellSnapshot
-from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.presentation.shell.window_layouts import WindowLayouts
 from concentrator.ui.panels.module_bar_panel import ModuleBarPanel
 from concentrator.ui.panels.presets_panel import PresetsPanel
 from concentrator.ui.panels.special_options_panel import SpecialOptionsPanel
@@ -30,6 +35,16 @@ from concentrator.ui.windows.settings_page import SettingsPage
 _logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True, slots=True)
+class _LayoutPart:
+    """One persisted piece of layout: its key, how to export, restore and reset it."""
+
+    key: str
+    export: Callable[[], QByteArray]
+    restore: Callable[[QByteArray], bool]
+    reset: Callable[[], None]
+
+
 class MainWindow(QWidget):
     """Composes the shell panels, wires them to the presenters and persists the layout."""
 
@@ -39,8 +54,7 @@ class MainWindow(QWidget):
         presenters: MainWindowPresenters,
         renderer: RenderCoordinator,
         layout_keeper: LayoutStateKeeper,
-        shell_layout: ShellLayout,
-        timer_layout: TimerLayout,
+        layouts: WindowLayouts,
         icons: IconLoader,
         app_icon: QIcon,
     ) -> None:
@@ -50,22 +64,21 @@ class MainWindow(QWidget):
             presenters: Presenters of the module bar, pages, status bar, timer and shutdown.
             renderer: Render coordinator the panels are registered with.
             layout_keeper: Store of the layout blobs.
-            shell_layout: Sizes from the ini.
-            timer_layout: Font of the timer digits.
+            layouts: Sizes from the ini.
             icons: Loader of the module icons.
             app_icon: Window and taskbar icon.
         """
         super().__init__(None)
         self._shutdown = presenters.shutdown
         self._layout_keeper = layout_keeper
-        self._shell_layout = shell_layout
+        self._shell_layout = layouts.shell
         self.setWindowIcon(app_icon)
-        self.setMinimumSize(shell_layout.min_width_px, shell_layout.min_height_px)
-        self._module_bar = ModuleBarPanel(shell_layout.module_bar_width_px, icons, self)
+        self.setMinimumSize(layouts.shell.min_width_px, layouts.shell.min_height_px)
+        self._module_bar = ModuleBarPanel(layouts.shell.module_bar_width_px, icons, self)
         self._status_bar = StatusBarPanel(self)
         self._pages = QStackedWidget(self)
-        self._focus_page = FocusPage(shell_layout.zone1_ratio_percent, timer_layout, self._pages)
-        self._journal_page = JournalPage(self._pages)
+        self._focus_page = FocusPage(layouts.shell.zone1_ratio_percent, layouts.timer, self._pages)
+        self._journal_page = JournalPage(layouts.journal, self._pages)
         self._settings_page = SettingsPage(self._pages)
         self._build_layout()
         self._wire(presenters, renderer)
@@ -84,6 +97,11 @@ class MainWindow(QWidget):
     def focus_page(self) -> FocusPage:
         """Menu A page."""
         return self._focus_page
+
+    @property
+    def journal_page(self) -> JournalPage:
+        """Menu B page."""
+        return self._journal_page
 
     @property
     def timer_panel(self) -> TimerPanel:
@@ -115,22 +133,27 @@ class MainWindow(QWidget):
         self.setWindowTitle(snapshot.window_title)
         self._module_bar.render_snapshot(snapshot)
         self._focus_page.render_snapshot(snapshot)
-        self._journal_page.render_snapshot(snapshot.journal_placeholder)
         self._settings_page.render_snapshot(snapshot.settings_placeholder)
         self._pages.setCurrentIndex(snapshot.active_page_index)
         self.setUpdatesEnabled(True)
 
     def restore_layout(self) -> None:
-        """Restore geometry and splitter once, before ``show()``; fall back to the ini defaults."""
-        if not self._restore_blob(LAYOUT_MAIN_WINDOW_GEOMETRY, self.restoreGeometry):
-            self._apply_default_geometry()
-        if not self._restore_blob(LAYOUT_FOCUS_PAGE_SPLITTER, self._focus_page.restore_splitter_state):
-            self._focus_page.reset_splitter()
+        """Restore geometry, splitters and columns once, before ``show()``; fall back to the ini defaults."""
+        for part in self._layout_parts():
+            if not self._restore_blob(part):
+                part.reset()
 
     def save_layout(self) -> None:
-        """Export geometry and splitter (on close, never on every resize)."""
-        self._layout_keeper.save(LAYOUT_MAIN_WINDOW_GEOMETRY, encode_blob(self.saveGeometry()))
-        self._layout_keeper.save(LAYOUT_FOCUS_PAGE_SPLITTER, encode_blob(self._focus_page.splitter_state()))
+        """Export geometry, splitters and columns (on close, never on every resize)."""
+        for part in self._layout_parts():
+            self._layout_keeper.save(part.key, encode_blob(part.export()))
+
+    def reset_layout(self) -> None:
+        """Apply the ini defaults at once ("Reset layout"; the stored blobs are removed by the presenter)."""
+        if self.isMaximized() or self.isFullScreen():
+            self.showNormal()
+        for part in self._layout_parts():
+            part.reset()
 
     def bring_to_front(self) -> None:
         """Show the window in front (second launch); Windows may only flash the taskbar button."""
@@ -148,6 +171,28 @@ class MainWindow(QWidget):
         self.save_layout()
         super().closeEvent(event)
 
+    def _layout_parts(self) -> tuple[_LayoutPart, ...]:
+        """Every persisted piece of layout, in restore order.
+
+        Returns:
+            The parts.
+        """
+        focus, journal = self._focus_page, self._journal_page
+        return (
+            _LayoutPart(
+                LAYOUT_MAIN_WINDOW_GEOMETRY, self.saveGeometry, self.restoreGeometry, self._apply_default_geometry
+            ),
+            _LayoutPart(
+                LAYOUT_FOCUS_PAGE_SPLITTER, focus.splitter_state, focus.restore_splitter_state, focus.reset_splitter
+            ),
+            _LayoutPart(
+                LAYOUT_JOURNAL_SPLITTER, journal.splitter_state, journal.restore_splitter_state, journal.reset_splitter
+            ),
+            _LayoutPart(
+                LAYOUT_JOURNAL_HEADER, journal.header_state, journal.restore_header_state, journal.reset_columns
+            ),
+        )
+
     def _wire(self, presenters: MainWindowPresenters, renderer: RenderCoordinator) -> None:
         """Connect the panels to their presenters and register their render sections.
 
@@ -163,6 +208,7 @@ class MainWindow(QWidget):
         renderer.register(RenderSectionEnum.STATUS_BAR, status_bar.build_snapshot, self._status_bar.render_snapshot)
         renderer.register(RenderSectionEnum.TIMER, timer.build_snapshot, self.timer_panel.render_snapshot)
         self._wire_timer_extras(presenters, renderer)
+        self._journal_page.connect_presenter(presenters.journal, renderer)
 
     def _wire_timer_extras(self, presenters: MainWindowPresenters, renderer: RenderCoordinator) -> None:
         """Connect the favorites and the special options and register their render sections.
@@ -195,22 +241,21 @@ class MainWindow(QWidget):
         root.addWidget(self._module_bar)
         root.addLayout(content, 1)
 
-    def _restore_blob(self, key: str, restore: Callable[[QByteArray], bool]) -> bool:
+    def _restore_blob(self, part: _LayoutPart) -> bool:
         """Restore one saved blob.
 
         Args:
-            key: Layout key.
-            restore: Qt restore method.
+            part: Piece of layout.
 
         Returns:
             Whether a saved blob was restored; an invalid one is logged at WARNING.
         """
-        text = self._layout_keeper.load(key)
+        text = self._layout_keeper.load(part.key)
         if text is None:
             return False
         blob = decode_blob(text)
-        if blob is None or not restore(blob):
-            _logger.warning("Saved layout %s is invalid; the defaults are used", key)
+        if blob is None or not part.restore(blob):
+            _logger.warning("Saved layout %s is invalid; the defaults are used", part.key)
             return False
         return True
 

@@ -14,7 +14,7 @@ from concentrator.bootstrap.app import acquire_single_instance, run
 from concentrator.bootstrap.core import Core, build_core
 from concentrator.bootstrap.runtime import ForwardingErrorReporter
 from concentrator.bootstrap.self_check import audio_failures, storage_failures
-from concentrator.bootstrap.shell import build_shell
+from concentrator.bootstrap.shell import ShellServices, build_shell
 from concentrator.bootstrap.startup import apply_language_hint, open_data_file
 from concentrator.bootstrap.startup_errors import format_config_error
 from concentrator.bootstrap.storage import Storage, build_storage
@@ -24,6 +24,7 @@ from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.infrastructure.config.ini_config_loader import IniConfigLoader
 from concentrator.infrastructure.i18n.json_catalog_translator import JsonCatalogTranslator
+from concentrator.infrastructure.logging.ring_buffer_handler import RingBufferHandler
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
@@ -165,9 +166,7 @@ def test_built_shell_starts_ticks_saves_and_flushes_on_shutdown(qtbot: QtBot, in
         install.paths,
         translator,
         ForwardingErrorReporter(),
-        core=core,
-        storage=storage,
-        instance=protection,
+        ShellServices(core=core, storage=storage, instance=protection, feed=RingBufferHandler(100)),
     )
     qtbot.addWidget(shell.window)
     shell.shutdown_presenter.attach(FakeDialogs(confirm_answer=True))  # the quit question when pytest-qt closes it
@@ -200,9 +199,12 @@ def test_tick_timer_reaches_the_timer_engine_after_garbage_collection(qtbot: QtB
         install.paths,
         translator,
         ForwardingErrorReporter(),
-        core=core,
-        storage=storage,
-        instance=InstanceProtectionPresenter(translator, protected=True),
+        ShellServices(
+            core=core,
+            storage=storage,
+            instance=InstanceProtectionPresenter(translator, protected=True),
+            feed=RingBufferHandler(100),
+        ),
     )
     qtbot.addWidget(shell.window)
     shell.shutdown_presenter.attach(FakeDialogs(confirm_answer=True))

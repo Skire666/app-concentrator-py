@@ -148,7 +148,7 @@ def test_key_literal_scan_sees_the_shell_texts() -> None:
 
     literals = {literal for presenter in presenters for literal, _line in _key_literals(presenter, key_pattern)}
 
-    assert {"app.title", "shell.language.button.fr", "placeholder.journal"} <= literals
+    assert {"app.title", "shell.language.button.fr", "placeholder.settings"} <= literals
 
 
 @pytest.mark.parametrize("sound", sorted((REPO_ROOT / "assets" / "sounds").glob("*.mp3")), ids=lambda path: path.stem)

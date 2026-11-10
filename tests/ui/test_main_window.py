@@ -7,7 +7,12 @@ from pytestqt.qtbot import QtBot
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
-from concentrator.presentation.common.layout_keys import LAYOUT_FOCUS_PAGE_SPLITTER, LAYOUT_MAIN_WINDOW_GEOMETRY
+from concentrator.presentation.common.layout_keys import (
+    LAYOUT_FOCUS_PAGE_SPLITTER,
+    LAYOUT_JOURNAL_HEADER,
+    LAYOUT_JOURNAL_SPLITTER,
+    LAYOUT_MAIN_WINDOW_GEOMETRY,
+)
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.storage_stack import DATA_PATH
 from tests.fakes.user_data_factory import SAVED_AT, make_user_data
@@ -100,7 +105,12 @@ def test_close_exports_the_layout_and_restore_reapplies_it(qtbot: QtBot, caplog:
 
     first.window.close()
 
-    assert set(preferences.values) == {LAYOUT_MAIN_WINDOW_GEOMETRY, LAYOUT_FOCUS_PAGE_SPLITTER}
+    assert set(preferences.values) == {
+        LAYOUT_MAIN_WINDOW_GEOMETRY,
+        LAYOUT_FOCUS_PAGE_SPLITTER,
+        LAYOUT_JOURNAL_SPLITTER,
+        LAYOUT_JOURNAL_HEADER,
+    }
     second = ShellHarness(preferences)
     qtbot.addWidget(second.window)
     with caplog.at_level(logging.WARNING, logger=WINDOW_LOGGER):

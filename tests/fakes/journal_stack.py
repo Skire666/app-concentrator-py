@@ -67,6 +67,32 @@ class JournalStack:
         self.renderer.register(RenderSectionEnum.JOURNAL, self.presenter.build_snapshot, self.journal.append)
         self.renderer.register(RenderSectionEnum.SHELL, self.presenter.badge_count, self.shell.append)
 
+    def rewire(
+        self,
+        translator: FakeTranslator,
+        gate: ActionGate,
+        renderer: RenderCoordinator,
+        services: tuple[ManualScheduler, InMemoryViewPreferences],
+    ) -> JournalPresenter:
+        """A presenter on this stack's feed, clipboard and opener, for a window wired to other services."""
+        scheduler, preferences = services
+        return JournalPresenter(
+            translator,
+            gate,
+            renderer,
+            JournalPorts(
+                queries=JournalQueries(self.feed),
+                clock=self.clock,
+                scheduler=scheduler,
+                clipboard=self.clipboard,
+                opener=self.opener,
+                layout=LayoutStateKeeper(preferences),
+            ),
+            JournalSettings(
+                log_dir=LOG_DIR, capacity=self.feed.capacity, search_debounce_ms=DEBOUNCE_MS, copy_max_rows=2000
+            ),
+        )
+
     @property
     def last(self) -> JournalSnapshot:
         return self.journal[-1]

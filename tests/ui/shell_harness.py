@@ -10,11 +10,13 @@ from concentrator.domain.timer.timer_state_enum import TimerStateEnum
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
+from concentrator.presentation.journal.journal_layout import JournalLayout
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
 from concentrator.presentation.shell.main_window_presenters import MainWindowPresenters
 from concentrator.presentation.shell.shell_layout import ShellLayout
 from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
+from concentrator.presentation.shell.window_layouts import WindowLayouts
 from concentrator.presentation.storage.save_status_texts import SaveStatusTexts
 from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
 from concentrator.presentation.timer.chime_presenter import ChimePresenter
@@ -28,6 +30,7 @@ from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.windows.main_window import MainWindow
 from tests.fakes.app_config_factory import make_app_config
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
+from tests.fakes.journal_stack import JournalStack
 from tests.fakes.storage_stack import StorageStack
 from tests.fakes.timer_factory import LIMITS
 from tests.fakes.timer_stack import BLINK_MS, TimerStack
@@ -61,12 +64,18 @@ class ShellHarness:
         self.scheduler = self.stack.scheduler
         self.preferences = self.stack.preferences
         self.timer = TimerStack()
+        self.journal = JournalStack()
+        self.journal_presenter = self.journal.rewire(
+            self.translator, self.stack.gate, self.stack.renderer, (self.scheduler, self.preferences)
+        )
         self.presenter = ShellPresenter(
             self.translator,
             self.stack.gate,
             self.stack.renderer,
             lambda: self.timer.queries.current_view().state is TimerStateEnum.RINGING,
+            journal_badge=self.journal_presenter.badge_count,
         )
+        self.presenter.add_page_listener(self.journal_presenter.on_page_changed)
         self.status_bar = StatusBarPresenter(
             self.translator,
             self.stack.gate,
@@ -111,11 +120,15 @@ class ShellHarness:
                 timer=self.timer_presenter,
                 presets=self.presets,
                 chime=self.chime,
+                journal=self.journal_presenter,
             ),
             renderer=self.stack.renderer,
             layout_keeper=LayoutStateKeeper(self.preferences),
-            shell_layout=self.layout,
-            timer_layout=TimerLayout.from_ui_section(config.ui),
+            layouts=WindowLayouts(
+                shell=self.layout,
+                timer=TimerLayout.from_ui_section(config.ui),
+                journal=JournalLayout.from_journal_section(config.journal),
+            ),
             icons=IconLoader(paths.icons_dir),
             app_icon=IconLoader(paths.icons_dir).icon("concentrator.ico"),
         )

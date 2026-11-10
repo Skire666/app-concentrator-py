@@ -10,11 +10,13 @@ from PySide6.QtWidgets import QApplication
 
 from concentrator.application.common.app_config import AppConfig
 from concentrator.application.common.app_ticker import AppTicker
+from concentrator.application.ports.log_feed_port import LogFeedPort
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.storage.storage_events import SaveStatusChangedEvent
 from concentrator.application.timer.alarm_coordinator import AlarmCoordinator
 from concentrator.application.timer.timer_events import TimerChangedEvent
 from concentrator.bootstrap.core import Core
+from concentrator.bootstrap.journal import build_journal
 from concentrator.bootstrap.runtime import ForwardingErrorReporter
 from concentrator.bootstrap.storage import Storage
 from concentrator.bootstrap.timer import TimerServices, build_timer, connect_alarm
@@ -22,12 +24,15 @@ from concentrator.bootstrap.timer_extras import TimerExtras, build_timer_extras
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
+from concentrator.presentation.journal.journal_layout import JournalLayout
+from concentrator.presentation.journal.journal_presenter import JournalPresenter
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
 from concentrator.presentation.shell.main_window_presenters import MainWindowPresenters
 from concentrator.presentation.shell.shell_layout import ShellLayout
 from concentrator.presentation.shell.shell_presenter import ShellPresenter
 from concentrator.presentation.shell.status_bar_presenter import StatusBarPresenter
 from concentrator.presentation.shell.unexpected_error_presenter import UnexpectedErrorPresenter
+from concentrator.presentation.shell.window_layouts import WindowLayouts
 from concentrator.presentation.storage.external_change_presenter import ExternalChangePresenter
 from concentrator.presentation.storage.save_status_texts import SaveStatusTexts
 from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
@@ -41,6 +46,23 @@ from concentrator.ui.windows.preset_edit_dialog import PresetEditWindow
 from concentrator.ui.windows.timer_edit_dialog import TimerEditWindow
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ShellServices:
+    """Services built before the window that the shell needs.
+
+    Attributes:
+        core: Main-thread services.
+        storage: Storage services.
+        instance: Unguarded single-instance indicator.
+        feed: In-memory log buffer read by the journal page.
+    """
+
+    core: Core
+    storage: Storage
+    instance: InstanceProtectionPresenter
+    feed: LogFeedPort
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,10 +215,7 @@ def build_shell(
     paths: AppPaths,
     translator: TranslatorPort,
     reporter: ForwardingErrorReporter,
-    *,
-    core: Core,
-    storage: Storage,
-    instance: InstanceProtectionPresenter,
+    services: ShellServices,
 ) -> Shell:
     """Build the presenters and the window once a data file is open (step 6).
 
@@ -206,16 +225,16 @@ def build_shell(
         paths: Application paths.
         translator: Current-language translator.
         reporter: Reporter of the global hooks; connected to the error dialog here.
-        core: Main-thread services.
-        storage: Storage services.
-        instance: Unguarded single-instance indicator.
+        services: Core, storage, single-instance indicator and log buffer.
 
     Returns:
         The shell, ready to ``start``.
     """
+    core, storage = services.core, services.storage
     timer = build_timer(app, config, paths, translator, core=core, storage=storage)
     extras = build_timer_extras(app, translator, core=core, storage=storage, timer=timer)
-    presenters = _presenters(core, storage, translator, instance, (timer, extras))
+    journal = build_journal(config, translator, core, services.feed)
+    presenters = _presenters(services, translator, (timer, extras), journal)
     window = _main_window(config, paths, core, presenters)
     dialogs = _attach_dialogs(window, config, presenters, (timer, extras), core)
     _connect_dialogs(dialogs, core, storage, translator, reporter)
@@ -226,7 +245,7 @@ def build_shell(
         timer=timer,
         extras=extras,
         alarm=connect_alarm(timer, window, core, storage.settings_queries.notify_when_inactive),
-        heartbeat=_heartbeat(app, config, (timer.engine.tick, extras.chime_service.tick)),
+        heartbeat=_heartbeat(app, config, (timer.engine.tick, extras.chime_service.tick, journal.on_tick)),
     )
 
 
@@ -242,12 +261,16 @@ def _main_window(config: AppConfig, paths: AppPaths, core: Core, presenters: Mai
     Returns:
         The window.
     """
+    layouts = WindowLayouts(
+        shell=ShellLayout.from_ui_section(config.ui),
+        timer=TimerLayout.from_ui_section(config.ui),
+        journal=JournalLayout.from_journal_section(config.journal),
+    )
     return MainWindow(
         presenters=presenters,
         renderer=core.renderer,
         layout_keeper=LayoutStateKeeper(core.preferences),
-        shell_layout=ShellLayout.from_ui_section(config.ui),
-        timer_layout=TimerLayout.from_ui_section(config.ui),
+        layouts=layouts,
         icons=IconLoader(paths.icons_dir),
         app_icon=QIcon(str(paths.app_icon_file)),
     )
@@ -285,32 +308,36 @@ def _attach_dialogs(
 
 
 def _presenters(
-    core: Core,
-    storage: Storage,
+    services: ShellServices,
     translator: TranslatorPort,
-    instance: InstanceProtectionPresenter,
     timer: tuple[TimerServices, TimerExtras],
+    journal: JournalPresenter,
 ) -> MainWindowPresenters:
     """Create the presenters of the main window panels.
 
     Args:
-        core: Main-thread services.
-        storage: Storage services.
+        services: Core, storage and single-instance indicator.
         translator: Current-language translator.
-        instance: Unguarded single-instance indicator.
         timer: Timer services and timer extras.
+        journal: Journal page presenter.
 
     Returns:
-        The presenters; the shell presenter follows the timer to highlight the Focus button.
+        The presenters; the shell presenter follows the timer to highlight the Focus button, shows the
+        journal badge and tells the journal when it is shown.
     """
-    services, extras = timer
-    shell = ShellPresenter(translator, core.gate, core.renderer, services.ringing)
+    core, storage = services.core, services.storage
+    timer_services, extras = timer
+    shell = ShellPresenter(
+        translator, core.gate, core.renderer, timer_services.ringing, journal_badge=journal.badge_count
+    )
+    shell.add_page_listener(journal.on_page_changed)
     core.event_bus.subscribe(TimerChangedEvent, shell.on_timer_changed)
     return MainWindowPresenters(
         shell=shell,
-        status_bar=_status_bar(core, storage, translator, instance),
-        shutdown=ShutdownPresenter(storage.coordinator, translator, services.countdown_active),
-        timer=services.presenter,
+        status_bar=_status_bar(core, storage, translator, services.instance),
+        shutdown=ShutdownPresenter(storage.coordinator, translator, timer_services.countdown_active),
+        timer=timer_services.presenter,
         presets=extras.presets,
         chime=extras.chime,
+        journal=journal,
     )
