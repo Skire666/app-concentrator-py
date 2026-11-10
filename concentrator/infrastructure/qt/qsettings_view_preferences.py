@@ -36,6 +36,10 @@ class QSettingsViewPreferences(ViewPreferencesPort):
     def remove(self, key: str) -> None:
         self._settings.remove(key)
 
+    @override
+    def remove_group(self, group: str) -> None:
+        self._settings.remove(group)
+
     def sync(self) -> bool:
         """Write pending changes to disk now (Qt also syncs on its own).
 

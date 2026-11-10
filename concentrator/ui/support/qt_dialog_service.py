@@ -48,6 +48,23 @@ class QtDialogService(DialogPort):
         return box.clickedButton() is accept
 
     @override
+    def choose(self, title: str, message: str, options: tuple[str, ...], cancel_index: int) -> int:
+        box = QMessageBox(
+            QMessageBox.Icon.Question, title, message, QMessageBox.StandardButton.NoButton, self._runner.parent
+        )
+        buttons = [
+            box.addButton(
+                text, QMessageBox.ButtonRole.RejectRole if index == cancel_index else QMessageBox.ButtonRole.ActionRole
+            )
+            for index, text in enumerate(options)
+        ]
+        box.setDefaultButton(buttons[0])
+        box.setEscapeButton(buttons[cancel_index])
+        self._runner.run(box)
+        clicked = box.clickedButton()
+        return next((index for index, button in enumerate(buttons) if button is clicked), cancel_index)
+
+    @override
     def inform(self, title: str, message: str, button_text: str) -> None:
         self._message(QMessageBox.Icon.Information, title, message, button_text)
 

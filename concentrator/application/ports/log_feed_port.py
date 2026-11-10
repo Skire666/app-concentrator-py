@@ -41,3 +41,11 @@ class LogFeedPort(Protocol):
             Records with ``entry.sequence > sequence``, oldest first.
         """
         ...
+
+    def error_count(self) -> int:
+        """Return how many ERROR and CRITICAL records were emitted since the start, retained or not.
+
+        Returns:
+            The count; it only grows, so comparing two values tells whether errors arrived.
+        """
+        ...

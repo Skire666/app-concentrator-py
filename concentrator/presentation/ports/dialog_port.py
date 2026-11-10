@@ -20,6 +20,20 @@ class DialogPort(Protocol):
         """
         ...
 
+    def choose(self, title: str, message: str, options: tuple[str, ...], cancel_index: int) -> int:
+        """Ask a question with several answers, such as Save / Discard / Cancel.
+
+        Args:
+            title: Window title.
+            message: Question.
+            options: Button labels, in order; the first one is the default button.
+            cancel_index: Index of the answer given by Escape and the close button.
+
+        Returns:
+            Index of the chosen answer.
+        """
+        ...
+
     def inform(self, title: str, message: str, button_text: str) -> None:
         """Show an information message.
 

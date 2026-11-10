@@ -22,3 +22,9 @@ class InMemoryViewPreferences(ViewPreferencesPort):
     @override
     def remove(self, key: str) -> None:
         self.values.pop(key, None)
+
+    @override
+    def remove_group(self, group: str) -> None:
+        prefix = f"{group}/"
+        for key in [key for key in self.values if key.startswith(prefix)]:
+            del self.values[key]

@@ -47,6 +47,22 @@ def test_view_preferences_remove_deletes_the_key(qtbot: QtBot, tmp_path: Path) -
     assert preferences.get_text("layout/a") is None
 
 
+def test_view_preferences_remove_group_keeps_the_other_keys(qtbot: QtBot, tmp_path: Path) -> None:
+    del qtbot
+    preferences = QSettingsViewPreferences(tmp_path / "ui-state.ini")
+    preferences.set_text("layout/main_window/geometry", "AA==")
+    preferences.set_text("layout/journal/levels", "1,2")
+    preferences.set_text("layouts/other", "kept")
+    preferences.set_text("storage/data_file_path", "C:/data.toml")
+
+    preferences.remove_group("layout")
+
+    assert preferences.get_text("layout/main_window/geometry") is None
+    assert preferences.get_text("layout/journal/levels") is None
+    assert preferences.get_text("layouts/other") == "kept"
+    assert preferences.get_text("storage/data_file_path") == "C:/data.toml"
+
+
 def test_view_preferences_sync_reports_an_unwritable_file(qtbot: QtBot, tmp_path: Path) -> None:
     del qtbot
     blocker = tmp_path / "file"

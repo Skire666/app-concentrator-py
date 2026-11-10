@@ -36,3 +36,11 @@ class ViewPreferencesPort(Protocol):
             key: Preference key.
         """
         ...
+
+    def remove_group(self, group: str) -> None:
+        """Delete every value whose key starts with ``<group>/``; other keys are kept.
+
+        Args:
+            group: First part of the keys, without the trailing slash (``layout``).
+        """
+        ...

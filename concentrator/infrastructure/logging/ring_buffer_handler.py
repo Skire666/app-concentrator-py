@@ -24,6 +24,7 @@ class RingBufferHandler(logging.Handler, LogFeedPort):
         self.setFormatter(logging.Formatter(_MESSAGE_ONLY))
         self._entries: deque[LogEntry] = deque(maxlen=capacity)
         self._sequence = 0
+        self._error_count = 0
         self._buffer_lock = threading.Lock()
 
     @override
@@ -34,6 +35,8 @@ class RingBufferHandler(logging.Handler, LogFeedPort):
             message = f"<unformattable log message {record.msg!r}: {error}>"
         with self._buffer_lock:
             self._sequence += 1
+            if record.levelno >= logging.ERROR:
+                self._error_count += 1
             self._entries.append(
                 LogEntry(
                     sequence=self._sequence,
@@ -50,3 +53,8 @@ class RingBufferHandler(logging.Handler, LogFeedPort):
     def entries_since(self, sequence: int) -> tuple[LogEntry, ...]:
         with self._buffer_lock:
             return tuple(entry for entry in self._entries if entry.sequence > sequence)
+
+    @override
+    def error_count(self) -> int:
+        with self._buffer_lock:
+            return self._error_count

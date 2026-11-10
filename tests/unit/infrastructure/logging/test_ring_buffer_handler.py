@@ -20,6 +20,19 @@ def logger() -> Iterator[logging.Logger]:
     test_logger.propagate = True
 
 
+def test_error_count_counts_error_and_critical_records_even_once_evicted(logger: logging.Logger) -> None:
+    buffer = _attach(logger, 2)
+
+    logger.error("one")
+    logger.warning("not an error")
+    logger.critical("two")
+    logger.info("pushes the errors out")
+    logger.info("again")
+
+    assert buffer.error_count() == 2
+    assert [entry.message for entry in buffer.entries_since(0)] == ["pushes the errors out", "again"]
+
+
 def _fail() -> None:
     raise ValueError("bad")
 

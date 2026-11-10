@@ -12,6 +12,7 @@ from concentrator.ui.panels.status_bar_panel import StatusBarPanel
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.support.layout_codec import decode_blob, encode_blob
 from concentrator.ui.support.modal_host import ModalHost
+from concentrator.ui.support.qt_clipboard import QtClipboard
 from concentrator.ui.support.qt_dialog_service import QtDialogService
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
 
@@ -66,6 +67,39 @@ def test_confirm_returns_the_user_choice_with_catalog_button_texts(qtbot: QtBot,
     _click_in_next_message_box(clicked)
 
     assert QtDialogService(ModalHost.create(parent, 10)).confirm("Title", "Question?", "Yes!", "No!") is expected
+
+
+@pytest.mark.parametrize(("clicked", "expected"), [("Save", 0), ("Discard", 1), ("Cancel", 2)])
+def test_choose_returns_the_index_of_the_clicked_answer(qtbot: QtBot, clicked: str, expected: int) -> None:
+    parent = QWidget()
+    qtbot.addWidget(parent)
+    _click_in_next_message_box(clicked)
+
+    service = QtDialogService(ModalHost.create(parent, 10))
+
+    assert service.choose("Title", "Question?", ("Save", "Discard", "Cancel"), 2) == expected
+
+
+def test_choose_escape_gives_the_cancel_answer(qtbot: QtBot) -> None:
+    parent = QWidget()
+    qtbot.addWidget(parent)
+
+    def escape() -> None:
+        box = QApplication.activeModalWidget()
+        assert isinstance(box, QMessageBox)
+        box.reject()
+
+    QTimer.singleShot(0, escape)
+
+    assert QtDialogService(ModalHost.create(parent, 10)).choose("Title", "Q?", ("A", "B", "C"), 1) == 1
+
+
+def test_qt_clipboard_replaces_the_text(qtbot: QtBot) -> None:
+    del qtbot
+
+    QtClipboard().set_text("line 1\nline 2")
+
+    assert QApplication.clipboard().text() == "line 1\nline 2"
 
 
 @pytest.mark.parametrize("kind", ["inform", "warn", "error"])
