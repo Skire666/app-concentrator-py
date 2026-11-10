@@ -1,23 +1,105 @@
 TODO : Langue, cliquer sur une liste
 pas de JSON5, faire un toml.
 1000 taches pour le benchmark, et 100 pré-régalge de réveil.
-Chauqe taches, à un historique de 5 (surtout pour les ccyclique)
+Chauqe taches, à un historique de 10 (surtout pour les ccyclique)
 Langue apr défaut = FR-FR
 toml est save lorqu'une tache set créer, MAJ, 
 
 rajoute les couleurs la prochaine fois.
+définir enum
 Theme sombre, them clair.
 
 Dans les options, rendre la taille de police confiugrable
-faire une taille de base.
+faire une taille de base. Prévoir 4 styles : normal, petit, grand+, grand+++
 
-
-Dmenader a claude d'économiser des tokens ?
-
-
-
-
+La hauteur des boutons, la faire un peu plus grande que ceux proposé.
+Cooldown aussi lorque l'on clique (100ms c'est bien, mais un petit 120ms je pense que ça serait parfait)
 Si la save échoue, mettre un bouton manuel qui retry
+
+-------
+
+Demander a claude d'économiser des tokens ?
+NOTE PCO : en vrai, compliqué.
+Si c'est planifié dès le début, c'est mieux.
+Les tools pour aider (et ainsi gagner des tokens) :
+- Lui dire de faire des skills en mode 'make-phase 1' et '/review-phase 1'
+- faire des scripts aussi, comme le run des tests, comme ça il écrit moins de commande
+- penser à rediriger toutes les sorties vers des fichiers et n'afficher que les problèmes (un ruiff, un coverage de test, c'est verbeux)
+
+Dans chaque skill, définir des rôles et quel modèle fait quoi.
+Quel modèle pour quelle phase, sur un projet Python :
+- Haiku : formatage, docstrings, annotations de type, renommages, README/CHANGELOG, code répétitif, lancer et résumer les tests.
+- Sonnet : implémenter une phase bien décrite, écrire les tests, refactor local.
+- Opus : choix d’architecture, bug difficile qui touche plusieurs modules, phase encore floue.
+- Si une phase confiée à Haiku échoue deux fois, refais-la avec Sonnet : les essais répétés coûtent plus que ce que tu économises.
+
+# Ce que claude me propose :
+
+L’idée est de dépenser le modèle cher une seule fois, au moment d’écrire le plan, puis de rédiger chaque phase assez précisément pour qu’un modèle moins cher puisse l’exécuter sans rien décider. Une phase vague confiée à Haiku finit en essais ratés et coûte plus cher que si tu l’avais donnée à Sonnet. Plus la phase est précise, moins le modèle qui l’exécute a besoin d’être fort.
+
+## 1. Planifier avec Opus, une seule fois
+
+Écris ou fais écrire le plan avec Opus en mode plan (opusplan le fait automatiquement), avec un effort high. C’est là que se prennent les décisions d’architecture, de découpage en modules et d’interfaces. Demande-lui aussi d’attribuer un modèle à chaque phase en justifiant son choix.
+
+## 2. Séparer la décision de l’exécution
+
+C’est le point le plus important. Ne découpe pas seulement par fonctionnalité, découpe aussi par difficulté. Une grosse phase « module de facturation » devient par exemple :
+
+3a : concevoir les classes et les signatures (Opus, courte) ;
+3b : implémenter selon ces signatures (Sonnet) ;
+3c : docstrings, annotations de type, README (Haiku).
+
+Le travail difficile reste ainsi petit et bien délimité, et la plus grosse partie du code est écrite par les modèles moins chers.
+
+## 3. Rédiger chaque phase pour qu’elle se suffise à elle-même
+
+Une phase ne doit pas dépendre de l’historique de la conversation. Elle doit pouvoir tourner dans un contexte vide. Voici un modèle de phase :
+
+```
+## Phase 4 — Export CSV des rapports
+Modèle : sonnet · Effort : medium · Dépend de : phase 3
+
+**Objectif** : exporter une liste de rapports en CSV.
+**À lire d'abord** : src/rapports/models.py
+**Périmètre** : créer src/rapports/export.py et tests/test_export.py. Ne rien modifier d'autre.
+**Interface imposée** :
+    def exporter_csv(rapports: list[Rapport], chemin: Path) -> int
+**Terminé quand** :
+- `pytest tests/test_export.py` passe
+- `ruff check src/rapports` et `mypy src/rapports` ne signalent aucune erreur
+**Si bloqué** : s'arrêter et expliquer, ne pas changer l'interface.
+```
+
+Trois éléments de ce modèle font la différence avec un modèle moins cher :
+
+le périmètre explicite, qui empêche de toucher à d’autres fichiers ;
+l’interface imposée, qui ne laisse aucune décision au modèle ;
+des critères de fin vérifiables par une commande. Le modèle sait quand il a fini, et ton subagent testeur peut le vérifier.
+
+La ligne « si bloqué » évite qu’un modèle moins capable improvise une décision d’architecture.
+
+## 4. Choisir le modèle avec trois questions
+Reste-t-il une décision à prendre dans cette phase ? Si oui, mets-la dans une phase Opus à part.
+La phase dit-elle exactement quoi écrire et où ? Si oui, Sonnet suffit.
+Est-ce une transformation mécanique, vérifiable par une commande ? Si oui, Haiku.
+
+## 5. Écrire les tests tôt
+
+Quand c’est possible, fais écrire les tests d’une phase dans la phase de conception (avec Sonnet ou Opus), avant l’implémentation. Les tests deviennent alors la spécification. Le modèle qui implémente, même moins cher, avance en les faisant passer, avec un critère de réussite clair.
+
+## 6. Pendant l’exécution
+
+/clear entre chaque phase. C’est l’économie la plus simple. Une longue conversation est renvoyée au modèle à chaque message, alors qu’une phase qui se suffit à elle-même n’a besoin d’aucun historique.
+Un CLAUDE.md court avec ce qui ne change pas : les commandes (pytest, ruff, mypy), les conventions et l’arborescence. Les phases n’ont pas à le répéter. Il est chargé à chaque échange, donc garde-le concis.
+Une règle d’escalade écrite dans le CLAUDE.md : après deux échecs, on passe au modèle du dessus. Si une phase révèle une décision qui n’était pas prévue, on s’arrête et on revient au plan.
+
+Concrètement, ça donne : une session Opus pour produire PHASES.md selon ce modèle, puis pour chaque phase /clear suivi de /phase N (ou /phase-simple N), et le subagent testeur pour valider.
+
+Si tu veux, je peux te préparer une commande /planifier (en model: opus) qui génère tes phases directement dans ce format, avec le modèle de chaque phase déjà choisi.
+
+-------
+
+
 
 
 Aide moi à planifier un futur projet que je veux développer.
