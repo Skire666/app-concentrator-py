@@ -193,7 +193,7 @@ class TimerEditPresenter:
         form = self._current_form()
         if not form.can_submit:
             return ValidationResult.skipped()
-        result = self._commands.update_config(form.draft)
+        result = self._commands.apply_config(form.draft)
         if result.is_failure:
             return result
         form.commit()

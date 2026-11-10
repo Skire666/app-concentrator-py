@@ -261,7 +261,7 @@
   "timer.edit.auto_stop": "Arrêter automatiquement après",
   "timer.edit.unit.auto_stop": "s (0 = jamais)",
   "timer.edit.auto_restart": "Relancer le décompte après l'arrêt automatique",
-  "timer.edit.running_note": "Le minuteur tourne : une nouvelle durée s'applique au prochain démarrage ou à la réinitialisation, un nouveau son à la prochaine sonnerie.",
+  "timer.edit.running_note": "Le minuteur tourne : enregistrer une nouvelle durée relance le décompte avec elle ; un nouveau son s'applique à la prochaine sonnerie.",
   "duration.label.hours": "{hours} h",
   "duration.label.minutes": "{minutes} min",
   "duration.label.seconds": "{seconds} s",

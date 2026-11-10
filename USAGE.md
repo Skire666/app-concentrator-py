@@ -141,11 +141,12 @@ three buttons that change with the state.
 - Errors show under the field while you type. **Save** is enabled only when something changed and every
   value is valid. **Cancel**, Escape or the close button close the dialog at once and discard your
   changes, without asking.
-- While the timer runs, a new duration applies at the next start or reset, and a new sound at the next
-  ringing; the dialog says so. While the dialog is open, the timer buttons are behind it: close the
+- While a countdown runs or is paused, saving a new duration replaces it: the countdown starts again at
+  once with the new duration. A new sound or volume applies at the next ringing and leaves the
+  countdown alone; the dialog says so. While the dialog is open, the timer buttons are behind it: close the
   dialog to stop a ringing alarm (the automatic stop still applies).
-- If a chosen MP3 file is moved or deleted, the alarm plays the default sound instead (and the log
-  says so); if no sound can be played at all, Windows beeps. The dialog shows the missing file under
+- If a chosen MP3 file is moved or deleted, the alarm plays the default sound instead and the journal
+  records an error (the Journal button shows it); if no sound can be played at all, Windows beeps. The dialog shows the missing file under
   **Sound**, and you can still save the other settings.
 - The built-in sounds are **Alarm** (the default), **Beep**, **Chime**, **Notification** and **Soft
   tone**. A data file that names a built-in sound of an older version plays the default sound until

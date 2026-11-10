@@ -252,16 +252,36 @@ def test_the_note_explains_changes_while_running(stack: TimerUiStack) -> None:
     assert stack.edit_snapshot.note == "en:timer.edit.running_note"
 
 
-def test_a_duration_saved_while_running_keeps_the_remaining_time(stack: TimerUiStack) -> None:
+def test_a_duration_saved_while_running_replaces_the_countdown(stack: TimerUiStack) -> None:
     stack.click(A.TIMER_START)
     stack.clock.advance(seconds=100)
 
     _open(stack, lambda: stack.editor.on_duration_changed(0, 5, 0), lambda: stack.edit(A.TIMER_EDIT_SAVE))
 
+    view = stack.queries.current_view()
+    assert view.state is TimerStateEnum.RUNNING
+    assert view.displayed_seconds == 300
+    assert stack.snapshot.right.action is A.TIMER_PAUSE
+
+
+def test_a_duration_saved_while_paused_starts_the_new_countdown(stack: TimerUiStack) -> None:
+    stack.click(A.TIMER_START)
+    stack.click(A.TIMER_PAUSE)
+
+    _open(stack, lambda: stack.editor.on_duration_changed(0, 5, 0), lambda: stack.edit(A.TIMER_EDIT_SAVE))
+
+    assert stack.queries.current_view().state is TimerStateEnum.RUNNING
+    assert stack.queries.current_view().displayed_seconds == 300
+
+
+def test_a_sound_saved_while_running_keeps_the_countdown(stack: TimerUiStack) -> None:
+    stack.click(A.TIMER_START)
+    stack.clock.advance(seconds=100)
+
+    _open(stack, lambda: stack.editor.on_volume_changed(20), lambda: stack.edit(A.TIMER_EDIT_SAVE))
+
     assert stack.queries.current_view().state is TimerStateEnum.RUNNING
     assert stack.queries.current_view().displayed_seconds == 1400
-    stack.click(A.TIMER_RESET)
-    assert stack.queries.current_view().displayed_seconds == 300
 
 
 def test_an_unknown_edit_action_is_logged(stack: TimerUiStack, caplog: pytest.LogCaptureFixture) -> None:

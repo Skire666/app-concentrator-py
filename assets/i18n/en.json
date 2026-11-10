@@ -261,7 +261,7 @@
   "timer.edit.auto_stop": "Stop automatically after",
   "timer.edit.unit.auto_stop": "s (0 = never)",
   "timer.edit.auto_restart": "Restart the countdown after the automatic stop",
-  "timer.edit.running_note": "The timer is running: a new duration applies at the next start or reset, a new sound at the next ringing.",
+  "timer.edit.running_note": "The timer is running: saving a new duration restarts the countdown with it; a new sound applies at the next ringing.",
   "duration.label.hours": "{hours} h",
   "duration.label.minutes": "{minutes} min",
   "duration.label.seconds": "{seconds} s",

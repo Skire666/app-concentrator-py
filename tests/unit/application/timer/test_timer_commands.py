@@ -138,3 +138,39 @@ def test_preview_stop_stops_the_preview_player(stack: TimerStack) -> None:
 
     assert stack.preview_player.stops == 1
     assert stack.alarm_player.stops == 0
+
+
+def test_apply_config_with_a_new_duration_replaces_a_running_countdown(stack: TimerStack) -> None:
+    assert stack.commands.start().is_success
+    stack.advance(seconds=4)
+
+    assert stack.commands.apply_config(replace(SHORT, duration=Duration(60))).is_success
+
+    view = stack.queries.current_view()
+    assert view.state is TimerStateEnum.RUNNING
+    assert view.displayed_seconds == 60
+
+
+def test_apply_config_without_a_new_duration_keeps_the_countdown(stack: TimerStack) -> None:
+    assert stack.commands.start().is_success
+    stack.advance(seconds=4)
+
+    assert stack.commands.apply_config(replace(SHORT, volume=Volume(10))).is_success
+
+    assert stack.queries.current_view().displayed_seconds == 6
+
+
+def test_apply_config_while_idle_only_stores(stack: TimerStack) -> None:
+    assert stack.commands.apply_config(replace(SHORT, duration=Duration(60))).is_success
+
+    assert stack.queries.current_view().state is TimerStateEnum.IDLE
+    assert stack.queries.settings().duration == Duration(60)
+
+
+def test_apply_config_refused_by_the_rules_keeps_the_countdown(stack: TimerStack) -> None:
+    assert stack.commands.start().is_success
+
+    result = stack.commands.apply_config(replace(SHORT, duration=Duration(0)))
+
+    assert result.is_failure
+    assert stack.queries.current_view().displayed_seconds == 10

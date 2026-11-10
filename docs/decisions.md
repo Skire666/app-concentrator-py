@@ -920,3 +920,11 @@ superseded.
 - Consequences: the module bar buttons can carry a badge; `MainWindow` saves, restores and resets its
   layout pieces from one table; the startup dialogs are reused over the main window. Phase 6 reuses
   `TextSearch` for the TODO search and extends `LinkOpenerPort` for links.
+- Amendment (phase 4 review, owner tests 2026-11-10): these supersede ADR-038 where they differ.
+  1. **A sound that cannot be found is logged at ERROR** (it was WARNING): a chosen MP3 moved or
+     deleted is a broken setting, and the Journal button now shows it when the timer or the chime
+     falls back to its default sound. The badge still counts ERROR and CRITICAL only.
+  2. **Saving a new duration in the timer dialog replaces a running or paused countdown**
+     (`TimerCommands.apply_config`): the countdown starts again at once with the new duration, as a
+     click on a favorite does. A change of sound, volume, plays or automatic stop leaves the countdown
+     alone and applies at the next ringing. `update_config` still only stores (favorites).

@@ -27,7 +27,8 @@ class TimerCommands:
     """Start (also with a favorite's duration), pause, resume, reset, acknowledge, restart, snooze, store.
 
     State commands return ``TIMER_TRANSITION_INVALID`` when the current state does not allow them. A
-    duration stored while the timer runs applies at the next start or reset.
+    new duration saved from the edit dialog replaces a running or paused countdown (``apply_config``,
+    owner decision at the phase 4 review); ``update_config`` only stores.
     """
 
     def __init__(
@@ -151,6 +152,26 @@ class TimerCommands:
         """
         snooze = self._snooze
         return self._engine.change(lambda session, now: session.snooze(now, snooze), TimerTransitionEnum.SNOOZED)
+
+    def apply_config(self, settings: TimerSettings) -> ValidationResult:
+        """Store the settings of the edit dialog; a new duration replaces a running or paused countdown.
+
+        The new countdown starts at once with the new duration. Other changes (sound, volume, plays,
+        automatic stop) leave the countdown alone and apply at the next ringing.
+
+        Args:
+            settings: Edited values.
+
+        Returns:
+            Success, or the rule, write, stop or start failure.
+        """
+        previous = self._engine.settings().duration
+        counting = self._engine.session.state in COUNTING_STATES
+        stored = self.update_config(settings)
+        if stored.is_failure or not counting or settings.duration == previous:
+            return stored
+        _logger.info("Countdown replaced by the new duration")
+        return stored.merge(self.start_with_duration(settings.duration))
 
     def update_config(self, settings: TimerSettings) -> ValidationResult:
         """Store new timer settings (edit dialog).

@@ -1,3 +1,4 @@
+import logging
 from dataclasses import replace
 
 import pytest
@@ -48,7 +49,7 @@ def test_repeat_until_stopped_loops_forever() -> None:
     assert stack.alarm_player.last == SoundPlayback(paths=(CLASSIC,), volume=Volume(65), loops=LOOP_FOREVER)
 
 
-def test_missing_custom_sound_falls_back_to_the_default_with_a_warning(
+def test_missing_custom_sound_falls_back_to_the_default_with_an_error(
     stack: TimerStack, caplog: pytest.LogCaptureFixture
 ) -> None:
     stack.catalog.existing_files.clear()
@@ -56,7 +57,8 @@ def test_missing_custom_sound_falls_back_to_the_default_with_a_warning(
     stack.run_to_ringing()
 
     assert stack.alarm_player.last.paths == (CLASSIC,)
-    assert "Alarm sound (FILE) not found" in caplog.text
+    errors = [record.getMessage() for record in caplog.records if record.levelno == logging.ERROR]
+    assert errors == ["Alarm sound (FILE) not found; falling back"]
     assert CUSTOM not in caplog.text
 
 

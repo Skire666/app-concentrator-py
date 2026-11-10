@@ -32,7 +32,7 @@ class AlarmCoordinator:
     """Subscribes to ``TimerChangedEvent``: plays the alarm sound at zero, stops it when ringing ends.
 
     The sound read at ringing time is used, so a sound changed while the timer runs applies to the next
-    ringing. A sound that cannot be found falls back to ``timer.default_sound`` (WARNING), and the player
+    ringing. A sound that cannot be found falls back to ``timer.default_sound`` (ERROR), and the player
     falls back to the system beep. When no Concentrator window is active and the user setting allows
     it, the taskbar button flashes; nothing is shown in the notification area (ADR-038, ADR-040).
     """

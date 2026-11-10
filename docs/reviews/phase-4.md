@@ -163,6 +163,23 @@ scaling. Steps 1 to 4 are the spec script.
 10. **Built app.** Build with `uv run python scripts/build.py` and repeat steps 1, 3 and 4 with
     `dist\Concentrator\Concentrator.exe`.
 
+## Changes after the review (2026-11-10)
+
+The owner tested the build and reported two problems; both are fixed, each starting with a failing
+test (ADR-040 amendment).
+
+1. **No badge when the timer rang with a deleted MP3** (manual step 2). The fallback to the default
+   sound was logged at WARNING, and the badge counts ERROR and CRITICAL only. A sound that cannot be
+   found is now logged at ERROR, for the alarm and the chime.
+2. **A new duration saved while a countdown ran left the old countdown going** (the phase 2 rule "a new
+   duration applies at the next start or reset"). Saving a new duration now resets the countdown and
+   starts it at once with the new duration, from running or paused; the right button shows Pause
+   again. A change of sound or volume alone keeps the countdown. The note of the dialog says so.
+
+Manual checks to redo: step 2 above, and in the timer dialog, while a countdown runs: change the
+duration and Save (the countdown restarts with it), then change only the volume and Save (the
+countdown goes on).
+
 ## Open questions
 
 1. **Error rows** are bold in the highlight color of the Windows palette (blue by default), since
