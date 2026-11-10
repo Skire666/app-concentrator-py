@@ -21,6 +21,7 @@ from concentrator.domain.settings.language_enum import LanguageEnum
 from tests.fakes.app_config_factory import make_storage_section
 from tests.fakes.fake_clock import FakeClock
 from tests.fakes.fake_id_generator import FakeIdGenerator
+from tests.fakes.fake_translator import FakeTranslator
 from tests.fakes.fake_user_data_file import NOT_FOUND, FakeUserDataFile, invalid, report, valid
 from tests.fakes.in_memory_session import InMemorySession
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
@@ -52,7 +53,7 @@ class Setup:
             storage=make_storage_section(),
         )
         ids = FakeIdGenerator()
-        self.defaults = UserDataDefaults(ids, self.clock, DEFAULT_SECTIONS)
+        self.defaults = UserDataDefaults(ids, self.clock, DEFAULT_SECTIONS, FakeTranslator())
         self.commands = StartupCommands(
             file=self.file,
             session=self.session,

@@ -6,11 +6,14 @@ from typing import Self
 
 from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.id_generator_port import IdGeneratorPort
+from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.ports.user_data_session_port import UserDataSessionPort
 from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.user_data import UserData
 from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
+from concentrator.application.todo.todo_defaults import TodoDefaults
+from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
 from concentrator.domain.timer.chime_settings import ChimeSettings
@@ -20,10 +23,15 @@ from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
 from concentrator.domain.timer.timer_preset import TimerPreset, TimerPresetId
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 from concentrator.domain.timer.timer_settings import TimerSettings
+from concentrator.domain.todo.priority_enum import PriorityEnum
+from concentrator.domain.todo.task_list import TaskList, TaskListId
+from concentrator.domain.todo.task_lists_collection import FIRST_POSITION, TaskListsCollection
+from concentrator.domain.todo.tasks_collection import TasksCollection
 
 _logger = logging.getLogger(__name__)
 
 AUTO_LABEL = ""
+INBOX_NAME_KEY = "todo.default_list_name"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -36,6 +44,7 @@ class SectionDefaults:
         chime_enabled: Switch of the hourly chime (``chime.default_enabled``).
         chime: Sound, volume and hours of the hourly chime (``[chime]`` defaults).
         settings: General values of new settings (``[settings]`` defaults).
+        list_priority: Priority of the first list (``todo.default_list_priority``).
     """
 
     timer: TimerSettings
@@ -43,15 +52,19 @@ class SectionDefaults:
     chime_enabled: bool
     chime: ChimeSettings
     settings: SettingsDefaults
+    list_priority: PriorityEnum
 
     @classmethod
-    def from_defaults(cls, timer: TimerDefaults, chime: ChimeDefaults, settings: SettingsDefaults) -> Self:
+    def from_defaults(
+        cls, timer: TimerDefaults, chime: ChimeDefaults, settings: SettingsDefaults, todo: TodoDefaults
+    ) -> Self:
         """Gather the defaults of the sections.
 
         Args:
             timer: ``[timer]`` values.
             chime: ``[chime]`` values.
             settings: ``[settings]`` values.
+            todo: ``[todo]`` values.
 
         Returns:
             The section defaults.
@@ -62,6 +75,7 @@ class SectionDefaults:
             chime_enabled=chime.enabled,
             chime=chime.settings,
             settings=settings,
+            list_priority=todo.list_priority,
         )
 
 
@@ -70,20 +84,25 @@ class UserDataDefaults:
 
     Phase 2 added ``[timer]``; phase 3 added the favorites and ``[hourly_chime]``. The favorites are
     seeded only when the file has no ``timer_presets`` key: ``timer_presets = []`` means the user deleted
-    every favorite.
+    every favorite. Phase 5 added the lists and tasks: a file without any list gets an Inbox, named in
+    the current UI language (it is user data afterwards).
     """
 
-    def __init__(self, ids: IdGeneratorPort, clock: ClockPort, sections: SectionDefaults) -> None:
+    def __init__(
+        self, ids: IdGeneratorPort, clock: ClockPort, sections: SectionDefaults, translator: TranslatorPort
+    ) -> None:
         """Create the helper.
 
         Args:
             ids: Ids of the created sections.
             clock: Creation instant of the created sections.
             sections: Content of the created sections.
+            translator: Names the Inbox in the current language.
         """
         self._ids = ids
         self._clock = clock
         self._sections = sections
+        self._translator = translator
 
     def new_settings(self, language: LanguageEnum) -> UserSettings:
         """Settings of a new data file.
@@ -106,7 +125,9 @@ class UserDataDefaults:
         Returns:
             The data with every section.
         """
-        return UserData.initial(settings, self._new_timer(), self._new_presets(), self._new_chime())
+        return UserData.initial(
+            settings, self._new_timer(), self._new_presets(), self._new_chime(), self._new_task_lists()
+        )
 
     def complete(self, data: UserData) -> UserData:
         """Add the missing sections.
@@ -124,6 +145,10 @@ class UserDataDefaults:
             completed = completed.with_timer_presets(self._new_presets())
         if completed.hourly_chime is None:
             completed = completed.with_hourly_chime(self._new_chime())
+        if not completed.task_lists:
+            completed = completed.with_task_lists(self._new_task_lists())
+        if completed.tasks is None:
+            completed = completed.with_tasks(TasksCollection())
         return completed
 
     def complete_session(self, session: UserDataSessionPort) -> None:
@@ -139,6 +164,8 @@ class UserDataDefaults:
                 "timer": current.timer,
                 "timer_presets": current.timer_presets,
                 "hourly_chime": current.hourly_chime,
+                "task_lists": current.task_lists or None,
+                "tasks": current.tasks,
             }
             missing = [name for name, value in sections.items() if value is None]
             _logger.info("Data file completed with the default sections: %s", ", ".join(missing))
@@ -165,6 +192,22 @@ class UserDataDefaults:
             )
             for position, duration in enumerate(self._sections.presets)
         )
+
+    def _new_task_lists(self) -> TaskListsCollection:
+        """Create the first list (Inbox), named in the current UI language.
+
+        Returns:
+            The lists of a file that has none.
+        """
+        inbox = TaskList.create(
+            TaskListId(self._ids.new_id()),
+            self._clock.now_utc(),
+            name=self._translator.tr(INBOX_NAME_KEY),
+            description=MultilineText(),
+            priority=self._sections.list_priority,
+            position=FIRST_POSITION,
+        )
+        return TaskListsCollection((inbox,))
 
     def _new_chime(self) -> HourlyChime:
         """Create the hourly chime from the defaults.

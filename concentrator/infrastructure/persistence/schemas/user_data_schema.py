@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 from concentrator.infrastructure.persistence.schemas.hourly_chime_schema import HourlyChimeSchema
 from concentrator.infrastructure.persistence.schemas.schema_types import PERSISTENCE_MODEL_CONFIG, UtcTimestamp
+from concentrator.infrastructure.persistence.schemas.task_list_schema import TaskListSchema
+from concentrator.infrastructure.persistence.schemas.task_schema import TaskSchema
 from concentrator.infrastructure.persistence.schemas.timer_config_schema import TimerConfigSchema
 from concentrator.infrastructure.persistence.schemas.timer_preset_schema import TimerPresetSchema
 from concentrator.infrastructure.persistence.schemas.user_settings_schema import UserSettingsSchema
@@ -27,3 +29,5 @@ class UserDataSchema(BaseModel):
     timer: TimerConfigSchema | None = None
     timer_presets: tuple[TimerPresetSchema, ...] | None = None
     hourly_chime: HourlyChimeSchema | None = None
+    task_lists: tuple[TaskListSchema, ...] | None = None
+    tasks: tuple[TaskSchema, ...] | None = None

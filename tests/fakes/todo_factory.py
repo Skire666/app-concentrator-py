@@ -26,6 +26,19 @@ TODO_LIMITS: Final = TodoLimits(
 )
 
 
+def make_spec_list() -> TaskList:
+    """The list of the phase 5 spec example (Work, HIGH, two-line description)."""
+    return TaskList(
+        id=SPEC_LIST_ID,
+        created_at=TODO_CREATED_AT,
+        updated_at=TODO_CREATED_AT,
+        name="Work",
+        description=MultilineText(("Client projects", "and admin")),
+        priority=PriorityEnum.HIGH,
+        position=0,
+    )
+
+
 def make_list(
     name: str, list_id: str = "", priority: PriorityEnum = PriorityEnum.NORMAL, position: int = 0, description: str = ""
 ) -> TaskList:

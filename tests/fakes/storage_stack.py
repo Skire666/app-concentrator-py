@@ -67,7 +67,7 @@ class StorageStack:
             storage=make_storage_section(),
         )
         ids = FakeIdGenerator()
-        defaults = UserDataDefaults(ids, self.clock, DEFAULT_SECTIONS)
+        defaults = UserDataDefaults(ids, self.clock, DEFAULT_SECTIONS, FakeTranslator())
         self.commands = StartupCommands(
             file=self.file,
             session=self.session,

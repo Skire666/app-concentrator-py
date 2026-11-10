@@ -26,6 +26,10 @@ _COLUMN_WIDTHS: Final = (
     f"default_column_widths_px needs {_COLUMN_WIDTH_COUNT} values (time, level, source, thread) "
     f"between {_COLUMN_WIDTH_MIN_PX} and {_COLUMN_WIDTH_MAX_PX} px"
 )
+_TODO_COLUMN_WIDTHS: Final = (
+    f"default_column_widths_px needs {_COLUMN_WIDTH_COUNT} values (state, due, created, updated) "
+    f"between {_COLUMN_WIDTH_MIN_PX} and {_COLUMN_WIDTH_MAX_PX} px"
+)
 _LIST_SEPARATOR: Final = ","
 _SECONDS_PER_MINUTE: Final = 60
 
@@ -41,6 +45,34 @@ type AutoStopSeconds = Annotated[int, Field(ge=1, le=86_400)]
 type NumberList = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^(\d+(\s*,\s*\d+)*)?$")]
 type Volume = Annotated[int, Field(ge=0, le=100)]
 type Hour = Annotated[int, Field(ge=0, le=23)]
+type PriorityName = Literal["LOW", "NORMAL", "HIGH", "URGENT"]
+type SortKeyName = Literal["STATE", "TEXT", "DUE", "CREATED", "UPDATED"]
+
+
+def number_list(text: str) -> tuple[int, ...]:
+    """Read a comma-separated list of integers (already checked by ``NumberList``).
+
+    Args:
+        text: Value of the key.
+
+    Returns:
+        The numbers, in order.
+    """
+    return tuple(int(part) for part in text.split(_LIST_SEPARATOR) if part.strip())
+
+
+def _valid_column_widths(widths: tuple[int, ...]) -> bool:
+    """Tell whether a list of column widths has four values within the allowed range.
+
+    Args:
+        widths: Widths in pixels.
+
+    Returns:
+        Whether they are valid.
+    """
+    return len(widths) == _COLUMN_WIDTH_COUNT and all(
+        _COLUMN_WIDTH_MIN_PX <= width <= _COLUMN_WIDTH_MAX_PX for width in widths
+    )
 
 
 class AppSectionSchema(BaseModel):
@@ -191,6 +223,28 @@ class ChimeSectionSchema(BaseModel):
         return self
 
 
+class TodoSectionSchema(BaseModel):
+    """``[todo]``."""
+
+    model_config = _STRICT
+
+    max_task_text_length: Annotated[int, Field(ge=1, le=100_000)]
+    max_list_name_length: Annotated[int, Field(ge=1, le=500)]
+    max_list_description_length: Annotated[int, Field(ge=0, le=100_000)]
+    max_history_events: Annotated[int, Field(ge=1, le=1_000)]
+    default_list_priority: PriorityName
+    default_sort: SortKeyName
+    default_sort_descending: bool
+    default_table_ratio_percent: Annotated[int, Field(ge=20, le=95)]
+    default_column_widths_px: NumberList
+
+    @model_validator(mode="after")
+    def _check_column_widths(self) -> Self:
+        if not _valid_column_widths(number_list(self.default_column_widths_px)):
+            raise ValueError(_TODO_COLUMN_WIDTHS)
+        return self
+
+
 class LoggingSectionSchema(BaseModel):
     """``[logging]``."""
 
@@ -219,14 +273,11 @@ class JournalSectionSchema(BaseModel):
         Returns:
             The widths, in column order.
         """
-        return tuple(int(part) for part in self.default_column_widths_px.split(_LIST_SEPARATOR) if part.strip())
+        return number_list(self.default_column_widths_px)
 
     @model_validator(mode="after")
     def _check_column_widths(self) -> Self:
-        widths = self.column_widths()
-        if len(widths) != _COLUMN_WIDTH_COUNT:
-            raise ValueError(_COLUMN_WIDTHS)
-        if any(not _COLUMN_WIDTH_MIN_PX <= width <= _COLUMN_WIDTH_MAX_PX for width in widths):
+        if not _valid_column_widths(self.column_widths()):
             raise ValueError(_COLUMN_WIDTHS)
         return self
 
@@ -260,6 +311,7 @@ class AppConfigSchema(BaseModel):
     storage: StorageSectionSchema
     timer: TimerSectionSchema
     chime: ChimeSectionSchema
+    todo: TodoSectionSchema
     logging: LoggingSectionSchema
     journal: JournalSectionSchema
     settings: SettingsSectionSchema

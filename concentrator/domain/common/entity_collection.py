@@ -1,6 +1,6 @@
 """Immutable group of entities indexed by id: base class of every ``*Collection``."""
 
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Collection, Iterable, Iterator
 from typing import TYPE_CHECKING, Final, Self, override
 
 from concentrator.domain.common.data_result import DataResult
@@ -133,6 +133,34 @@ class EntityCollection[E: Identified]:
         if position is None:
             return DataResult.fail(ValidationResult.failure(ErrorCodeEnum.ENTITY_NOT_FOUND, field=ID_FIELD))
         return DataResult.ok(self._with_items((*self._items[:position], *self._items[position + 1 :])))
+
+    def with_replaced_all(self, entities: Iterable[E]) -> DataResult[Self]:
+        """Replace several entities at once, all or nothing, keeping their positions.
+
+        Args:
+            entities: New versions of existing entities.
+
+        Returns:
+            The new collection, or ``ENTITY_NOT_FOUND`` when one of them does not exist (nothing changed).
+        """
+        changes = {entity.id: entity for entity in entities}
+        if any(not self.contains(entity_id) for entity_id in changes):
+            return DataResult.fail(ValidationResult.failure(ErrorCodeEnum.ENTITY_NOT_FOUND, field=ID_FIELD))
+        return DataResult.ok(self._with_items(changes.get(item.id, item) for item in self._items))
+
+    def without_all(self, entity_ids: Collection[str]) -> DataResult[Self]:
+        """Remove several entities at once, all or nothing.
+
+        Args:
+            entity_ids: Ids of the entities to remove.
+
+        Returns:
+            The new collection, or ``ENTITY_NOT_FOUND`` when one of them does not exist (nothing changed).
+        """
+        if any(not self.contains(entity_id) for entity_id in entity_ids):
+            return DataResult.fail(ValidationResult.failure(ErrorCodeEnum.ENTITY_NOT_FOUND, field=ID_FIELD))
+        removed = set(entity_ids)
+        return DataResult.ok(self._with_items(item for item in self._items if item.id not in removed))
 
     def filtered(self, predicate: Callable[[E], bool]) -> Self:
         """Keep the entities matching a predicate, in order.

@@ -13,6 +13,7 @@ from concentrator.domain.timer.sound_ref import SoundRef
 from concentrator.domain.timer.timer_preset import TimerPreset, TimerPresetId
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 from concentrator.domain.timer.volume import Volume
+from concentrator.domain.todo.priority_enum import PriorityEnum
 from tests.fakes.timer_factory import DEFAULT_SETTINGS
 
 EXTRAS_CREATED_AT: Final = datetime(2026, 11, 6, 16, 40, tzinfo=UTC)
@@ -28,6 +29,7 @@ DEFAULT_SECTIONS: Final = SectionDefaults(
     chime_enabled=False,
     chime=DEFAULT_CHIME_SETTINGS,
     settings=SettingsDefaults(log_level=LogLevelEnum.INFO, notify_when_inactive=True),
+    list_priority=PriorityEnum.NORMAL,
 )
 
 

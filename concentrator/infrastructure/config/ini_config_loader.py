@@ -19,6 +19,7 @@ from concentrator.application.common.app_config import (
     SettingsSection,
     StorageSection,
     TimerSection,
+    TodoSection,
     UiSection,
 )
 from concentrator.domain.common.data_result import DataResult
@@ -28,6 +29,8 @@ from concentrator.domain.common.validation_issue import ValidationIssue
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.log_level_enum import LogLevelEnum
+from concentrator.domain.todo.priority_enum import PriorityEnum
+from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
 from concentrator.infrastructure.config.app_config_schema import (
     AppConfigSchema,
     JournalSectionSchema,
@@ -35,6 +38,8 @@ from concentrator.infrastructure.config.app_config_schema import (
     PathsSectionSchema,
     SettingsSectionSchema,
     TimerSectionSchema,
+    TodoSectionSchema,
+    number_list,
 )
 from concentrator.infrastructure.system.app_paths import AppPaths
 
@@ -47,6 +52,8 @@ _ERROR_TYPE_CODES: Final = {
 _PATH_KEYS: Final = ("default_data_file", "ui_state_file", "log_dir", "backup_dir")
 _PRESETS_KEY: Final = "default_presets_minutes"
 _COLUMN_WIDTHS_KEY: Final = "default_column_widths_px"
+_PRIORITY_KEY: Final = "default_list_priority"
+_SORT_KEY: Final = "default_sort"
 
 
 def _issue_from_error(error: ErrorDetails) -> ValidationIssue:
@@ -104,6 +111,24 @@ def _journal_section(section: JournalSectionSchema) -> JournalSection:
     """
     return JournalSection(
         **section.model_dump(exclude={_COLUMN_WIDTHS_KEY}), default_column_widths_px=section.column_widths()
+    )
+
+
+def _todo_section(section: TodoSectionSchema) -> TodoSection:
+    """Map ``[todo]``, turning the names into members and the column widths into integers.
+
+    Args:
+        section: Validated DTO.
+
+    Returns:
+        The section.
+    """
+    names = {_PRIORITY_KEY, _SORT_KEY, _COLUMN_WIDTHS_KEY}
+    return TodoSection(
+        **section.model_dump(exclude=names),
+        default_list_priority=PriorityEnum[section.default_list_priority],
+        default_sort=TaskSortKeyEnum[section.default_sort],
+        default_column_widths_px=number_list(section.default_column_widths_px),
     )
 
 
@@ -199,6 +224,7 @@ class IniConfigLoader:
                 storage=StorageSection(**schema.storage.model_dump()),
                 timer=_timer_section(schema.timer),
                 chime=ChimeSection(**schema.chime.model_dump()),
+                todo=_todo_section(schema.todo),
                 logging=_logging_section(schema.logging),
                 journal=_journal_section(schema.journal),
                 settings=_settings_section(schema.settings),

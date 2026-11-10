@@ -1,6 +1,8 @@
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from concentrator.application.common.event_bus import EventBus
 from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.save_coordinator import SaveCoordinator
@@ -11,6 +13,7 @@ from concentrator.application.storage.user_data import StoredUserData
 from concentrator.application.storage.user_data_defaults import SectionDefaults, UserDataDefaults
 from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
+from concentrator.application.todo.todo_defaults import TodoDefaults
 from concentrator.domain.settings.general_settings import GeneralSettings
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.log_level_enum import LogLevelEnum
@@ -21,14 +24,19 @@ from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
 from concentrator.domain.timer.timer_limits import TimerLimits
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 from concentrator.domain.timer.volume import Volume
+from concentrator.domain.todo.priority_enum import PriorityEnum
+from concentrator.domain.todo.task_lists_collection import TaskListsCollection
+from concentrator.domain.todo.tasks_collection import TasksCollection
 from tests.fakes.app_config_factory import (
     make_chime_section,
     make_settings_section,
     make_storage_section,
     make_timer_section,
+    make_todo_section,
 )
 from tests.fakes.fake_clock import FakeClock
 from tests.fakes.fake_id_generator import FakeIdGenerator
+from tests.fakes.fake_translator import FakeTranslator
 from tests.fakes.fake_user_data_file import FakeUserDataFile, report, valid
 from tests.fakes.in_memory_session import InMemorySession
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
@@ -66,7 +74,7 @@ def test_timer_defaults_come_from_the_ini_section() -> None:
 
 
 def _defaults(clock: FakeClock | None = None) -> UserDataDefaults:
-    return UserDataDefaults(FakeIdGenerator("timer"), clock or FakeClock(), DEFAULT_SECTIONS)
+    return UserDataDefaults(FakeIdGenerator("timer"), clock or FakeClock(), DEFAULT_SECTIONS, FakeTranslator())
 
 
 def test_initial_data_has_a_timer_from_the_defaults() -> None:
@@ -101,7 +109,9 @@ def test_section_defaults_gather_the_ini_values() -> None:
 
     settings = SettingsDefaults.from_section(make_settings_section(default_log_level=LogLevelEnum.DEBUG))
 
-    sections = SectionDefaults.from_defaults(timer, chime, settings)
+    todo = TodoDefaults.from_section(make_todo_section(default_list_priority=PriorityEnum.HIGH))
+
+    sections = SectionDefaults.from_defaults(timer, chime, settings, todo)
 
     assert sections == SectionDefaults(
         timer=timer.settings,
@@ -109,6 +119,7 @@ def test_section_defaults_gather_the_ini_values() -> None:
         chime_enabled=True,
         chime=DEFAULT_CHIME_SETTINGS,
         settings=SettingsDefaults(log_level=LogLevelEnum.DEBUG, notify_when_inactive=True),
+        list_priority=PriorityEnum.HIGH,
     )
 
 
@@ -151,6 +162,27 @@ def test_complete_keeps_a_complete_file_as_it_is() -> None:
     data = make_user_data()
 
     assert _defaults().complete(data) is data
+
+
+def test_initial_data_has_an_inbox_named_in_the_current_language_and_no_task() -> None:
+    clock = FakeClock()
+
+    data = _defaults(clock).initial(make_settings())
+
+    assert data.task_lists is not None
+    assert [(item.name, item.priority, item.position, item.created_at) for item in data.task_lists] == [
+        ("en:todo.default_list_name", PriorityEnum.NORMAL, 0, clock.now_utc())
+    ]
+    assert data.tasks == TasksCollection()
+
+
+@pytest.mark.parametrize("lists", [None, TaskListsCollection()])
+def test_complete_adds_an_inbox_when_the_file_has_no_list(lists: TaskListsCollection | None) -> None:
+    completed = _defaults().complete(replace(make_user_data(), task_lists=lists, tasks=None))
+
+    assert completed.task_lists is not None
+    assert [item.name for item in completed.task_lists] == ["en:todo.default_list_name"]
+    assert completed.tasks == TasksCollection()
 
 
 def test_complete_session_publishes_a_change_only_when_a_section_was_added() -> None:

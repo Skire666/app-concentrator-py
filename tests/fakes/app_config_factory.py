@@ -15,10 +15,13 @@ from concentrator.application.common.app_config import (
     SettingsSection,
     StorageSection,
     TimerSection,
+    TodoSection,
     UiSection,
 )
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.log_level_enum import LogLevelEnum
+from concentrator.domain.todo.priority_enum import PriorityEnum
+from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
 
 
 def make_ui_section(**changes: int | str) -> UiSection:
@@ -99,6 +102,21 @@ def make_journal_section(**changes: int | tuple[int, ...]) -> JournalSection:
     return replace(section, **changes)
 
 
+def make_todo_section(**changes: object) -> TodoSection:
+    section = TodoSection(
+        max_task_text_length=5000,
+        max_list_name_length=80,
+        max_list_description_length=2000,
+        max_history_events=10,
+        default_list_priority=PriorityEnum.NORMAL,
+        default_sort=TaskSortKeyEnum.CREATED,
+        default_sort_descending=True,
+        default_table_ratio_percent=75,
+        default_column_widths_px=(60, 140, 140, 140),
+    )
+    return replace(section, **changes)
+
+
 def make_settings_section(**changes: LogLevelEnum | bool) -> SettingsSection:
     section = SettingsSection(default_log_level=LogLevelEnum.INFO, default_notify_when_inactive=True)
     return replace(section, **changes)
@@ -111,6 +129,7 @@ def make_app_config(
     timer: TimerSection | None = None,
     chime: ChimeSection | None = None,
     journal: JournalSection | None = None,
+    todo: TodoSection | None = None,
 ) -> AppConfig:
     return AppConfig(
         app=AppSection(
@@ -130,6 +149,7 @@ def make_app_config(
         storage=storage or make_storage_section(),
         timer=timer or make_timer_section(),
         chime=chime or make_chime_section(),
+        todo=todo or make_todo_section(),
         logging=LoggingSection(
             level=logging.INFO,
             file_name="concentrator.log",

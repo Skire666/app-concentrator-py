@@ -1,7 +1,7 @@
 """``CONCENTRATOR_SELF_CHECK=1``: validates a (frozen) installation without showing a window."""
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Final
 
@@ -12,13 +12,21 @@ from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.user_data import StoredUserData, UserData, UserDataLimits
 from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
+from concentrator.application.todo.todo_defaults import TodoDefaults
 from concentrator.bootstrap.translator_loader import CATALOG_LANGUAGES
+from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
 from concentrator.domain.timer.hourly_chime import HourlyChime, HourlyChimeId
 from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
 from concentrator.domain.timer.timer_preset import TimerPreset, TimerPresetId
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
+from concentrator.domain.todo.task import Task, TaskId
+from concentrator.domain.todo.task_draft import TaskDraft
+from concentrator.domain.todo.task_event_kind_enum import TaskEventKindEnum
+from concentrator.domain.todo.task_list import TaskList, TaskListId
+from concentrator.domain.todo.task_lists_collection import TaskListsCollection
+from concentrator.domain.todo.tasks_collection import TasksCollection
 from concentrator.infrastructure.i18n.json_catalog_translator import CATALOG_SUFFIX, load_catalogs
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
 from concentrator.infrastructure.qt.qt_sound_player import MP3_MIME_TYPE, decodable_mime_types
@@ -35,6 +43,10 @@ ROUND_TRIP_TIMER_ID: Final = TimerConfigId("00000000-0000-7000-8000-000000000001
 ROUND_TRIP_CHIME_ID: Final = HourlyChimeId("00000000-0000-7000-8000-000000000002")
 ROUND_TRIP_PRESET_ID: Final = "00000000-0000-7000-8001-{index:012d}"
 ROUND_TRIP_TIME: Final = datetime(2026, 1, 1, tzinfo=UTC)
+ROUND_TRIP_LIST_ID: Final = TaskListId("00000000-0000-7000-8000-000000000003")
+ROUND_TRIP_TASK_ID: Final = TaskId("00000000-0000-7000-8000-000000000004")
+ROUND_TRIP_TEXT: Final = ("Self-check task", "l'arborescence D:/Projets et https://example.org/?q='x'")
+ROUND_TRIP_DUE: Final = (date(2026, 1, 2), time(14, 30))
 
 
 def _required_files(paths: AppPaths, config: AppConfig) -> list[Path]:
@@ -85,13 +97,16 @@ def _svg_failures(paths: AppPaths) -> list[str]:
     ]
 
 
-def _round_trip_data(timer: TimerDefaults, chime: ChimeDefaults, defaults: SettingsDefaults) -> UserData:
+def _round_trip_data(
+    timer: TimerDefaults, chime: ChimeDefaults, defaults: SettingsDefaults, todo: TodoDefaults
+) -> UserData:
     """Content of a new data file with every section, built from the ini defaults.
 
     Args:
         timer: ``[timer]`` values (configuration and favorites).
         chime: ``[chime]`` values.
         defaults: ``[settings]`` values.
+        todo: ``[todo]`` values.
 
     Returns:
         The data.
@@ -111,7 +126,46 @@ def _round_trip_data(timer: TimerDefaults, chime: ChimeDefaults, defaults: Setti
     hourly_chime = HourlyChime.create(
         ROUND_TRIP_CHIME_ID, ROUND_TRIP_TIME, enabled=chime.enabled, settings=chime.settings
     )
-    return UserData.initial(settings, timer_config, presets, hourly_chime)
+    data = UserData.initial(settings, timer_config, presets, hourly_chime, _round_trip_lists(todo))
+    return data.with_tasks(_round_trip_tasks(todo))
+
+
+def _round_trip_lists(todo: TodoDefaults) -> TaskListsCollection:
+    """One list with a two-line description.
+
+    Args:
+        todo: ``[todo]`` values.
+
+    Returns:
+        The lists.
+    """
+    task_list = TaskList.create(
+        ROUND_TRIP_LIST_ID,
+        ROUND_TRIP_TIME,
+        name="Inbox",
+        description=MultilineText(ROUND_TRIP_TEXT),
+        priority=todo.list_priority,
+        position=0,
+    )
+    return TaskListsCollection((task_list,))
+
+
+def _round_trip_tasks(todo: TodoDefaults) -> TasksCollection:
+    """One completed task with a due date and time, apostrophes and a history of two events.
+
+    Args:
+        todo: ``[todo]`` values.
+
+    Returns:
+        The tasks.
+    """
+    due_date, due_time = ROUND_TRIP_DUE
+    draft = TaskDraft(
+        list_id=ROUND_TRIP_LIST_ID, text=MultilineText(ROUND_TRIP_TEXT), due_date=due_date, due_time=due_time
+    )
+    task = Task.create(ROUND_TRIP_TASK_ID, ROUND_TRIP_TIME, draft)
+    done = task.transitioned(TaskEventKindEnum.COMPLETED, ROUND_TRIP_TIME, todo.limits.max_history_events)
+    return TasksCollection((done.value_or(task),))
 
 
 def storage_failures(app_version: str, config: AppConfig) -> list[str]:
@@ -128,8 +182,9 @@ def storage_failures(app_version: str, config: AppConfig) -> list[str]:
     """
     timer = TimerDefaults.from_section(config.timer)
     settings = SettingsDefaults.from_section(config.settings)
-    codec = UserDataCodec(app_version, UserDataLimits(timer=timer.limits, settings=settings))
-    data = _round_trip_data(timer, ChimeDefaults.from_section(config.chime), settings)
+    todo = TodoDefaults.from_section(config.todo)
+    codec = UserDataCodec(app_version, UserDataLimits(timer=timer.limits, settings=settings, todo=todo.limits))
+    data = _round_trip_data(timer, ChimeDefaults.from_section(config.chime), settings, todo)
     stored = StoredUserData(data=data, saved_at=ROUND_TRIP_TIME)
     decoded = codec.decode(codec.encode(stored))
     if decoded.data == stored:

@@ -6,7 +6,7 @@ The nine data operations are implemented once here. An aggregate specializes the
 """
 
 import copy
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import Protocol, override
 
@@ -133,6 +133,38 @@ class StoreCollectionWriter[E: BusinessCopyable](EntityWriterPort[E]):
             return DataResult.fail(found.validation.merge(remaining.validation))
         self._slot.write(remaining.data)
         return DataResult.ok(found.data)
+
+    def update_many(self, entities: Sequence[E]) -> DataResult[tuple[E, ...]]:
+        """Replace several entities in one write, all or nothing.
+
+        Args:
+            entities: New versions of existing entities.
+
+        Returns:
+            The entities, or ``ENTITY_NOT_FOUND`` (nothing written).
+        """
+        replaced = self._slot.read().with_replaced_all(entities)
+        if replaced.data is None:
+            return DataResult.fail(replaced.validation)
+        self._slot.write(replaced.data)
+        return DataResult.ok(tuple(entities))
+
+    def delete_many(self, entity_ids: Sequence[str]) -> DataResult[tuple[E, ...]]:
+        """Remove several entities in one write, all or nothing.
+
+        Args:
+            entity_ids: Ids of the entities to remove.
+
+        Returns:
+            The removed entities, or ``ENTITY_NOT_FOUND`` (nothing written).
+        """
+        collection = self._slot.read()
+        remaining = collection.without_all(entity_ids)
+        if remaining.data is None:
+            return DataResult.fail(remaining.validation)
+        removed = set(entity_ids)
+        self._slot.write(remaining.data)
+        return DataResult.ok(tuple(item for item in collection if item.id in removed))
 
     @override
     def copy_business(self, entity_id: str, new_id: str, now: datetime) -> DataResult[E]:

@@ -10,6 +10,9 @@ from concentrator.domain.timer.hourly_chime import HourlyChime
 from concentrator.domain.timer.timer_config import TimerConfig
 from concentrator.domain.timer.timer_limits import TimerLimits
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
+from concentrator.domain.todo.task_lists_collection import TaskListsCollection
+from concentrator.domain.todo.tasks_collection import TasksCollection
+from concentrator.domain.todo.todo_limits import TodoLimits
 
 CURRENT_SCHEMA_VERSION: Final = 1
 
@@ -28,6 +31,9 @@ class UserData:
         timer_presets: Favorites (``[[timer_presets]]``, phase 3); ``None`` when the file has no
             ``timer_presets`` key, an empty collection when the user deleted every favorite.
         hourly_chime: Hourly chime (``[hourly_chime]``, phase 3).
+        task_lists: TODO lists (``[[task_lists]]``, phase 5); ``None`` or empty until the first list
+            (Inbox) is created.
+        tasks: Tasks of every list (``[[tasks]]``, phase 5).
     """
 
     schema_version: int
@@ -35,6 +41,8 @@ class UserData:
     timer: TimerConfig | None = None
     timer_presets: TimerPresetsCollection | None = None
     hourly_chime: HourlyChime | None = None
+    task_lists: TaskListsCollection | None = None
+    tasks: TasksCollection | None = None
 
     @classmethod
     def initial(
@@ -43,6 +51,7 @@ class UserData:
         timer: TimerConfig,
         timer_presets: TimerPresetsCollection,
         hourly_chime: HourlyChime,
+        task_lists: TaskListsCollection,
     ) -> Self:
         """Content of a new data file.
 
@@ -51,6 +60,7 @@ class UserData:
             timer: Timer configuration of the new file.
             timer_presets: Favorites of the new file.
             hourly_chime: Hourly chime of the new file.
+            task_lists: Lists of the new file (the Inbox).
 
         Returns:
             The data, at the current schema version.
@@ -61,6 +71,8 @@ class UserData:
             timer=timer,
             timer_presets=timer_presets,
             hourly_chime=hourly_chime,
+            task_lists=task_lists,
+            tasks=TasksCollection(),
         )
 
     def with_settings(self, settings: UserSettings) -> Self:
@@ -107,6 +119,28 @@ class UserData:
         """
         return replace(self, hourly_chime=hourly_chime)
 
+    def with_task_lists(self, task_lists: TaskListsCollection) -> Self:
+        """Return a copy with other lists.
+
+        Args:
+            task_lists: New lists.
+
+        Returns:
+            The changed data.
+        """
+        return replace(self, task_lists=task_lists)
+
+    def with_tasks(self, tasks: TasksCollection) -> Self:
+        """Return a copy with other tasks.
+
+        Args:
+            tasks: New tasks.
+
+        Returns:
+            The changed data.
+        """
+        return replace(self, tasks=tasks)
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class UserDataLimits:
@@ -115,10 +149,12 @@ class UserDataLimits:
     Attributes:
         timer: Bounds of the timer configuration and of the favorites, applied by the domain rules.
         settings: Values of the ``[settings]`` keys that a file written before phase 4 does not have.
+        todo: Bounds of the lists and tasks, applied by the domain rules.
     """
 
     timer: TimerLimits
     settings: SettingsDefaults
+    todo: TodoLimits
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

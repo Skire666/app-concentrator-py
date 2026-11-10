@@ -9,6 +9,8 @@ from pathlib import Path
 
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.log_level_enum import LogLevelEnum
+from concentrator.domain.todo.priority_enum import PriorityEnum
+from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -101,6 +103,21 @@ class ChimeSection:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class TodoSection:
+    """``[todo]``: limits of the lists and tasks, defaults of the TODO manager (zone 1)."""
+
+    max_task_text_length: int
+    max_list_name_length: int
+    max_list_description_length: int
+    max_history_events: int
+    default_list_priority: PriorityEnum
+    default_sort: TaskSortKeyEnum
+    default_sort_descending: bool
+    default_table_ratio_percent: int
+    default_column_widths_px: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class LoggingSection:
     """``[logging]``: log level, rotating file and journal buffer."""
 
@@ -147,6 +164,7 @@ class AppConfig:
     storage: StorageSection
     timer: TimerSection
     chime: ChimeSection
+    todo: TodoSection
     logging: LoggingSection
     journal: JournalSection
     settings: SettingsSection

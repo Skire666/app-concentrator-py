@@ -3,10 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from concentrator.application.common.app_config import ChimeSection, JournalSection, SettingsSection
+from concentrator.application.common.app_config import ChimeSection, JournalSection, SettingsSection, TodoSection
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.log_level_enum import LogLevelEnum
+from concentrator.domain.todo.priority_enum import PriorityEnum
+from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
 from concentrator.infrastructure.config.ini_config_loader import IniConfigLoader
 from concentrator.infrastructure.system.app_paths import AppPaths
 
@@ -76,6 +78,17 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
         default_column_widths_px=(110, 90, 240, 120),
     )
     assert config.settings == SettingsSection(default_log_level=LogLevelEnum.INFO, default_notify_when_inactive=True)
+    assert config.todo == TodoSection(
+        max_task_text_length=5000,
+        max_list_name_length=80,
+        max_list_description_length=2000,
+        max_history_events=10,
+        default_list_priority=PriorityEnum.NORMAL,
+        default_sort=TaskSortKeyEnum.CREATED,
+        default_sort_descending=True,
+        default_table_ratio_percent=75,
+        default_column_widths_px=(60, 140, 140, 140),
+    )
 
 
 def test_missing_file_is_reported(paths: AppPaths, tmp_path: Path) -> None:
@@ -180,6 +193,14 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
             "journal.default_column_widths_px",
         ),
         ("default_log_level = INFO", "default_log_level = 2", "settings.default_log_level"),
+        ("max_task_text_length = 5000", "max_task_text_length = 0", "todo.max_task_text_length"),
+        ("max_list_name_length = 80", "max_list_name_length = 501", "todo.max_list_name_length"),
+        ("max_history_events = 10", "max_history_events = 0", "todo.max_history_events"),
+        ("default_list_priority = NORMAL", "default_list_priority = MEDIUM", "todo.default_list_priority"),
+        ("default_sort = CREATED", "default_sort = NAME", "todo.default_sort"),
+        ("default_sort_descending = true", "default_sort_descending = 2", "todo.default_sort_descending"),
+        ("default_column_widths_px = 60, 140, 140, 140", "default_column_widths_px = 60, 140", "todo"),
+        ("default_column_widths_px = 60, 140, 140, 140", "default_column_widths_px = 60, 140, 140, 9", "todo"),
         (
             "default_notify_when_inactive = true",
             "default_notify_when_inactive = 2",

@@ -23,7 +23,7 @@ def test_encode_writes_exactly_the_spec_example() -> None:
 def test_encode_converts_a_non_utc_saved_at_and_drops_nothing_else() -> None:
     text = CODEC.encode(make_stored(saved_at=datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)))
 
-    assert text.endswith("end_hour = 20\n")
+    assert text.endswith("position = 0\n")
     assert "\r" not in text
     assert text.startswith("# Concentrator user data. Schema version 1.\n")
 
@@ -105,7 +105,7 @@ def test_invalid_content_is_reported_per_field(old: str, new: str, code: ErrorCo
 
 
 def test_newer_schema_version_is_refused_before_validation() -> None:
-    result = CODEC.decode(_edited("schema_version = 1\n", "schema_version = 2\ntasks = []\n"))
+    result = CODEC.decode(_edited("schema_version = 1\n", "schema_version = 2\nfuture_section = []\n"))
 
     assert result.validation.error_codes == (ErrorCodeEnum.STORAGE_SCHEMA_VERSION_UNSUPPORTED,)
     assert result.validation.severity is SeverityEnum.CRITICAL

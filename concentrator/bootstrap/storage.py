@@ -20,6 +20,7 @@ from concentrator.application.storage.user_data import UserDataLimits
 from concentrator.application.storage.user_data_defaults import SectionDefaults, UserDataDefaults
 from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
+from concentrator.application.todo.todo_defaults import TodoDefaults
 from concentrator.bootstrap.core import Core
 from concentrator.infrastructure.logging.logging_control import LoggingControl
 from concentrator.infrastructure.persistence.store_user_settings import StoreUserSettingsReader, StoreUserSettingsWriter
@@ -78,7 +79,11 @@ def _data_file(
     Returns:
         The adapter.
     """
-    limits = UserDataLimits(timer=timer.limits, settings=SettingsDefaults.from_section(config.settings))
+    limits = UserDataLimits(
+        timer=timer.limits,
+        settings=SettingsDefaults.from_section(config.settings),
+        todo=TodoDefaults.from_section(config.todo).limits,
+    )
     return TomlUserDataFile(
         codec=UserDataCodec(app_version, limits),
         writer=writer,
@@ -120,20 +125,24 @@ def _startup_commands(
     )
 
 
-def _user_data_defaults(core: Core, config: AppConfig, timer: TimerDefaults, chime: ChimeDefaults) -> UserDataDefaults:
+def _user_data_defaults(core: Core, config: AppConfig, translator: TranslatorPort) -> UserDataDefaults:
     """Create the builder of new and completed data files.
 
     Args:
         core: Main-thread services (ids and clock).
-        config: Loaded configuration (``[settings]`` values).
-        timer: ``[timer]`` values.
-        chime: ``[chime]`` values.
+        config: Loaded configuration (``[timer]``, ``[chime]``, ``[settings]`` and ``[todo]`` values).
+        translator: Names the Inbox in the current language.
 
     Returns:
         The builder.
     """
-    settings = SettingsDefaults.from_section(config.settings)
-    return UserDataDefaults(core.ids, core.clock, SectionDefaults.from_defaults(timer, chime, settings))
+    sections = SectionDefaults.from_defaults(
+        TimerDefaults.from_section(config.timer),
+        ChimeDefaults.from_section(config.chime),
+        SettingsDefaults.from_section(config.settings),
+        TodoDefaults.from_section(config.todo),
+    )
+    return UserDataDefaults(core.ids, core.clock, sections, translator)
 
 
 def build_storage(
@@ -161,7 +170,7 @@ def build_storage(
     )
     queries, hint, switcher = _settings_side(core, store, translator)
     startup, external, data_files = _file_use_cases(
-        core, config, (file, store, coordinator), _user_data_defaults(core, config, timer_defaults, chime_defaults)
+        core, config, (file, store, coordinator), _user_data_defaults(core, config, translator)
     )
     return Storage(
         writer=writer,

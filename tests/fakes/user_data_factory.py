@@ -9,15 +9,17 @@ from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.log_level_enum import LogLevelEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
 from concentrator.domain.timer.timer_config import TimerConfig
+from concentrator.domain.todo.task_lists_collection import TaskListsCollection
 from tests.fakes.timer_extras_factory import make_chime, make_spec_presets
 from tests.fakes.timer_factory import LIMITS, make_timer_config
+from tests.fakes.todo_factory import TODO_LIMITS, make_spec_list
 
 SETTINGS_ID: Final = UserSettingsId("019a5c1e-7a40-7c3e-9d5a-1f2b3c4d5e6f")
 CREATED_AT: Final = datetime(2026, 11, 6, 16, 40, tzinfo=UTC)
 UPDATED_AT: Final = datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)
 SAVED_AT: Final = datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)
 SETTINGS_DEFAULTS: Final = SettingsDefaults(log_level=LogLevelEnum.INFO, notify_when_inactive=True)
-USER_DATA_LIMITS: Final = UserDataLimits(timer=LIMITS, settings=SETTINGS_DEFAULTS)
+USER_DATA_LIMITS: Final = UserDataLimits(timer=LIMITS, settings=SETTINGS_DEFAULTS, todo=TODO_LIMITS)
 
 SPEC_EXAMPLE_TEXT: Final = """\
 # Concentrator user data. Schema version 1.
@@ -25,6 +27,7 @@ SPEC_EXAMPLE_TEXT: Final = """\
 schema_version = 1
 saved_at = '2026-11-06T16:44:03Z'
 app_version = '0.1.0'
+tasks = []
 
 [settings]
 id = '019a5c1e-7a40-7c3e-9d5a-1f2b3c4d5e6f'
@@ -63,6 +66,18 @@ sound = { kind = 1, value = 'chime' }
 volume = 60
 start_hour = 8
 end_hour = 20
+
+[[task_lists]]
+id = '019a5c21-aaaa-7bbb-8ccc-3e4f5a6b7c8d'
+created_at = '2026-11-06T16:41:00Z'
+updated_at = '2026-11-06T16:41:00Z'
+name = 'Work'
+description = [
+  'Client projects',
+  'and admin',
+]
+priority = 3
+position = 0
 """
 
 
@@ -83,7 +98,13 @@ def make_settings(
 
 
 def make_user_data(language: LanguageEnum = LanguageEnum.FRENCH, timer: TimerConfig | None = None) -> UserData:
-    return UserData.initial(make_settings(language), timer or make_timer_config(), make_spec_presets(), make_chime())
+    return UserData.initial(
+        make_settings(language),
+        timer or make_timer_config(),
+        make_spec_presets(),
+        make_chime(),
+        TaskListsCollection((make_spec_list(),)),
+    )
 
 
 def make_stored(language: LanguageEnum = LanguageEnum.FRENCH, saved_at: datetime = SAVED_AT) -> StoredUserData:
