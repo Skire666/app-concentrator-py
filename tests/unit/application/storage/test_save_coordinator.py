@@ -399,3 +399,19 @@ def test_stale_result_after_a_newer_save_is_ignored(setup: Setup) -> None:
     setup.file.complete(REPLACE_FAILED)
 
     assert setup.state is SaveStateEnum.SAVED
+
+
+def test_late_result_of_the_previous_file_is_ignored_after_attaching_another(setup: Setup) -> None:
+    setup.attach()
+    setup.session.change()
+    setup.scheduler.advance(500)
+    moved = Path("D:/moved/concentrator.toml")
+
+    setup.coordinator.attach(moved, LATER)
+    setup.file.complete(CHANGED)
+    setup.session.change()
+    setup.scheduler.advance(500)
+
+    assert setup.coordinator.status.path == moved
+    assert setup.state is SaveStateEnum.SAVING
+    assert [save.path for save in setup.file.pending] == [moved]

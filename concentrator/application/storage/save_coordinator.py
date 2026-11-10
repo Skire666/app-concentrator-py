@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Callable
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 from concentrator.application.common.app_config import StorageSection
@@ -70,7 +71,8 @@ class SaveCoordinator:
     One save is in flight at a time; changes made meanwhile are saved right after it. A failed save
     keeps the data in memory and is retried every ``storage.failed_save_retry_ms``, except after
     ``STORAGE_FILE_CHANGED_EXTERNALLY``: then no save is attempted until the user reloads the file or
-    keeps Concentrator's version.
+    keeps Concentrator's version. Each ``attach`` starts a new generation: a late result of a save made
+    for the previous file is ignored.
     """
 
     def __init__(
@@ -97,6 +99,7 @@ class SaveCoordinator:
         self._storage = storage
         self._timers = _SaveTimers(scheduler)
         self._path: Path | None = None
+        self._generation = 0
         self._saved_revision = 0
         self._in_flight: int | None = None
         self._save_again = False
@@ -126,6 +129,7 @@ class SaveCoordinator:
         """
         self._timers.cancel_all()
         self._path = path
+        self._generation += 1
         self._saved_revision = self._session.revision()
         self._in_flight = None
         self._save_again = self._conflict = self._overwrite_next = self._closed = False
@@ -211,15 +215,23 @@ class SaveCoordinator:
         self._in_flight = revision
         self._publish(SaveStateEnum.SAVING, ValidationResult.success(), self._status.saved_at)
         self._file.save_async(
-            path, self._session.current(), revision, self._on_saved, overwrite_external=self._overwrite_next
+            path,
+            self._session.current(),
+            revision,
+            partial(self._on_saved, self._generation),
+            overwrite_external=self._overwrite_next,
         )
 
-    def _on_saved(self, outcome: SaveOutcome) -> None:
+    def _on_saved(self, generation: int, outcome: SaveOutcome) -> None:
         """Handle the result of an asynchronous save (main thread).
 
         Args:
+            generation: Generation of the file the save was made for.
             outcome: Result delivered by the file adapter.
         """
+        if generation != self._generation:
+            _logger.debug("Late save result for a previous data file ignored (revision %d)", outcome.revision)
+            return
         if self._closed or outcome.revision < self._saved_revision:
             _logger.debug("Late save result for revision %d ignored", outcome.revision)
             return
