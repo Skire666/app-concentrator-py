@@ -75,8 +75,9 @@ class StorageStack:
             preferences=self.preferences,
             defaults=defaults,
             default_path=DEFAULT_PATH,
+            event_bus=self.bus,
         )
-        self.external = ExternalChangeCommands(self.file, self.session, self.coordinator, defaults)
+        self.external = ExternalChangeCommands(self.file, self.session, self.coordinator, defaults, self.bus)
         self.settings = InMemoryUserSettings(make_settings(language))
         self.hint = LanguageHint(self.preferences)
         self.switcher = LanguageSwitcher(

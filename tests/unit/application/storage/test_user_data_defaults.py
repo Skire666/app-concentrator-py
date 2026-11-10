@@ -190,6 +190,7 @@ def test_opening_a_file_without_timer_saves_the_completed_file() -> None:
         preferences=preferences,
         defaults=_defaults(),
         default_path=PATH,
+        event_bus=bus,
     )
 
     commands.resolve_startup()

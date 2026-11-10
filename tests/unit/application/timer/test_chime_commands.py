@@ -52,11 +52,37 @@ def test_update_settings_refuses_invalid_hours(stack: TimerStack) -> None:
     assert stack.chime.updates == []
 
 
+def test_save_stores_the_switch_and_the_settings_in_one_write(stack: TimerStack) -> None:
+    quiet = replace(DEFAULT_CHIME_SETTINGS, volume=Volume(20), start_hour=9, end_hour=17)
+
+    assert stack.chime_commands.save(enabled=True, settings=quiet).is_success
+
+    assert len(stack.chime.updates) == 1
+    assert stack.chime_queries.enabled() is True
+    assert stack.chime_queries.settings() == quiet
+    assert len(stack.chime_events) == 1
+
+
+def test_save_without_change_writes_nothing(stack: TimerStack) -> None:
+    assert stack.chime_commands.save(enabled=False, settings=DEFAULT_CHIME_SETTINGS).is_success
+    assert stack.chime.updates == []
+
+
+def test_save_refuses_invalid_hours(stack: TimerStack) -> None:
+    result = stack.chime_commands.save(enabled=True, settings=replace(DEFAULT_CHIME_SETTINGS, start_hour=21))
+
+    assert result.error_codes == (ErrorCodeEnum.CHIME_HOURS_REVERSED,)
+    assert stack.chime.updates == []
+
+
 def test_missing_chime_is_reported(stack: TimerStack) -> None:
     stack.chime.chime = None
 
     assert stack.chime_commands.set_enabled(True).error_codes == (ErrorCodeEnum.ENTITY_NOT_FOUND,)
     assert stack.chime_commands.update_settings(DEFAULT_CHIME_SETTINGS).error_codes == (ErrorCodeEnum.ENTITY_NOT_FOUND,)
+    assert stack.chime_commands.save(enabled=True, settings=DEFAULT_CHIME_SETTINGS).error_codes == (
+        ErrorCodeEnum.ENTITY_NOT_FOUND,
+    )
     assert stack.chime_queries.enabled() is stack.chime_defaults.enabled
 
 

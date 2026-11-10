@@ -225,7 +225,7 @@ def build_shell(
         shutdown=presenters.shutdown,
         timer=timer,
         extras=extras,
-        alarm=connect_alarm(timer, window, core),
+        alarm=connect_alarm(timer, window, core, storage.settings_queries.notify_when_inactive),
         heartbeat=_heartbeat(app, config, (timer.engine.tick, extras.chime_service.tick)),
     )
 

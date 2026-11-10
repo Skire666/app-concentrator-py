@@ -1,5 +1,6 @@
 """Wiring of the timer: engine, use cases, sound players, presenters, alarm."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from PySide6.QtWidgets import QApplication
@@ -168,13 +169,16 @@ def _presenter(
     return presenter
 
 
-def connect_alarm(timer: TimerServices, window: MainWindow, core: Core) -> AlarmCoordinator:
+def connect_alarm(
+    timer: TimerServices, window: MainWindow, core: Core, notify_when_inactive: Callable[[], bool]
+) -> AlarmCoordinator:
     """Start the alarm coordinator once the main window exists.
 
     Args:
         timer: Timer services.
         window: Main window (its taskbar button flashes when the timer rings unseen).
         core: Main-thread services (event bus).
+        notify_when_inactive: User setting "flash the taskbar button".
 
     Returns:
         The coordinator, subscribed to ``TimerChangedEvent``.
@@ -185,6 +189,7 @@ def connect_alarm(timer: TimerServices, window: MainWindow, core: Core) -> Alarm
         attention=QtAttention(window),
         settings=timer.engine.settings,
         fallback_sound=timer.defaults.fallback_sound,
+        notify_when_inactive=notify_when_inactive,
     )
     core.event_bus.subscribe(TimerChangedEvent, alarm.on_timer_changed)
     return alarm

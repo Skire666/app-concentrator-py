@@ -33,8 +33,8 @@ class AlarmCoordinator:
 
     The sound read at ringing time is used, so a sound changed while the timer runs applies to the next
     ringing. A sound that cannot be found falls back to ``timer.default_sound`` (WARNING), and the player
-    falls back to the system beep. When no Concentrator window is active, the taskbar button flashes;
-    nothing is shown in the notification area (ADR-038).
+    falls back to the system beep. When no Concentrator window is active and the user setting allows
+    it, the taskbar button flashes; nothing is shown in the notification area (ADR-038, ADR-040).
     """
 
     def __init__(
@@ -45,6 +45,7 @@ class AlarmCoordinator:
         attention: AttentionPort,
         settings: Callable[[], TimerSettings],
         fallback_sound: SoundRef,
+        notify_when_inactive: Callable[[], bool],
     ) -> None:
         """Create the coordinator.
 
@@ -54,12 +55,14 @@ class AlarmCoordinator:
             attention: Taskbar button.
             settings: Current timer settings.
             fallback_sound: ``timer.default_sound``.
+            notify_when_inactive: Current user setting "flash the taskbar button".
         """
         self._player = player
         self._catalog = catalog
         self._attention = attention
         self._settings = settings
         self._fallback_sound = fallback_sound
+        self._notify_when_inactive = notify_when_inactive
 
     def on_timer_changed(self, event: TimerChangedEvent) -> None:
         """React to the timer transitions.
@@ -73,7 +76,7 @@ class AlarmCoordinator:
             self._player.stop()
 
     def _ring(self) -> None:
-        """Play the alarm and flash the taskbar button of an inactive application."""
+        """Play the alarm; flash the taskbar button of an inactive application if the setting allows it."""
         settings = self._settings()
         loops = LOOP_FOREVER if settings.loop_forever else settings.loop_count
         paths = sound_candidates(self._catalog, settings.sound, self._fallback_sound, ALARM_PURPOSE)
@@ -81,5 +84,5 @@ class AlarmCoordinator:
         played = self._player.play(playback)
         if played.is_failure:
             _logger.warning("Alarm sound not played: %s", [code.name for code in played.error_codes])
-        if not self._attention.is_application_active():
+        if self._notify_when_inactive() and not self._attention.is_application_active():
             self._attention.request_attention()

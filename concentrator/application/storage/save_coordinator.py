@@ -148,6 +148,8 @@ class SaveCoordinator:
     def flush_for_shutdown(self, *, overwrite_external: bool = False, interactive: bool = False) -> ValidationResult:
         """Save pending changes synchronously (close, quit, Windows session end; ADR-032).
 
+        Also run before the settings page opens another data file.
+
         Args:
             overwrite_external: Overwrite a file changed outside Concentrator; this resolves the
                 conflict like ``keep_local_version`` and holds until a save succeeds.

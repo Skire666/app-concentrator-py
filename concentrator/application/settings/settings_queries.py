@@ -23,3 +23,12 @@ class SettingsQueries:
             The settings.
         """
         return self._reader.read()
+
+    def notify_when_inactive(self) -> bool:
+        """Tell whether a timer that rings unseen makes the taskbar button flash.
+
+        Returns:
+            The stored switch; ``True`` while no settings can be read (the behaviour before phase 4).
+        """
+        current = self._reader.read()
+        return current.data is None or current.data.notify_when_inactive

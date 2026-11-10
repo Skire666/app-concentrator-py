@@ -1,6 +1,7 @@
 """``UserDataFilePort`` on a TOML file: read pipeline, atomic save, recovery and external changes."""
 
 import logging
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Final, override
@@ -103,6 +104,16 @@ class TomlUserDataFile(UserDataFilePort):
     @override
     def exists(self, path: Path) -> bool:
         return path.is_file()
+
+    @override
+    def is_same_file(self, first: Path, second: Path) -> bool:
+        try:
+            return first.samefile(second)
+        except OSError as error:
+            _logger.debug("Paths compared by name, the file system cannot tell (%s)", error)
+        return os.path.normcase(os.path.normpath(first.absolute())) == os.path.normcase(
+            os.path.normpath(second.absolute())
+        )
 
     @override
     def load(self, path: Path) -> DataResult[StoredUserData]:

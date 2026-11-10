@@ -2,9 +2,11 @@
 
 import logging
 
+from concentrator.application.common.event_bus import EventBus
 from concentrator.application.ports.user_data_file_port import UserDataFilePort
 from concentrator.application.ports.user_data_session_port import UserDataSessionPort
 from concentrator.application.storage.save_coordinator import SaveCoordinator
+from concentrator.application.storage.storage_events import UserDataReplacedEvent
 from concentrator.application.storage.user_data import StoredUserData
 from concentrator.application.storage.user_data_defaults import UserDataDefaults
 from concentrator.domain.common.data_result import DataResult
@@ -23,6 +25,7 @@ class ExternalChangeCommands:
         session: UserDataSessionPort,
         coordinator: SaveCoordinator,
         defaults: UserDataDefaults,
+        event_bus: EventBus,
     ) -> None:
         """Create the use cases.
 
@@ -31,11 +34,13 @@ class ExternalChangeCommands:
             session: In-memory data.
             coordinator: Save coordinator holding the conflict.
             defaults: Sections missing from the reloaded file.
+            event_bus: Receives ``UserDataReplacedEvent``.
         """
         self._file = file
         self._session = session
         self._coordinator = coordinator
         self._defaults = defaults
+        self._event_bus = event_bus
 
     def reload(self) -> DataResult[StoredUserData]:
         """Load the file as changed on disk; changes made in Concentrator since the last save are lost.
@@ -53,6 +58,7 @@ class ExternalChangeCommands:
         self._coordinator.attach(path, loaded.data.saved_at)
         self._defaults.complete_session(self._session)
         _logger.info("Data file reloaded after an external change")
+        self._event_bus.publish(UserDataReplacedEvent(path=path))
         return loaded
 
     def keep_concentrator_version(self) -> ValidationResult:

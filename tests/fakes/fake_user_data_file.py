@@ -48,7 +48,10 @@ class PendingSave:
 
 
 class FakeUserDataFile(UserDataFilePort):
-    """Answers from ``reports``, ``loads`` and the ``*_failure`` attributes; records ``calls``."""
+    """Answers from ``reports``, ``loads`` and the ``*_failure`` attributes; records ``calls``.
+
+    ``create`` makes ``load`` return the created data, unless ``loads`` already has an answer.
+    """
 
     def __init__(self, saved_at: datetime = SAVED_AT) -> None:
         self.saved_at = saved_at
@@ -68,6 +71,10 @@ class FakeUserDataFile(UserDataFilePort):
     @override
     def exists(self, path: Path) -> bool:
         return path in self.existing
+
+    @override
+    def is_same_file(self, first: Path, second: Path) -> bool:
+        return first.as_posix().casefold() == second.as_posix().casefold()
 
     @override
     def load(self, path: Path) -> DataResult[StoredUserData]:
@@ -97,7 +104,9 @@ class FakeUserDataFile(UserDataFilePort):
         if self.create_failure is not None:
             return DataResult.fail(self.create_failure)
         self.existing.add(path)
-        return DataResult.ok(StoredUserData(data=data, saved_at=self.saved_at))
+        stored = StoredUserData(data=data, saved_at=self.saved_at)
+        self.loads.setdefault(path, DataResult.ok(stored))
+        return DataResult.ok(stored)
 
     @override
     def quarantine(self, path: Path) -> DataResult[str]:

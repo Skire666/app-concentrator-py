@@ -6,17 +6,21 @@ from concentrator.application.common.app_config import AppConfig
 from concentrator.application.ports.error_reporter_port import ErrorReporterPort
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.settings.language_hint import LanguageHint
+from concentrator.application.settings.log_level_applier import LogLevelApplier
 from concentrator.application.settings.settings_commands import SettingsCommands
 from concentrator.application.settings.settings_defaults import SettingsDefaults
+from concentrator.application.settings.settings_events import UserSettingsChangedEvent
 from concentrator.application.settings.settings_queries import SettingsQueries
 from concentrator.application.storage.external_change_commands import ExternalChangeCommands
 from concentrator.application.storage.save_coordinator import SaveCoordinator
 from concentrator.application.storage.startup_commands import StartupCommands
+from concentrator.application.storage.storage_events import UserDataReplacedEvent
 from concentrator.application.storage.user_data import UserDataLimits
 from concentrator.application.storage.user_data_defaults import SectionDefaults, UserDataDefaults
 from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.bootstrap.core import Core
+from concentrator.infrastructure.logging.logging_control import LoggingControl
 from concentrator.infrastructure.persistence.store_user_settings import StoreUserSettingsReader, StoreUserSettingsWriter
 from concentrator.infrastructure.persistence.toml_user_data_file import TomlUserDataFile
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
@@ -107,6 +111,7 @@ def _startup_commands(
         preferences=core.preferences,
         defaults=defaults,
         default_path=config.paths.default_data_file,
+        event_bus=core.event_bus,
     )
 
 
@@ -150,7 +155,8 @@ def build_storage(
     coordinator = SaveCoordinator(
         session=store, file=file, scheduler=core.scheduler, event_bus=core.event_bus, storage=config.storage
     )
-    reader = StoreUserSettingsReader(store)
+    queries = SettingsQueries(StoreUserSettingsReader(store))
+    _follow_log_level(core, queries)
     hint = LanguageHint(core.preferences)
     return Storage(
         writer=writer,
@@ -159,11 +165,23 @@ def build_storage(
         chime_defaults=chime_defaults,
         coordinator=coordinator,
         startup=_startup_commands(core, config, file, store, coordinator, defaults),
-        external=ExternalChangeCommands(file, store, coordinator, defaults),
-        settings_queries=SettingsQueries(reader),
+        external=ExternalChangeCommands(file, store, coordinator, defaults, core.event_bus),
+        settings_queries=queries,
         switcher=_language_switcher(core, store, translator, hint),
         hint=hint,
     )
+
+
+def _follow_log_level(core: Core, queries: SettingsQueries) -> None:
+    """Apply the log level of the user settings once a data file is open, and when it changes.
+
+    Args:
+        core: Main-thread services (event bus).
+        queries: Settings of the open data file.
+    """
+    applier = LogLevelApplier(queries, LoggingControl())
+    core.event_bus.subscribe(UserDataReplacedEvent, applier.on_user_data_replaced)
+    core.event_bus.subscribe(UserSettingsChangedEvent, applier.on_settings_changed)
 
 
 def _language_switcher(

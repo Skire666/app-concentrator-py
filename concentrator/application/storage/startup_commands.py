@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Final
 
+from concentrator.application.common.event_bus import EventBus
 from concentrator.application.ports.user_data_file_port import UserDataFilePort
 from concentrator.application.ports.user_data_session_port import UserDataSessionPort
 from concentrator.application.ports.view_preferences_port import ViewPreferencesPort
@@ -12,6 +13,7 @@ from concentrator.application.storage.save_coordinator import SaveCoordinator
 from concentrator.application.storage.startup_plan import StartupPlan, classify
 from concentrator.application.storage.startup_reason_enum import StartupReasonEnum
 from concentrator.application.storage.startup_step_enum import StartupStepEnum
+from concentrator.application.storage.storage_events import UserDataReplacedEvent
 from concentrator.application.storage.user_data import StoredUserData
 from concentrator.application.storage.user_data_defaults import UserDataDefaults
 from concentrator.domain.common.data_result import DataResult
@@ -26,8 +28,9 @@ DATA_FILE_PATH_KEY: Final = "storage/data_file_path"
 class StartupCommands:
     """Every action of the first-run and recovery dialogs. A plan with step ``READY`` means the file is open.
 
-    Opening a file resets the session, attaches the save coordinator and remembers the path in
-    ``ui-state.ini`` (``storage/data_file_path``), only after success.
+    Opening a file resets the session, attaches the save coordinator, remembers the path in
+    ``ui-state.ini`` (``storage/data_file_path``) and publishes ``UserDataReplacedEvent``, only after
+    success. The settings page runs the same use cases to open another file (phase 4).
     """
 
     def __init__(
@@ -39,6 +42,7 @@ class StartupCommands:
         preferences: ViewPreferencesPort,
         defaults: UserDataDefaults,
         default_path: Path,
+        event_bus: EventBus,
     ) -> None:
         """Create the use cases.
 
@@ -49,6 +53,7 @@ class StartupCommands:
             preferences: ``ui-state.ini`` (remembered path).
             defaults: Settings and sections of a new file, and sections missing from an older file.
             default_path: ``paths.default_data_file``.
+            event_bus: Receives ``UserDataReplacedEvent``.
         """
         self._file = file
         self._session = session
@@ -56,6 +61,7 @@ class StartupCommands:
         self._preferences = preferences
         self._defaults = defaults
         self._default_path = default_path
+        self._event_bus = event_bus
 
     def resolve_startup(self) -> StartupPlan:
         """Inspect the remembered data file, or report a first run.
@@ -182,6 +188,7 @@ class StartupCommands:
         self._defaults.complete_session(self._session)
         self._preferences.set_text(DATA_FILE_PATH_KEY, path.as_posix())
         _logger.info("Data file opened: %s", path)
+        self._event_bus.publish(UserDataReplacedEvent(path=path))
         return StartupPlan(
             step=StartupStepEnum.READY,
             reason=StartupReasonEnum.OPENED,

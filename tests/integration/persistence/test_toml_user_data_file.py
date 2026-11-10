@@ -378,3 +378,12 @@ def test_blocking_save_times_out_behind_a_busy_writer(
     assert outcome.saved_at is None
     assert outcome.validation.error_codes == (ErrorCodeEnum.STORAGE_FLUSH_TIMEOUT,)
     assert writer.flush(TIMEOUT_MS).is_success
+
+
+def test_is_same_file_ignores_case_and_dot_dot_segments(adapter: TomlUserDataFile, path: Path) -> None:
+    assert adapter.create(path, make_user_data()).is_success
+    spelled_otherwise = path.parent / ".." / path.parent.name / path.name.upper()
+
+    assert adapter.is_same_file(path, spelled_otherwise)
+    assert adapter.is_same_file(path.parent / "absent.toml", path.parent / "ABSENT.toml")
+    assert not adapter.is_same_file(path, path.with_name("other.toml"))

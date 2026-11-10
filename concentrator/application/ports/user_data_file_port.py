@@ -30,6 +30,18 @@ class UserDataFilePort(Protocol):
         """
         ...
 
+    def is_same_file(self, first: Path, second: Path) -> bool:
+        """Tell whether two paths name the same file (case, ``..``, links and drive letters ignored).
+
+        Args:
+            first: A path.
+            second: Another path; it may not exist.
+
+        Returns:
+            Whether they are the same file.
+        """
+        ...
+
     def load(self, path: Path) -> DataResult[StoredUserData]:
         """Load the data file through the read pipeline and remember its fingerprint (ADR-033).
 

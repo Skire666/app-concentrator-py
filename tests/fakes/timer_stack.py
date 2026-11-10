@@ -59,6 +59,7 @@ class TimerStack:
         self.alarm_player = FakeSoundPlayer()
         self.preview_player = FakeSoundPlayer()
         self.attention = FakeAttention()
+        self.notify_when_inactive = True
         self.engine = TimerEngine(
             clock=self.clock,
             config=self.config,
@@ -72,6 +73,7 @@ class TimerStack:
             attention=self.attention,
             settings=self.engine.settings,
             fallback_sound=DEFAULT_SOUND,
+            notify_when_inactive=lambda: self.notify_when_inactive,
         )
         self.bus.subscribe(TimerChangedEvent, self.alarm.on_timer_changed)
         self.commands = TimerCommands(

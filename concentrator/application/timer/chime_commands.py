@@ -71,6 +71,28 @@ class ChimeCommands:
         _logger.info("Hourly chime settings stored")
         return self._store(current.data.with_settings(settings, self._clock.now_utc()))
 
+    def save(self, *, enabled: bool, settings: ChimeSettings) -> ValidationResult:
+        """Store the switch and the settings together (settings page): one write at most.
+
+        Args:
+            enabled: New switch.
+            settings: Edited values.
+
+        Returns:
+            Success (also when nothing changed, then nothing is written), or the rule or write failure.
+        """
+        current = self._reader.read()
+        if current.data is None:
+            return current.validation
+        if current.data.enabled == enabled and current.data.settings == settings:
+            return ValidationResult.success()
+        validation = HourlyChimeRules.validate_settings(settings)
+        if validation.is_failure:
+            return validation
+        now = self._clock.now_utc()
+        _logger.info("Hourly chime stored from the settings page (%s)", "enabled" if enabled else "disabled")
+        return self._store(current.data.with_enabled(enabled, now).with_settings(settings, now))
+
     def _store(self, chime: HourlyChime) -> ValidationResult:
         """Write the chime and publish the change.
 

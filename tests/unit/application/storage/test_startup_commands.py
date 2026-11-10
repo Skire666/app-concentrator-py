@@ -11,6 +11,7 @@ from concentrator.application.storage.save_state_enum import SaveStateEnum
 from concentrator.application.storage.startup_commands import DATA_FILE_PATH_KEY, StartupCommands
 from concentrator.application.storage.startup_reason_enum import StartupReasonEnum
 from concentrator.application.storage.startup_step_enum import StartupStepEnum
+from concentrator.application.storage.storage_events import UserDataReplacedEvent
 from concentrator.application.storage.user_data import StoredUserData
 from concentrator.application.storage.user_data_defaults import UserDataDefaults
 from concentrator.domain.common.data_result import DataResult
@@ -20,7 +21,7 @@ from concentrator.domain.settings.language_enum import LanguageEnum
 from tests.fakes.app_config_factory import make_storage_section
 from tests.fakes.fake_clock import FakeClock
 from tests.fakes.fake_id_generator import FakeIdGenerator
-from tests.fakes.fake_user_data_file import FakeUserDataFile, invalid, report, valid
+from tests.fakes.fake_user_data_file import NOT_FOUND, FakeUserDataFile, invalid, report, valid
 from tests.fakes.in_memory_session import InMemorySession
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.manual_scheduler import ManualScheduler
@@ -36,6 +37,9 @@ NEWER = SAVED_AT + timedelta(minutes=1)
 class Setup:
     def __init__(self) -> None:
         bus = EventBus(RecordingErrorReporter())
+        self.bus = bus
+        self.replaced: list[UserDataReplacedEvent] = []
+        bus.subscribe(UserDataReplacedEvent, self.replaced.append)
         self.session = InMemorySession(bus)
         self.file = FakeUserDataFile(saved_at=NEWER)
         self.preferences = InMemoryViewPreferences()
@@ -56,10 +60,11 @@ class Setup:
             preferences=self.preferences,
             defaults=self.defaults,
             default_path=DEFAULT,
+            event_bus=bus,
         )
 
     def external(self) -> ExternalChangeCommands:
-        return ExternalChangeCommands(self.file, self.session, self.coordinator, self.defaults)
+        return ExternalChangeCommands(self.file, self.session, self.coordinator, self.defaults, self.bus)
 
     def remember(self, path: Path = PATH) -> None:
         self.preferences.values[DATA_FILE_PATH_KEY] = path.as_posix()
@@ -100,6 +105,7 @@ def test_remembered_valid_file_opens(setup: Setup) -> None:
     assert setup.coordinator.status.saved_at == SAVED_AT
     assert setup.coordinator.status.path == PATH
     assert setup.remembered == PATH.as_posix()
+    assert setup.replaced == [UserDataReplacedEvent(path=PATH)]
 
 
 def test_damaged_file_is_neither_opened_nor_remembered(setup: Setup) -> None:
@@ -109,6 +115,7 @@ def test_damaged_file_is_neither_opened_nor_remembered(setup: Setup) -> None:
     assert plan.reason is StartupReasonEnum.FILE_NOT_FOUND
     assert setup.session.resets == 0
     assert setup.remembered is None
+    assert setup.replaced == []
 
 
 def test_probe_failure_is_fatal(setup: Setup) -> None:
@@ -219,10 +226,12 @@ def test_reload_after_an_external_change_resets_the_session(setup: Setup) -> Non
     assert setup.session.data == make_user_data(LanguageEnum.FRENCH)
     assert setup.coordinator.status.state is SaveStateEnum.SAVED
     assert setup.coordinator.status.saved_at == NEWER
+    assert setup.replaced == [UserDataReplacedEvent(path=PATH), UserDataReplacedEvent(path=PATH)]
 
 
 def test_reload_failure_leaves_the_session_alone(setup: Setup) -> None:
     setup.commands.create_at(PATH, LanguageEnum.ENGLISH)
+    setup.file.loads[PATH] = DataResult.fail(NOT_FOUND)
     resets = setup.session.resets
 
     result = setup.external().reload()

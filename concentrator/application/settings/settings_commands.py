@@ -8,7 +8,9 @@ from concentrator.application.ports.user_settings_reader_port import UserSetting
 from concentrator.application.ports.user_settings_writer_port import UserSettingsWriterPort
 from concentrator.application.settings.settings_events import UserSettingsChangedEvent
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.settings.general_settings import GeneralSettings
 from concentrator.domain.settings.language_enum import LanguageEnum
+from concentrator.domain.settings.user_settings import UserSettings
 from concentrator.domain.settings.user_settings_rules import UserSettingsRules
 
 _logger = logging.getLogger(__name__)
@@ -47,13 +49,44 @@ class SettingsCommands:
             return current.validation
         if current.data.language is language:
             return ValidationResult.success()
-        changed = current.data.with_language(language, self._clock.now_utc())
+        result = self._store(current.data.with_language(language, self._clock.now_utc()))
+        if result.is_success:
+            _logger.info("UI language stored: %s", language.iso_code)
+        return result
+
+    def save_general(self, general: GeneralSettings) -> ValidationResult:
+        """Store the General values of the settings page.
+
+        Args:
+            general: Edited values.
+
+        Returns:
+            Success (also when nothing changed, then nothing is written), or the rule or write failure.
+        """
+        current = self._reader.read()
+        if current.data is None:
+            return current.validation
+        if current.data.general == general:
+            return ValidationResult.success()
+        result = self._store(current.data.with_general(general, self._clock.now_utc()))
+        if result.is_success:
+            _logger.info("General settings stored (log level %s)", general.log_level.name)
+        return result
+
+    def _store(self, changed: UserSettings) -> ValidationResult:
+        """Validate, write and publish changed settings.
+
+        Args:
+            changed: The settings to store.
+
+        Returns:
+            The rule or write result.
+        """
         validation = UserSettingsRules.validate(changed)
         if validation.is_failure:
             return validation
         written = self._writer.update(changed)
         if written.data is None:
             return written.validation
-        _logger.info("UI language stored: %s", language.iso_code)
         self._event_bus.publish(UserSettingsChangedEvent(settings=written.data))
         return written.validation

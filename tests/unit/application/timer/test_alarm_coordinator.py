@@ -113,6 +113,16 @@ def test_inactive_application_gets_a_flashing_taskbar_button(stack: TimerStack) 
     assert stack.attention.attention_requests == 1
 
 
+def test_inactive_application_without_the_setting_gets_only_the_sound(stack: TimerStack) -> None:
+    stack.attention.active = False
+    stack.notify_when_inactive = False
+
+    stack.run_to_ringing()
+
+    assert stack.attention.attention_requests == 0
+    assert len(stack.alarm_player.played) == 1
+
+
 def test_active_application_gets_only_the_sound(stack: TimerStack) -> None:
     stack.attention.active = True
 

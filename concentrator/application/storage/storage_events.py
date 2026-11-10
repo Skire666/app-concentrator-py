@@ -19,6 +19,20 @@ class UserDataChangedEvent:
     revision: int
 
 
+@dataclass(frozen=True, slots=True)
+class UserDataReplacedEvent:
+    """Another data file was opened, or the open one was reloaded: every value may have changed.
+
+    The session was reset without ``UserDataChangedEvent`` (nothing to save); readers that keep a
+    value derived from the data apply the new one (log level, settings form).
+
+    Attributes:
+        path: Data file now open.
+    """
+
+    path: Path
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class SaveStatusChangedEvent:
     """The save state changed (status bar, external modification dialog).
