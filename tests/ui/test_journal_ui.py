@@ -30,6 +30,10 @@ class _Signals:
         model.rowsRemoved.connect(self._removed)
         model.modelReset.connect(self._reset)
         model.headerDataChanged.connect(self._renamed)
+        model.dataChanged.connect(self._changed)
+
+    def _changed(self, first: QModelIndex, last: QModelIndex, _roles: object = None) -> None:
+        self.events.append(f"changed {first.row()}-{last.row()}")
 
     def _inserted(self, _parent: QModelIndex, _first: int, _last: int) -> None:
         self.events.append("inserted")
@@ -78,9 +82,17 @@ def test_other_changes_reset_the_model(model: SnapshotTableModel) -> None:
     signals = _Signals(model)
 
     assert model.set_rows((_row(1), _row(3)))
-    assert model.set_rows((_row(1, "changed"), _row(3)))
+    assert model.set_rows((_row(1), _row(4)))
     assert model.set_rows(())
     assert signals.events == ["reset", "reset", "reset"]
+
+
+def test_changed_cells_of_the_same_rows_are_updated_in_place(model: SnapshotTableModel) -> None:
+    model.set_rows((_row(1), _row(2), _row(3), _row(4)))
+    signals = _Signals(model)
+
+    assert not model.set_rows((_row(1), _row(2, "changed"), _row(3, "changed"), _row(4)))
+    assert signals.events == ["changed 1-2"]
 
 
 def test_same_rows_change_nothing(model: SnapshotTableModel) -> None:

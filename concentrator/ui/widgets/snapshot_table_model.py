@@ -2,7 +2,7 @@
 
 from typing import Final, override
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, QObject, QPersistentModelIndex, Qt
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, QObject, QPersistentModelIndex, Qt, Signal
 from PySide6.QtGui import QFont, QGuiApplication, QPalette
 
 from concentrator.presentation.common.row_tone_enum import RowToneEnum
@@ -12,6 +12,22 @@ type _Index = QModelIndex | QPersistentModelIndex
 
 _BOLD_TONES: Final = frozenset({RowToneEnum.WARNING, RowToneEnum.ERROR})
 _NO_ROOT: Final = QModelIndex()
+
+
+def _changed_span(old: tuple[TableRowSnapshot, ...], new: tuple[TableRowSnapshot, ...]) -> tuple[int, int] | None:
+    """Tell which rows changed when both tuples show the same keys in the same order.
+
+    Args:
+        old: Rows shown now.
+        new: Rows to show.
+
+    Returns:
+        The first and last changed rows, ``None`` when the keys differ.
+    """
+    if len(old) != len(new) or any(before.key != after.key for before, after in zip(old, new, strict=True)):
+        return None
+    changed = [index for index, (before, after) in enumerate(zip(old, new, strict=True)) if before != after]
+    return (changed[0], changed[-1]) if changed else None
 
 
 def _dropped_head(old: tuple[TableRowSnapshot, ...], new: tuple[TableRowSnapshot, ...]) -> int | None:
@@ -37,11 +53,16 @@ def _dropped_head(old: tuple[TableRowSnapshot, ...], new: tuple[TableRowSnapshot
 
 
 class SnapshotTableModel(QAbstractTableModel):
-    """Appending rows inserts them, dropping the oldest rows removes them, anything else resets the model.
+    """Rows appended are inserted, oldest rows dropped are removed, other changes reset the model.
 
-    Inserting and removing keep the scroll position and the selection of the other rows; a reset loses
-    them, so the panel applies the selection of the snapshot again.
+    Changed cells of the same rows (same keys, same order) are updated in place. Inserting, removing and
+    updating keep the scroll position and the selection of the other rows; a reset loses them, so the panel
+    applies the selection of the snapshot again. Rows with a ``checked`` value show a check box in the check
+    column; a click emits ``check_toggled(key)`` and leaves the box as it is: the next snapshot shows the
+    stored state.
     """
+
+    check_toggled = Signal(object)
 
     def __init__(self, parent: QObject | None = None) -> None:
         """Create an empty model.
@@ -52,6 +73,23 @@ class SnapshotTableModel(QAbstractTableModel):
         super().__init__(parent)
         self._columns: tuple[str, ...] = ()
         self._rows: tuple[TableRowSnapshot, ...] = ()
+        self._check_column = -1
+
+    @property
+    def check_column(self) -> int:
+        """Column of the check boxes, ``-1`` for none."""
+        return self._check_column
+
+    def set_check_column(self, column: int) -> None:
+        """Choose the column that carries the check boxes.
+
+        Args:
+            column: Column index, ``-1`` for none.
+        """
+        if column != self._check_column:
+            self.beginResetModel()
+            self._check_column = column
+            self.endResetModel()
 
     @property
     def rows(self) -> tuple[TableRowSnapshot, ...]:
@@ -85,6 +123,12 @@ class SnapshotTableModel(QAbstractTableModel):
         """
         old = self._rows
         if rows == old:
+            return False
+        span = _changed_span(old, rows)
+        if span is not None:
+            self._rows = rows
+            last_column = max(0, len(self._columns) - 1)
+            self.dataChanged.emit(self.index(span[0], 0), self.index(span[1], last_column))
             return False
         head = _dropped_head(old, rows)
         if head is None:
@@ -131,7 +175,35 @@ class SnapshotTableModel(QAbstractTableModel):
             return font
         if role == Qt.ItemDataRole.ForegroundRole:
             return self._foreground(row.tone)
+        if role == Qt.ItemDataRole.CheckStateRole and self._has_check(index):
+            return Qt.CheckState.Checked if row.checked else Qt.CheckState.Unchecked
         return None
+
+    @override
+    def flags(self, index: _Index) -> Qt.ItemFlag:
+        flags = super().flags(index)
+        if self._has_check(index) and self._rows[index.row()].check_enabled:
+            return flags | Qt.ItemFlag.ItemIsUserCheckable
+        return flags
+
+    @override
+    def setData(self, index: _Index, value: object, role: int = Qt.ItemDataRole.EditRole) -> bool:
+        if role == Qt.ItemDataRole.CheckStateRole and self._has_check(index) and self._rows[index.row()].check_enabled:
+            self.check_toggled.emit(self._rows[index.row()].key)
+        return False
+
+    def _has_check(self, index: _Index) -> bool:
+        """Tell whether a cell shows a check box.
+
+        Args:
+            index: Cell.
+
+        Returns:
+            Whether the cell is in the check column of a row that has a check state.
+        """
+        if not index.isValid() or index.column() != self._check_column or not 0 <= index.row() < len(self._rows):
+            return False
+        return self._rows[index.row()].checked is not None
 
     @staticmethod
     def _foreground(tone: RowToneEnum) -> object:

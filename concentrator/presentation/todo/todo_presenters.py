@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 
-from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
 from concentrator.presentation.todo.list_edit_presenter import ListEditPresenter
 from concentrator.presentation.todo.quick_add_presenter import QuickAddPresenter
 from concentrator.presentation.todo.task_actions import TaskActions
@@ -28,7 +27,6 @@ class TodoPresenters:
         list_editor: List dialog.
         actions: Task actions (keyboard shortcuts).
         refresher: Follows the data and "Reset layout".
-        layout: ``layout/*`` keys (table header and splitter of zone 1).
     """
 
     tabs: TodoTabsPresenter
@@ -40,4 +38,3 @@ class TodoPresenters:
     list_editor: ListEditPresenter
     actions: TaskActions
     refresher: TodoRefresher
-    layout: LayoutStateKeeper

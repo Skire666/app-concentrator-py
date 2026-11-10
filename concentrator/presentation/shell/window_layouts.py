@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from concentrator.presentation.journal.journal_layout import JournalLayout
 from concentrator.presentation.shell.shell_layout import ShellLayout
 from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.presentation.todo.todo_layout import TodoLayout
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -15,8 +16,10 @@ class WindowLayouts:
         shell: Window, module bar and Focus page splitter.
         timer: Timer digits and favorites.
         journal: Journal splitter and columns.
+        todo: Zone 1 splitter, task columns and spacing of the TODO dialogs.
     """
 
     shell: ShellLayout
     timer: TimerLayout
     journal: JournalLayout
+    todo: TodoLayout

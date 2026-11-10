@@ -12,6 +12,9 @@ from concentrator.presentation.common.layout_keys import (
     LAYOUT_JOURNAL_HEADER,
     LAYOUT_JOURNAL_SPLITTER,
     LAYOUT_MAIN_WINDOW_GEOMETRY,
+    LAYOUT_TODO_HEADER,
+    LAYOUT_TODO_LIST,
+    LAYOUT_TODO_SPLITTER,
 )
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.storage_stack import DATA_PATH
@@ -34,7 +37,7 @@ def test_main_window_builds_with_the_first_render(harness: ShellHarness) -> None
 
     assert window.windowTitle() == "en:app.title"
     assert window.current_page_index == 0
-    assert window.focus_page.zone1_text == "en:placeholder.focus.zone1"
+    assert window.focus_page.toolbar_panel.buttons[ActionIdEnum.TASK_NEW].text() == "en:action.task_new"
     assert window.timer_panel.digits.text() == "00:25:00"
     assert window.status_bar.language_button.text() == "en:shell.language.button.en"
     assert window.status_bar.save_state_text == "en:status.save.no_file"
@@ -85,7 +88,7 @@ def test_language_button_switches_every_text(harness: ShellHarness) -> None:
     assert window.status_bar.language_button.text() == "fr:shell.language.button.fr"
     assert window.windowTitle() == "fr:app.title"
     assert window.module_bar.button(ActionIdEnum.SHELL_SHOW_SETTINGS).text() == "fr:action.shell_show_settings"
-    assert window.focus_page.zone1_text == "fr:placeholder.focus.zone1"
+    assert window.focus_page.toolbar_panel.buttons[ActionIdEnum.TASK_NEW].text() == "fr:action.task_new"
     assert window.timer_panel.buttons[2].text() == "fr:action.timer_start(minutes=5)"
     assert not window.status_bar.language_button.isEnabled()
 
@@ -110,6 +113,9 @@ def test_close_exports_the_layout_and_restore_reapplies_it(qtbot: QtBot, caplog:
         LAYOUT_FOCUS_PAGE_SPLITTER,
         LAYOUT_JOURNAL_SPLITTER,
         LAYOUT_JOURNAL_HEADER,
+        LAYOUT_TODO_SPLITTER,
+        LAYOUT_TODO_HEADER,
+        LAYOUT_TODO_LIST,
     }
     second = ShellHarness(preferences)
     qtbot.addWidget(second.window)

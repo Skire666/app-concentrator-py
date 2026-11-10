@@ -1,8 +1,10 @@
 """TODO presenters on top of ``TodoStack``, with a gate, a renderer, scripted dialogs and view preferences."""
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Final
 
+from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.storage.storage_events import UserDataReplacedEvent
 from concentrator.application.todo.todo_defaults import TodoDefaults
 from concentrator.domain.todo.task import Task
@@ -22,6 +24,7 @@ from concentrator.presentation.todo.task_edit_presenter import TaskEditPresenter
 from concentrator.presentation.todo.task_edit_snapshot import TaskEditSnapshot
 from concentrator.presentation.todo.task_table_presenter import TaskTablePresenter
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
+from concentrator.presentation.todo.todo_presenters import TodoPresenters
 from concentrator.presentation.todo.todo_refresher import TodoRefresher
 from concentrator.presentation.todo.todo_tabs_presenter import TodoTabsPresenter
 from concentrator.presentation.todo.todo_tabs_snapshot import TodoTabsSnapshot
@@ -41,28 +44,53 @@ COOLDOWN_MS: Final = 100
 DEFAULTS: Final = TodoDefaults.from_section(make_todo_section())
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SharedUi:
+    """Collaborators of another harness (the main window's) the TODO presenters should use."""
+
+    translator: TranslatorPort
+    scheduler: ManualScheduler
+    renderer: RenderCoordinator
+    gate: ActionGate
+    dialogs: FakeDialogs
+    preferences: InMemoryViewPreferences
+
+
 class TodoUiStack(TodoStack):
-    """Every collaborator of the TODO presenters; rendered snapshots are recorded by section."""
+    """Every collaborator of the TODO presenters; rendered snapshots are recorded by section.
+
+    With ``shared``, the presenters use the translator, renderer, gate, dialogs and preferences of another
+    harness and register nothing (the main window registers its panels).
+    """
 
     def __init__(
-        self, lists: Sequence[TaskList] = (), tasks: Sequence[Task] = (), *, stored: dict[str, str] | None = None
+        self,
+        lists: Sequence[TaskList] = (),
+        tasks: Sequence[Task] = (),
+        *,
+        stored: dict[str, str] | None = None,
+        shared: SharedUi | None = None,
+        register_editors: bool = True,
     ) -> None:
         super().__init__(lists, tasks)
-        self.translator = FakeTranslator()
-        self.scheduler = ManualScheduler()
-        self.renderer = RenderCoordinator(self.scheduler)
-        self.gate = ActionGate(
-            self.clock, self.scheduler, self.renderer, cooldown_ms=COOLDOWN_MS, slow_threshold_ms=200
+        self.scheduler = ManualScheduler() if shared is None else shared.scheduler
+        self.renderer = RenderCoordinator(self.scheduler) if shared is None else shared.renderer
+        self.translator: TranslatorPort = FakeTranslator() if shared is None else shared.translator
+        self.gate = (
+            ActionGate(self.clock, self.scheduler, self.renderer, cooldown_ms=COOLDOWN_MS, slow_threshold_ms=200)
+            if shared is None
+            else shared.gate
         )
-        self.dialogs = FakeDialogs()
-        self.preferences = InMemoryViewPreferences(stored)
+        self.dialogs = FakeDialogs() if shared is None else shared.dialogs
+        self.preferences = InMemoryViewPreferences(stored) if shared is None else shared.preferences
         self.layout = LayoutStateKeeper(self.preferences)
         self.state = TodoViewState(self.layout, DEFAULTS)
         self.state.load()
         self.view = TodoView(self.queries, self.state)
         self.view.sync()
         self._build_presenters()
-        self._register()
+        if shared is None:
+            self._register(register_editors=register_editors)
 
     def _build_presenters(self) -> None:
         tr, gate, renderer = self.translator, self.gate, self.renderer
@@ -100,7 +128,7 @@ class TodoUiStack(TodoStack):
             self.bus.subscribe(event_type, self.refresher.on_todo_changed)
         self.bus.subscribe(UserDataReplacedEvent, self.refresher.on_user_data_replaced)
 
-    def _register(self) -> None:
+    def _register(self, *, register_editors: bool) -> None:
         self.rendered_tabs: list[TodoTabsSnapshot] = []
         self.rendered_toolbar: list[TodoToolbarSnapshot] = []
         self.rendered_table: list[TaskTableSnapshot] = []
@@ -114,8 +142,27 @@ class TodoUiStack(TodoStack):
         renderer.register(RenderSectionEnum.TODO_TABLE, self.table.build_snapshot, self.rendered_table.append)
         renderer.register(RenderSectionEnum.QUICK_ADD, self.quick_add.build_snapshot, self.rendered_quick_add.append)
         renderer.register(RenderSectionEnum.TODO_DETAILS, self.details.build_snapshot, self.rendered_details.append)
-        renderer.register(RenderSectionEnum.TASK_EDIT, self.task_editor.build_snapshot, self.rendered_task_edit.append)
-        renderer.register(RenderSectionEnum.LIST_EDIT, self.list_editor.build_snapshot, self.rendered_list_edit.append)
+        if register_editors:
+            renderer.register(
+                RenderSectionEnum.TASK_EDIT, self.task_editor.build_snapshot, self.rendered_task_edit.append
+            )
+            renderer.register(
+                RenderSectionEnum.LIST_EDIT, self.list_editor.build_snapshot, self.rendered_list_edit.append
+            )
+
+    def presenters(self) -> TodoPresenters:
+        """The presenters as the main window takes them."""
+        return TodoPresenters(
+            tabs=self.tabs,
+            toolbar=self.toolbar,
+            quick_add=self.quick_add,
+            table=self.table,
+            details=self.details,
+            task_editor=self.task_editor,
+            list_editor=self.list_editor,
+            actions=self.actions,
+            refresher=self.refresher,
+        )
 
     def settle(self) -> None:
         """Run the pending renders and let every cooldown end."""

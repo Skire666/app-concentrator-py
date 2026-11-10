@@ -1,7 +1,6 @@
 """Wiring of the window shell: presenters, window, ticker, on top of the core and storage services."""
 
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass
 
 from PySide6.QtCore import QTimer
@@ -9,13 +8,13 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from concentrator.application.common.app_config import AppConfig
-from concentrator.application.common.app_ticker import AppTicker
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.settings.settings_events import UserSettingsChangedEvent
 from concentrator.application.storage.storage_events import SaveStatusChangedEvent, UserDataReplacedEvent
 from concentrator.application.timer.alarm_coordinator import AlarmCoordinator
 from concentrator.application.timer.timer_events import HourlyChimeChangedEvent, TimerChangedEvent
 from concentrator.bootstrap.core import Core
+from concentrator.bootstrap.heartbeat import Heartbeat, create_heartbeat
 from concentrator.bootstrap.journal import build_journal
 from concentrator.bootstrap.runtime import ForwardingErrorReporter
 from concentrator.bootstrap.settings import build_settings
@@ -23,6 +22,7 @@ from concentrator.bootstrap.shell_services import ShellServices
 from concentrator.bootstrap.storage import Storage
 from concentrator.bootstrap.timer import TimerServices, build_timer, connect_alarm
 from concentrator.bootstrap.timer_extras import TimerExtras, build_timer_extras
+from concentrator.bootstrap.todo import attach_todo_dialogs, build_todo
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
@@ -42,6 +42,8 @@ from concentrator.presentation.storage.external_change_presenter import External
 from concentrator.presentation.storage.save_status_texts import SaveStatusTexts
 from concentrator.presentation.storage.shutdown_presenter import ShutdownPresenter
 from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.presentation.todo.todo_layout import TodoLayout
+from concentrator.presentation.todo.todo_presenters import TodoPresenters
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.support.modal_host import ModalHost
 from concentrator.ui.support.qt_dialog_service import QtDialogService
@@ -55,28 +57,12 @@ _logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class _Pages:
-    """Presenters of the Journal and Settings pages."""
+    """Presenters of the TODO manager and of the Journal and Settings pages."""
 
     journal: JournalPresenter
     settings: SettingsPresenter
     settings_files: SettingsFilesPresenter
-
-
-@dataclass(frozen=True, slots=True)
-class Heartbeat:
-    """The ticker and the Qt timer that drives it, kept alive together by the shell.
-
-    PySide6 does not keep alive the owner of a bound method connected to a signal: a ticker that only
-    the connection references is collected at once, and the timer then fires into nothing (the timer
-    never counted down and the chime never played, phase 3 review).
-
-    Attributes:
-        ticker: Calls the timer engine, then the chime service.
-        timer: Qt timer calling ``ticker.tick`` every ``timer.tick_interval_ms`` (not started).
-    """
-
-    ticker: AppTicker
-    timer: QTimer
+    todo: TodoPresenters
 
 
 class Shell:
@@ -134,26 +120,6 @@ class Shell:
         self.extras.chime_player.stop()
         self.window.save_layout()
         self.core.preferences.sync()
-
-
-def _heartbeat(app: QApplication, config: AppConfig, handlers: tuple[Callable[[], None], ...]) -> Heartbeat:
-    """Create the ticker and the Qt timer calling it every ``timer.tick_interval_ms`` (not started).
-
-    Args:
-        app: Owner of the timer.
-        config: Loaded configuration.
-        handlers: Called on every tick, in order.
-
-    Returns:
-        The heartbeat; the shell keeps it alive.
-    """
-    ticker = AppTicker()
-    for handler in handlers:
-        ticker.register(handler)
-    timer = QTimer(app)
-    timer.setInterval(config.timer.tick_interval_ms)
-    timer.timeout.connect(ticker.tick)
-    return Heartbeat(ticker=ticker, timer=timer)
 
 
 def _status_bar(
@@ -241,7 +207,9 @@ def build_shell(
         timer=timer,
         extras=extras,
         alarm=connect_alarm(timer, window, core, storage.settings_queries.notify_when_inactive),
-        heartbeat=_heartbeat(app, config, (timer.engine.tick, extras.chime_service.tick, pages.journal.on_tick)),
+        heartbeat=create_heartbeat(
+            app, config, (timer.engine.tick, extras.chime_service.tick, pages.journal.on_tick, pages.todo.table.on_tick)
+        ),
     )
 
 
@@ -270,7 +238,7 @@ def _wire_window(
 def _pages(
     config: AppConfig, paths: AppPaths, translator: TranslatorPort, services: ShellServices, timer: TimerServices
 ) -> _Pages:
-    """Create the presenters of the Journal and Settings pages.
+    """Create the presenters of the TODO manager and of the Journal and Settings pages.
 
     Args:
         config: Loaded configuration.
@@ -283,7 +251,9 @@ def _pages(
         The presenters.
     """
     settings, settings_files = build_settings(config, paths, translator, services, timer)
-    return _Pages(build_journal(config, translator, services.core, services.feed), settings, settings_files)
+    journal = build_journal(config, translator, services.core, services.feed)
+    todo = build_todo(config, translator, services.core, services.storage.store)
+    return _Pages(journal, settings, settings_files, todo)
 
 
 def _connect_settings(window: MainWindow, presenters: MainWindowPresenters, core: Core) -> None:
@@ -299,6 +269,7 @@ def _connect_settings(window: MainWindow, presenters: MainWindowPresenters, core
         core.event_bus.subscribe(event_type, settings.on_stored_values_changed)
     presenters.settings_files.add_layout_reset_listener(window.reset_layout)
     presenters.settings_files.add_layout_reset_listener(presenters.journal.reset_layout)
+    presenters.settings_files.add_layout_reset_listener(presenters.todo.refresher.reset_layout)
     presenters.shutdown.watch_edits(settings)
 
 
@@ -318,6 +289,7 @@ def _main_window(config: AppConfig, paths: AppPaths, core: Core, presenters: Mai
         shell=ShellLayout.from_ui_section(config.ui),
         timer=TimerLayout.from_ui_section(config.ui),
         journal=JournalLayout.from_journal_section(config.journal),
+        todo=TodoLayout.from_config(config),
     )
     return MainWindow(
         presenters=presenters,
@@ -361,6 +333,7 @@ def _attach_dialogs(
     extras.preset_editor.attach(PresetEditWindow(extras.preset_editor, renderer, host, layout))
     extras.presets.attach(dialogs)
     extras.chime_editor.attach(ChimeSettingsWindow(extras.chime_editor, renderer, host, layout), dialogs)
+    attach_todo_dialogs(presenters.todo, host, dialogs, services.core, TodoLayout.from_config(config))
     if services.startup is not None:
         services.startup.dialogs.move_to_window(host)
         services.startup.presenter.attach_session(services.startup.dialogs, dialogs)
@@ -402,4 +375,5 @@ def _presenters(
         journal=journal,
         settings=settings,
         settings_files=pages.settings_files,
+        todo=pages.todo,
     )

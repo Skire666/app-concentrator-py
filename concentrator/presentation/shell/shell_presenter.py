@@ -140,7 +140,6 @@ class ShellPresenter:
             window_title=tr("app.title"),
             module_buttons=tuple(starmap(self._module_button, PAGE_ACTIONS.items())),
             active_page_index=PAGE_ORDER.index(self._active_page),
-            focus_zone1_placeholder=tr("placeholder.focus.zone1"),
         )
 
     def on_timer_changed(self, event: TimerChangedEvent) -> None:

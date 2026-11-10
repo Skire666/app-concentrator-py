@@ -14,6 +14,8 @@ from concentrator.presentation.common.layout_keys import (
     LAYOUT_JOURNAL_HEADER,
     LAYOUT_JOURNAL_SPLITTER,
     LAYOUT_MAIN_WINDOW_GEOMETRY,
+    LAYOUT_TODO_HEADER,
+    LAYOUT_TODO_SPLITTER,
 )
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
@@ -77,7 +79,7 @@ class MainWindow(QWidget):
         self._module_bar = ModuleBarPanel(layouts.shell.module_bar_width_px, icons, self)
         self._status_bar = StatusBarPanel(self)
         self._pages = QStackedWidget(self)
-        self._focus_page = FocusPage(layouts.shell.zone1_ratio_percent, layouts.timer, self._pages)
+        self._focus_page = FocusPage(layouts.shell.zone1_ratio_percent, layouts.timer, layouts.todo, self._pages)
         self._journal_page = JournalPage(layouts.journal, self._pages)
         self._settings_page = SettingsPage(layouts.timer.spacing_px, self._pages)
         self._build_layout()
@@ -137,7 +139,6 @@ class MainWindow(QWidget):
         self.setUpdatesEnabled(False)
         self.setWindowTitle(snapshot.window_title)
         self._module_bar.render_snapshot(snapshot)
-        self._focus_page.render_snapshot(snapshot)
         self._pages.setCurrentIndex(snapshot.active_page_index)
         self.setUpdatesEnabled(True)
 
@@ -182,6 +183,7 @@ class MainWindow(QWidget):
             The parts.
         """
         focus, journal = self._focus_page, self._journal_page
+        table = focus.table_panel
         return (
             _LayoutPart(
                 LAYOUT_MAIN_WINDOW_GEOMETRY, self.saveGeometry, self.restoreGeometry, self._apply_default_geometry
@@ -189,6 +191,13 @@ class MainWindow(QWidget):
             _LayoutPart(
                 LAYOUT_FOCUS_PAGE_SPLITTER, focus.splitter_state, focus.restore_splitter_state, focus.reset_splitter
             ),
+            _LayoutPart(
+                LAYOUT_TODO_SPLITTER,
+                focus.todo_splitter_state,
+                focus.restore_todo_splitter_state,
+                focus.reset_todo_splitter,
+            ),
+            _LayoutPart(LAYOUT_TODO_HEADER, table.header_state, table.restore_header_state, table.reset_columns),
             _LayoutPart(
                 LAYOUT_JOURNAL_SPLITTER, journal.splitter_state, journal.restore_splitter_state, journal.reset_splitter
             ),
@@ -212,6 +221,7 @@ class MainWindow(QWidget):
         renderer.register(RenderSectionEnum.STATUS_BAR, status_bar.build_snapshot, self._status_bar.render_snapshot)
         renderer.register(RenderSectionEnum.TIMER, timer.build_snapshot, self.timer_panel.render_snapshot)
         self._wire_timer_extras(presenters, renderer)
+        self._focus_page.connect_todo(presenters.todo, renderer)
         self._journal_page.connect_presenter(presenters.journal, renderer)
         self._settings_page.connect_presenters(presenters.settings, presenters.settings_files, renderer)
 

@@ -52,7 +52,6 @@ def test_initial_shell_snapshot_shows_the_focus_page(harness: _Harness) -> None:
     assert [button.checked for button in snapshot.module_buttons] == [True, False, False]
     assert all(button.enabled and not button.highlighted for button in snapshot.module_buttons)
     assert snapshot.module_buttons[0].tooltip == "en:action.shell_show_focus.tooltip"
-    assert snapshot.focus_zone1_placeholder == "en:placeholder.focus.zone1"
 
 
 def test_module_action_switches_page_and_renders_the_shell_only(harness: _Harness) -> None:

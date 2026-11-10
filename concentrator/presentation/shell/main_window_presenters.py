@@ -11,6 +11,7 @@ from concentrator.presentation.storage.shutdown_presenter import ShutdownPresent
 from concentrator.presentation.timer.chime_presenter import ChimePresenter
 from concentrator.presentation.timer.presets_presenter import PresetsPresenter
 from concentrator.presentation.timer.timer_presenter import TimerPresenter
+from concentrator.presentation.todo.todo_presenters import TodoPresenters
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -27,6 +28,7 @@ class MainWindowPresenters:
         journal: Journal page.
         settings: Settings form.
         settings_files: File sections of the settings page.
+        todo: TODO manager of zone 1.
     """
 
     shell: ShellPresenter
@@ -38,3 +40,4 @@ class MainWindowPresenters:
     journal: JournalPresenter
     settings: SettingsPresenter
     settings_files: SettingsFilesPresenter
+    todo: TodoPresenters

@@ -1,16 +1,23 @@
-"""Menu A page: zone 1 (TODO manager, phase 5) and zone 2 (timer, focus queue later, favorites, options)."""
+"""Menu A page: zone 1 (TODO manager) and zone 2 (timer, focus queue later, favorites, options)."""
 
 from typing import Final
 
 from PySide6.QtCore import QByteArray, Qt
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
-from concentrator.presentation.shell.shell_snapshot import ShellSnapshot
+from concentrator.presentation.common.render_coordinator import RenderCoordinator
+from concentrator.presentation.common.render_section_enum import RenderSectionEnum
 from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.presentation.todo.todo_layout import TodoLayout
+from concentrator.presentation.todo.todo_presenters import TodoPresenters
 from concentrator.ui.panels.presets_panel import PresetsPanel
+from concentrator.ui.panels.quick_add_panel import QuickAddPanel
 from concentrator.ui.panels.special_options_panel import SpecialOptionsPanel
+from concentrator.ui.panels.task_details_panel import TaskDetailsPanel
+from concentrator.ui.panels.task_table_panel import TaskTablePanel
 from concentrator.ui.panels.timer_panel import TimerPanel
-from concentrator.ui.widgets.placeholder_widget import PlaceholderWidget
+from concentrator.ui.panels.todo_tabs_panel import TodoTabsPanel
+from concentrator.ui.panels.todo_toolbar_panel import TodoToolbarPanel
 
 _PERCENT: Final = 100
 
@@ -18,45 +25,47 @@ _PERCENT: Final = 100
 class FocusPage(QWidget):
     """Zone 1 and zone 2 in a horizontal splitter.
 
-    Zone 2, top to bottom: timer, the room of the focus queue (phase 7), favorites, special options.
+    Zone 1, top to bottom: list tabs, toolbar, quick add, then the task table above the details pane in a
+    vertical splitter (the details pane can be collapsed). Zone 2, top to bottom: timer, the room of the
+    focus queue (phase 7), favorites, special options.
     """
 
-    def __init__(self, zone1_ratio_percent: int, timer_layout: TimerLayout, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        zone1_ratio_percent: int,
+        timer_layout: TimerLayout,
+        todo_layout: TodoLayout,
+        parent: QWidget | None = None,
+    ) -> None:
         """Build the page.
 
         Args:
             zone1_ratio_percent: Initial share of zone 1 (``ui.zone1_ratio_percent``).
             timer_layout: Font of the timer digits and spacing of the favorites.
+            todo_layout: Table and details split, default column widths and spacing of zone 1.
             parent: Parent widget.
         """
         super().__init__(parent)
         self._ratio = zone1_ratio_percent
+        self._todo_layout = todo_layout
         self._splitter = QSplitter(Qt.Orientation.Horizontal, self)
         self._splitter.setChildrenCollapsible(False)
-        self._zone1 = PlaceholderWidget(self._splitter)
+        zone1 = QWidget(self._splitter)
+        self._tabs = TodoTabsPanel(zone1)
+        self._toolbar = TodoToolbarPanel(zone1)
+        self._quick_add = QuickAddPanel(zone1)
+        self._todo_splitter = QSplitter(Qt.Orientation.Vertical, zone1)
+        self._table = TaskTablePanel(todo_layout.column_widths_px, self._todo_splitter)
+        self._details = TaskDetailsPanel(self._todo_splitter)
         zone2 = QWidget(self._splitter)
         self._timer = TimerPanel(timer_layout, zone2)
         self._presets = PresetsPanel(timer_layout, zone2)
         self._options = SpecialOptionsPanel(zone2)
-        stack = QVBoxLayout(zone2)
-        stack.setSpacing(timer_layout.spacing_px)
-        stack.addWidget(self._timer)
-        stack.addStretch(1)
-        stack.addWidget(self._presets)
-        stack.addWidget(self._options)
-        self._splitter.addWidget(self._zone1)
-        self._splitter.addWidget(zone2)
-        self._splitter.setStretchFactor(0, zone1_ratio_percent)
-        self._splitter.setStretchFactor(1, _PERCENT - zone1_ratio_percent)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._splitter)
+        self._build_zone1(zone1, todo_layout.spacing_px)
+        self._build_zone2(zone2, timer_layout.spacing_px)
+        self._build_splitter(zone1, zone2)
         self.reset_splitter()
-
-    @property
-    def zone1_text(self) -> str:
-        """Text of zone 1 (for tests)."""
-        return self._zone1.text
+        self.reset_todo_splitter()
 
     @property
     def timer_panel(self) -> TimerPanel:
@@ -73,20 +82,57 @@ class FocusPage(QWidget):
         """Special options at the bottom of zone 2."""
         return self._options
 
-    def render_snapshot(self, snapshot: ShellSnapshot) -> None:
-        """Show the zone 1 placeholder.
+    @property
+    def tabs_panel(self) -> TodoTabsPanel:
+        """List tabs of zone 1."""
+        return self._tabs
+
+    @property
+    def toolbar_panel(self) -> TodoToolbarPanel:
+        """Task toolbar of zone 1."""
+        return self._toolbar
+
+    @property
+    def quick_add_panel(self) -> QuickAddPanel:
+        """Quick add field of zone 1."""
+        return self._quick_add
+
+    @property
+    def table_panel(self) -> TaskTablePanel:
+        """Task table of zone 1."""
+        return self._table
+
+    @property
+    def details_panel(self) -> TaskDetailsPanel:
+        """Details pane of zone 1."""
+        return self._details
+
+    def connect_todo(self, todo: TodoPresenters, renderer: RenderCoordinator) -> None:
+        """Connect the zone 1 panels to their presenters and register their sections.
 
         Args:
-            snapshot: Shell state.
+            todo: Presenters of the TODO manager.
+            renderer: Render coordinator.
         """
-        self._zone1.set_text(snapshot.focus_zone1_placeholder)
+        self._tabs.action_requested.connect(todo.tabs.on_action_requested)
+        self._tabs.list_action_requested.connect(todo.tabs.on_list_action_requested)
+        self._toolbar.action_requested.connect(todo.toolbar.on_action_requested)
+        self._toolbar.move_requested.connect(todo.toolbar.on_move_requested)
+        self._quick_add.text_changed.connect(todo.quick_add.on_text_changed)
+        self._quick_add.submitted.connect(todo.quick_add.on_submitted)
+        self._connect_table(todo)
+        renderer.register(RenderSectionEnum.TODO_TABS, todo.tabs.build_snapshot, self._tabs.render_snapshot)
+        renderer.register(RenderSectionEnum.TODO_TOOLBAR, todo.toolbar.build_snapshot, self._toolbar.render_snapshot)
+        renderer.register(RenderSectionEnum.QUICK_ADD, todo.quick_add.build_snapshot, self._quick_add.render_snapshot)
+        renderer.register(RenderSectionEnum.TODO_TABLE, todo.table.build_snapshot, self._table.render_snapshot)
+        renderer.register(RenderSectionEnum.TODO_DETAILS, todo.details.build_snapshot, self._details.render_snapshot)
 
     def splitter_state(self) -> QByteArray:
-        """Return the splitter blob to persist."""
+        """Return the zone 1 / zone 2 splitter blob to persist."""
         return self._splitter.saveState()
 
     def restore_splitter_state(self, state: QByteArray) -> bool:
-        """Restore a persisted splitter blob.
+        """Restore a persisted zone splitter blob.
 
         Args:
             state: Blob from ``splitter_state``.
@@ -100,6 +146,26 @@ class FocusPage(QWidget):
         """Apply the ini ratio (sizes are distributed proportionally to the available width)."""
         self._splitter.setSizes([self._ratio, _PERCENT - self._ratio])
 
+    def todo_splitter_state(self) -> QByteArray:
+        """Return the table / details splitter blob to persist."""
+        return self._todo_splitter.saveState()
+
+    def restore_todo_splitter_state(self, state: QByteArray) -> bool:
+        """Restore a persisted table / details splitter blob.
+
+        Args:
+            state: Blob from ``todo_splitter_state``.
+
+        Returns:
+            Whether Qt accepted it.
+        """
+        return self._todo_splitter.restoreState(state)
+
+    def reset_todo_splitter(self) -> None:
+        """Apply the ini share of the task table (``todo.default_table_ratio_percent``)."""
+        ratio = self._todo_layout.table_ratio_percent
+        self._todo_splitter.setSizes([ratio, _PERCENT - ratio])
+
     def splitter_sizes(self) -> list[int]:
         """Return the current zone widths (for tests).
 
@@ -107,3 +173,64 @@ class FocusPage(QWidget):
             Width of zone 1 and zone 2 in pixels.
         """
         return self._splitter.sizes()
+
+    def _connect_table(self, todo: TodoPresenters) -> None:
+        """Connect the task table to its presenter.
+
+        Args:
+            todo: Presenters of the TODO manager.
+        """
+        table = self._table
+        table.selection_changed.connect(todo.table.on_selection_changed)
+        table.sort_requested.connect(todo.table.on_sort_requested)
+        table.check_toggled.connect(todo.table.on_check_toggled)
+        table.activated.connect(todo.table.on_activated)
+        table.toggle_requested.connect(todo.table.on_selection_toggled)
+        table.action_requested.connect(todo.toolbar.on_action_requested)
+        table.move_requested.connect(todo.toolbar.on_move_requested)
+
+    def _build_splitter(self, zone1: QWidget, zone2: QWidget) -> None:
+        """Zone 1 and zone 2 side by side, shared by the ini ratio.
+
+        Args:
+            zone1: Container of zone 1.
+            zone2: Container of zone 2.
+        """
+        self._splitter.addWidget(zone1)
+        self._splitter.addWidget(zone2)
+        self._splitter.setStretchFactor(0, self._ratio)
+        self._splitter.setStretchFactor(1, _PERCENT - self._ratio)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._splitter)
+
+    def _build_zone1(self, zone1: QWidget, spacing_px: int) -> None:
+        """Tabs, toolbar, quick add, then table and details.
+
+        Args:
+            zone1: Container of zone 1.
+            spacing_px: Space between its parts.
+        """
+        self._todo_splitter.addWidget(self._table)
+        self._todo_splitter.addWidget(self._details)
+        self._todo_splitter.setCollapsible(0, False)
+        stack = QVBoxLayout(zone1)
+        stack.setSpacing(spacing_px)
+        stack.addWidget(self._tabs)
+        stack.addWidget(self._toolbar)
+        stack.addWidget(self._quick_add)
+        stack.addWidget(self._todo_splitter, 1)
+
+    def _build_zone2(self, zone2: QWidget, spacing_px: int) -> None:
+        """Timer, the room of the focus queue, favorites, special options.
+
+        Args:
+            zone2: Container of zone 2.
+            spacing_px: Space between its parts.
+        """
+        stack = QVBoxLayout(zone2)
+        stack.setSpacing(spacing_px)
+        stack.addWidget(self._timer)
+        stack.addStretch(1)
+        stack.addWidget(self._presets)
+        stack.addWidget(self._options)
