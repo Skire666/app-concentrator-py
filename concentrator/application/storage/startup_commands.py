@@ -4,8 +4,6 @@ import logging
 from pathlib import Path
 from typing import Final
 
-from concentrator.application.ports.clock_port import ClockPort
-from concentrator.application.ports.id_generator_port import IdGeneratorPort
 from concentrator.application.ports.user_data_file_port import UserDataFilePort
 from concentrator.application.ports.user_data_session_port import UserDataSessionPort
 from concentrator.application.ports.view_preferences_port import ViewPreferencesPort
@@ -18,7 +16,6 @@ from concentrator.application.storage.user_data import StoredUserData
 from concentrator.application.storage.user_data_defaults import UserDataDefaults
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.settings.language_enum import LanguageEnum
-from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
 from concentrator.domain.settings.user_settings_rules import UserSettingsRules
 
 _logger = logging.getLogger(__name__)
@@ -40,8 +37,6 @@ class StartupCommands:
         session: UserDataSessionPort,
         coordinator: SaveCoordinator,
         preferences: ViewPreferencesPort,
-        ids: IdGeneratorPort,
-        clock: ClockPort,
         defaults: UserDataDefaults,
         default_path: Path,
     ) -> None:
@@ -52,17 +47,13 @@ class StartupCommands:
             session: In-memory data.
             coordinator: Starts saving once a file is open.
             preferences: ``ui-state.ini`` (remembered path).
-            ids: Id of the settings of a new file.
-            clock: Creation instant of a new file.
-            defaults: Sections of a new file, and those missing from an older file.
+            defaults: Settings and sections of a new file, and sections missing from an older file.
             default_path: ``paths.default_data_file``.
         """
         self._file = file
         self._session = session
         self._coordinator = coordinator
         self._preferences = preferences
-        self._ids = ids
-        self._clock = clock
         self._defaults = defaults
         self._default_path = default_path
 
@@ -122,7 +113,7 @@ class StartupCommands:
         Returns:
             The ``READY`` plan, or the failure (``STORAGE_FILE_ALREADY_EXISTS``, write errors).
         """
-        settings = UserSettings.create(UserSettingsId(self._ids.new_id()), self._clock.now_utc(), language)
+        settings = self._defaults.new_settings(language)
         validation = UserSettingsRules.validate(settings)
         if validation.is_failure:
             return DataResult.fail(validation)

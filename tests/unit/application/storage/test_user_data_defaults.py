@@ -2,6 +2,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from concentrator.application.common.event_bus import EventBus
+from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.save_coordinator import SaveCoordinator
 from concentrator.application.storage.save_state_enum import SaveStateEnum
 from concentrator.application.storage.startup_commands import StartupCommands
@@ -10,7 +11,9 @@ from concentrator.application.storage.user_data import StoredUserData
 from concentrator.application.storage.user_data_defaults import SectionDefaults, UserDataDefaults
 from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
+from concentrator.domain.settings.general_settings import GeneralSettings
 from concentrator.domain.settings.language_enum import LanguageEnum
+from concentrator.domain.settings.log_level_enum import LogLevelEnum
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.hourly_chime import HourlyChime, HourlyChimeId
 from concentrator.domain.timer.sound_ref import SoundRef
@@ -18,7 +21,12 @@ from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
 from concentrator.domain.timer.timer_limits import TimerLimits
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 from concentrator.domain.timer.volume import Volume
-from tests.fakes.app_config_factory import make_chime_section, make_storage_section, make_timer_section
+from tests.fakes.app_config_factory import (
+    make_chime_section,
+    make_settings_section,
+    make_storage_section,
+    make_timer_section,
+)
 from tests.fakes.fake_clock import FakeClock
 from tests.fakes.fake_id_generator import FakeIdGenerator
 from tests.fakes.fake_user_data_file import FakeUserDataFile, report, valid
@@ -91,11 +99,28 @@ def test_section_defaults_gather_the_ini_values() -> None:
     timer = TimerDefaults.from_section(make_timer_section(default_presets_minutes=(5,)))
     chime = ChimeDefaults.from_section(make_chime_section(default_enabled=True))
 
-    sections = SectionDefaults.from_defaults(timer, chime)
+    settings = SettingsDefaults.from_section(make_settings_section(default_log_level=LogLevelEnum.DEBUG))
+
+    sections = SectionDefaults.from_defaults(timer, chime, settings)
 
     assert sections == SectionDefaults(
-        timer=timer.settings, presets=(Duration(300),), chime_enabled=True, chime=DEFAULT_CHIME_SETTINGS
+        timer=timer.settings,
+        presets=(Duration(300),),
+        chime_enabled=True,
+        chime=DEFAULT_CHIME_SETTINGS,
+        settings=SettingsDefaults(log_level=LogLevelEnum.DEBUG, notify_when_inactive=True),
     )
+
+
+def test_new_settings_take_the_chosen_language_and_the_ini_values() -> None:
+    clock = FakeClock()
+
+    settings = _defaults(clock).new_settings(LanguageEnum.FRENCH)
+
+    assert settings.general == GeneralSettings(
+        language=LanguageEnum.FRENCH, log_level=LogLevelEnum.INFO, notify_when_inactive=True
+    )
+    assert settings.created_at == clock.now_utc()
 
 
 def test_complete_adds_a_missing_timer() -> None:
@@ -163,8 +188,6 @@ def test_opening_a_file_without_timer_saves_the_completed_file() -> None:
         session=session,
         coordinator=coordinator,
         preferences=preferences,
-        ids=FakeIdGenerator(),
-        clock=FakeClock(),
         defaults=_defaults(),
         default_path=PATH,
     )

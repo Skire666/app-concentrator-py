@@ -30,7 +30,7 @@ class ErrorCodeEnum(BaseIntEnum):
     ENUM_VALUE_UNKNOWN = 1008
     DATETIME_NOT_UTC = 1009
 
-    # 2xxx storage (2018 and 2019 are reserved for phase 4; 2020 is retired and never reused, ADR-035)
+    # 2xxx storage (2020 is retired and never reused, ADR-035)
     STORAGE_FILE_NOT_FOUND = 2001
     STORAGE_FILE_UNREADABLE = 2002
     STORAGE_ENCODING_INVALID = 2003
@@ -48,6 +48,8 @@ class ErrorCodeEnum(BaseIntEnum):
     STORAGE_FILE_ALREADY_EXISTS = 2015
     STORAGE_DIRECTORY_NOT_WRITABLE = 2016
     STORAGE_DISK_FULL = 2017
+    STORAGE_TARGET_IS_CURRENT_FILE = 2018
+    STORAGE_MOVE_FAILED = 2019
     STORAGE_FILE_CHANGED_EXTERNALLY = 2021
 
     # 3xxx configuration
@@ -80,6 +82,9 @@ class ErrorCodeEnum(BaseIntEnum):
     # 42xx hourly chime
     CHIME_HOUR_OUT_OF_RANGE = 4201
     CHIME_HOURS_REVERSED = 4202
+
+    # 70xx links and folders
+    LINK_OPEN_FAILED = 7003
 
     # 71xx audio
     AUDIO_FILE_NOT_FOUND = 7101

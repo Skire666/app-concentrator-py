@@ -73,8 +73,6 @@ class StorageStack:
             session=self.session,
             coordinator=self.coordinator,
             preferences=self.preferences,
-            ids=ids,
-            clock=self.clock,
             defaults=defaults,
             default_path=DEFAULT_PATH,
         )

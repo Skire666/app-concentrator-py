@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from concentrator.domain.settings.language_enum import LanguageEnum
+from concentrator.domain.settings.log_level_enum import LogLevelEnum
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -111,6 +112,24 @@ class LoggingSection:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class JournalSection:
+    """``[journal]``: the log viewer page (Menu B)."""
+
+    search_debounce_ms: int
+    copy_max_rows: int
+    default_table_ratio_percent: int
+    default_column_widths_px: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SettingsSection:
+    """``[settings]``: General values of a new data file, and of a file written before they existed."""
+
+    default_log_level: LogLevelEnum
+    default_notify_when_inactive: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class I18nSection:
     """``[i18n]``: UI languages."""
 
@@ -129,4 +148,6 @@ class AppConfig:
     timer: TimerSection
     chime: ChimeSection
     logging: LoggingSection
+    journal: JournalSection
+    settings: SettingsSection
     i18n: I18nSection

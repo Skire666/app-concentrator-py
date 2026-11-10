@@ -3,9 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from concentrator.application.common.app_config import ChimeSection
+from concentrator.application.common.app_config import ChimeSection, JournalSection, SettingsSection
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.settings.language_enum import LanguageEnum
+from concentrator.domain.settings.log_level_enum import LogLevelEnum
 from concentrator.infrastructure.config.ini_config_loader import IniConfigLoader
 from concentrator.infrastructure.system.app_paths import AppPaths
 
@@ -68,6 +69,13 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
     assert config.i18n.default_language is LanguageEnum.ENGLISH
     assert config.paths.ui_state_file == tmp_path / "roaming" / "Concentrator" / "ui-state.ini"
     assert config.paths.log_dir == tmp_path / "local" / "Concentrator" / "logs"
+    assert config.journal == JournalSection(
+        search_debounce_ms=150,
+        copy_max_rows=2000,
+        default_table_ratio_percent=70,
+        default_column_widths_px=(110, 90, 240, 120),
+    )
+    assert config.settings == SettingsSection(default_log_level=LogLevelEnum.INFO, default_notify_when_inactive=True)
 
 
 def test_missing_file_is_reported(paths: AppPaths, tmp_path: Path) -> None:
@@ -128,7 +136,7 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("action_cooldown_ms = 100", "action_cooldown_ms = 99", "ui.action_cooldown_ms"),
         ("min_window_width_px = 1000", "min_window_width_px = 1500", "ui"),
         ("min_window_height_px = 640", "min_window_height_px = 900", "ui"),
-        ("level = INFO", "level = VERBOSE", "logging.level"),
+        ("\nlevel = INFO", "\nlevel = VERBOSE", "logging.level"),
         ("default_language = en", "default_language = de", "i18n.default_language"),
         ("file_name = concentrator.log", "file_name = logs/concentrator.log", "logging.file_name"),
         ("save_max_delay_ms = 1500", "save_max_delay_ms = 499", "storage.save_max_delay_ms"),
@@ -161,6 +169,22 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("default_start_hour = 8", "default_start_hour = 24", "chime.default_start_hour"),
         ("default_end_hour = 20", "default_end_hour = 7", "chime"),
         ("trigger_window_seconds = 59", "trigger_window_seconds = 3600", "chime.trigger_window_seconds"),
+        ("search_debounce_ms = 150", "search_debounce_ms = 2001", "journal.search_debounce_ms"),
+        ("copy_max_rows = 2000", "copy_max_rows = 0", "journal.copy_max_rows"),
+        ("default_table_ratio_percent = 70", "default_table_ratio_percent = 96", "journal.default_table_ratio_percent"),
+        ("default_column_widths_px = 110, 90, 240, 120", "default_column_widths_px = 110, 90", "journal"),
+        ("default_column_widths_px = 110, 90, 240, 120", "default_column_widths_px = 110, 90, 240, 5", "journal"),
+        (
+            "default_column_widths_px = 110, 90, 240, 120",
+            "default_column_widths_px = a, b",
+            "journal.default_column_widths_px",
+        ),
+        ("default_log_level = INFO", "default_log_level = 2", "settings.default_log_level"),
+        (
+            "default_notify_when_inactive = true",
+            "default_notify_when_inactive = 2",
+            "settings.default_notify_when_inactive",
+        ),
     ],
 )
 def test_invalid_value_is_reported(paths: AppPaths, tmp_path: Path, old: str, new: str, field: str) -> None:

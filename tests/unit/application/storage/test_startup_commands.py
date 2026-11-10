@@ -54,8 +54,6 @@ class Setup:
             session=self.session,
             coordinator=self.coordinator,
             preferences=self.preferences,
-            ids=ids,
-            clock=self.clock,
             defaults=self.defaults,
             default_path=DEFAULT,
         )

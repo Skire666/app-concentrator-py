@@ -7,10 +7,12 @@ from typing import Self
 from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.id_generator_port import IdGeneratorPort
 from concentrator.application.ports.user_data_session_port import UserDataSessionPort
+from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.user_data import UserData
 from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
-from concentrator.domain.settings.user_settings import UserSettings
+from concentrator.domain.settings.language_enum import LanguageEnum
+from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
 from concentrator.domain.timer.chime_settings import ChimeSettings
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.hourly_chime import HourlyChime, HourlyChimeId
@@ -33,25 +35,34 @@ class SectionDefaults:
         presets: Durations of the favorites, in order (``timer.default_presets_minutes``).
         chime_enabled: Switch of the hourly chime (``chime.default_enabled``).
         chime: Sound, volume and hours of the hourly chime (``[chime]`` defaults).
+        settings: General values of new settings (``[settings]`` defaults).
     """
 
     timer: TimerSettings
     presets: tuple[Duration, ...]
     chime_enabled: bool
     chime: ChimeSettings
+    settings: SettingsDefaults
 
     @classmethod
-    def from_defaults(cls, timer: TimerDefaults, chime: ChimeDefaults) -> Self:
-        """Gather the defaults of the timer feature.
+    def from_defaults(cls, timer: TimerDefaults, chime: ChimeDefaults, settings: SettingsDefaults) -> Self:
+        """Gather the defaults of the sections.
 
         Args:
             timer: ``[timer]`` values.
             chime: ``[chime]`` values.
+            settings: ``[settings]`` values.
 
         Returns:
             The section defaults.
         """
-        return cls(timer=timer.settings, presets=timer.presets, chime_enabled=chime.enabled, chime=chime.settings)
+        return cls(
+            timer=timer.settings,
+            presets=timer.presets,
+            chime_enabled=chime.enabled,
+            chime=chime.settings,
+            settings=settings,
+        )
 
 
 class UserDataDefaults:
@@ -73,6 +84,18 @@ class UserDataDefaults:
         self._ids = ids
         self._clock = clock
         self._sections = sections
+
+    def new_settings(self, language: LanguageEnum) -> UserSettings:
+        """Settings of a new data file.
+
+        Args:
+            language: Language chosen in the first-run dialog.
+
+        Returns:
+            The settings; validate them with ``UserSettingsRules``.
+        """
+        general = self._sections.settings.general(language)
+        return UserSettings.create(UserSettingsId(self._ids.new_id()), self._clock.now_utc(), general)
 
     def initial(self, settings: UserSettings) -> UserData:
         """Content of a new data file.

@@ -19,6 +19,13 @@ _PRESET_OUT_OF_RANGE: Final = "every default_presets_minutes value must be withi
 _PRESET_DUPLICATE: Final = "default_presets_minutes values must be unique"
 _PRESETS_ABOVE_MAX: Final = "default_presets_minutes must not have more values than max_presets"
 _CHIME_HOURS_REVERSED: Final = "default_start_hour must not exceed default_end_hour"
+_COLUMN_WIDTH_COUNT: Final = 4
+_COLUMN_WIDTH_MIN_PX: Final = 20
+_COLUMN_WIDTH_MAX_PX: Final = 2_000
+_COLUMN_WIDTHS: Final = (
+    f"default_column_widths_px needs {_COLUMN_WIDTH_COUNT} values (time, level, source, thread) "
+    f"between {_COLUMN_WIDTH_MIN_PX} and {_COLUMN_WIDTH_MAX_PX} px"
+)
 _LIST_SEPARATOR: Final = ","
 _SECONDS_PER_MINUTE: Final = 60
 
@@ -31,7 +38,7 @@ type LevelName = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 type SoundName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=r"^[A-Za-z0-9_.-]+$")]
 type TimerSeconds = Annotated[int, Field(ge=1, le=359_999)]
 type AutoStopSeconds = Annotated[int, Field(ge=1, le=86_400)]
-type MinutesList = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^(\d+(\s*,\s*\d+)*)?$")]
+type NumberList = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^(\d+(\s*,\s*\d+)*)?$")]
 type Volume = Annotated[int, Field(ge=0, le=100)]
 type Hour = Annotated[int, Field(ge=0, le=23)]
 
@@ -127,7 +134,7 @@ class TimerSectionSchema(BaseModel):
     default_auto_stop_seconds: Annotated[int, Field(ge=0, le=86_400)]
     min_auto_stop_seconds: AutoStopSeconds
     max_auto_stop_seconds: AutoStopSeconds
-    default_presets_minutes: MinutesList
+    default_presets_minutes: NumberList
     max_presets: Annotated[int, Field(ge=1, le=50)]
     max_preset_label_length: Annotated[int, Field(ge=1, le=200)]
 
@@ -196,6 +203,43 @@ class LoggingSectionSchema(BaseModel):
     journal_buffer_size: Annotated[int, Field(ge=100, le=100_000)]
 
 
+class JournalSectionSchema(BaseModel):
+    """``[journal]``."""
+
+    model_config = _STRICT
+
+    search_debounce_ms: Annotated[int, Field(ge=0, le=2_000)]
+    copy_max_rows: Annotated[int, Field(ge=1, le=100_000)]
+    default_table_ratio_percent: Annotated[int, Field(ge=20, le=95)]
+    default_column_widths_px: NumberList
+
+    def column_widths(self) -> tuple[int, ...]:
+        """Return the values of ``default_column_widths_px``.
+
+        Returns:
+            The widths, in column order.
+        """
+        return tuple(int(part) for part in self.default_column_widths_px.split(_LIST_SEPARATOR) if part.strip())
+
+    @model_validator(mode="after")
+    def _check_column_widths(self) -> Self:
+        widths = self.column_widths()
+        if len(widths) != _COLUMN_WIDTH_COUNT:
+            raise ValueError(_COLUMN_WIDTHS)
+        if any(not _COLUMN_WIDTH_MIN_PX <= width <= _COLUMN_WIDTH_MAX_PX for width in widths):
+            raise ValueError(_COLUMN_WIDTHS)
+        return self
+
+
+class SettingsSectionSchema(BaseModel):
+    """``[settings]``."""
+
+    model_config = _STRICT
+
+    default_log_level: LevelName
+    default_notify_when_inactive: bool
+
+
 class I18nSectionSchema(BaseModel):
     """``[i18n]``."""
 
@@ -217,4 +261,6 @@ class AppConfigSchema(BaseModel):
     timer: TimerSectionSchema
     chime: ChimeSectionSchema
     logging: LoggingSectionSchema
+    journal: JournalSectionSchema
+    settings: SettingsSectionSchema
     i18n: I18nSectionSchema

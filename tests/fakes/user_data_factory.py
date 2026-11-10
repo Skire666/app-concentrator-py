@@ -1,10 +1,12 @@
-"""Sample user data for tests (the values of the phase 1, 2 and 3 spec examples)."""
+"""Sample user data for tests (the values of the phase 1 to 4 spec examples)."""
 
 from datetime import UTC, datetime
 from typing import Final
 
+from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.user_data import StoredUserData, UserData, UserDataLimits
 from concentrator.domain.settings.language_enum import LanguageEnum
+from concentrator.domain.settings.log_level_enum import LogLevelEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
 from concentrator.domain.timer.timer_config import TimerConfig
 from tests.fakes.timer_extras_factory import make_chime, make_spec_presets
@@ -14,7 +16,8 @@ SETTINGS_ID: Final = UserSettingsId("019a5c1e-7a40-7c3e-9d5a-1f2b3c4d5e6f")
 CREATED_AT: Final = datetime(2026, 11, 6, 16, 40, tzinfo=UTC)
 UPDATED_AT: Final = datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)
 SAVED_AT: Final = datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)
-USER_DATA_LIMITS: Final = UserDataLimits(timer=LIMITS)
+SETTINGS_DEFAULTS: Final = SettingsDefaults(log_level=LogLevelEnum.INFO, notify_when_inactive=True)
+USER_DATA_LIMITS: Final = UserDataLimits(timer=LIMITS, settings=SETTINGS_DEFAULTS)
 
 SPEC_EXAMPLE_TEXT: Final = """\
 # Concentrator user data. Schema version 1.
@@ -28,6 +31,8 @@ id = '019a5c1e-7a40-7c3e-9d5a-1f2b3c4d5e6f'
 created_at = '2026-11-06T16:40:00Z'
 updated_at = '2026-11-06T16:44:03Z'
 language = 2
+log_level = 2
+notify_when_inactive = true
 
 [timer]
 id = '019a5c1f-0b2e-7d4a-8c61-2a3b4c5d6e7f'
@@ -61,8 +66,20 @@ end_hour = 20
 """
 
 
-def make_settings(language: LanguageEnum = LanguageEnum.FRENCH) -> UserSettings:
-    return UserSettings(id=SETTINGS_ID, created_at=CREATED_AT, updated_at=UPDATED_AT, language=language)
+def make_settings(
+    language: LanguageEnum = LanguageEnum.FRENCH,
+    log_level: LogLevelEnum = LogLevelEnum.INFO,
+    *,
+    notify_when_inactive: bool = True,
+) -> UserSettings:
+    return UserSettings(
+        id=SETTINGS_ID,
+        created_at=CREATED_AT,
+        updated_at=UPDATED_AT,
+        language=language,
+        log_level=log_level,
+        notify_when_inactive=notify_when_inactive,
+    )
 
 
 def make_user_data(language: LanguageEnum = LanguageEnum.FRENCH, timer: TimerConfig | None = None) -> UserData:

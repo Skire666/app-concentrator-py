@@ -8,6 +8,7 @@ from typing import Final
 from PySide6.QtGui import QIcon, QImageReader
 
 from concentrator.application.common.app_config import AppConfig
+from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.user_data import StoredUserData, UserData, UserDataLimits
 from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
@@ -84,17 +85,18 @@ def _svg_failures(paths: AppPaths) -> list[str]:
     ]
 
 
-def _round_trip_data(timer: TimerDefaults, chime: ChimeDefaults) -> UserData:
+def _round_trip_data(timer: TimerDefaults, chime: ChimeDefaults, defaults: SettingsDefaults) -> UserData:
     """Content of a new data file with every section, built from the ini defaults.
 
     Args:
         timer: ``[timer]`` values (configuration and favorites).
         chime: ``[chime]`` values.
+        defaults: ``[settings]`` values.
 
     Returns:
         The data.
     """
-    settings = UserSettings.create(ROUND_TRIP_ID, ROUND_TRIP_TIME, LanguageEnum.ENGLISH)
+    settings = UserSettings.create(ROUND_TRIP_ID, ROUND_TRIP_TIME, defaults.general(LanguageEnum.ENGLISH))
     timer_config = TimerConfig.create(ROUND_TRIP_TIMER_ID, ROUND_TRIP_TIME, timer.settings)
     presets = TimerPresetsCollection(
         TimerPreset.create(
@@ -125,10 +127,10 @@ def storage_failures(app_version: str, config: AppConfig) -> list[str]:
         One description per problem.
     """
     timer = TimerDefaults.from_section(config.timer)
-    codec = UserDataCodec(app_version, UserDataLimits(timer=timer.limits))
-    stored = StoredUserData(
-        data=_round_trip_data(timer, ChimeDefaults.from_section(config.chime)), saved_at=ROUND_TRIP_TIME
-    )
+    settings = SettingsDefaults.from_section(config.settings)
+    codec = UserDataCodec(app_version, UserDataLimits(timer=timer.limits, settings=settings))
+    data = _round_trip_data(timer, ChimeDefaults.from_section(config.chime), settings)
+    stored = StoredUserData(data=data, saved_at=ROUND_TRIP_TIME)
     decoded = codec.decode(codec.encode(stored))
     if decoded.data == stored:
         return []

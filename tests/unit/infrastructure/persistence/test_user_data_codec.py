@@ -151,3 +151,25 @@ def test_saved_at_is_returned_with_the_data() -> None:
 
     assert stored is not None
     assert stored.saved_at == SAVED_AT
+
+
+def test_file_without_the_phase_4_settings_takes_the_ini_defaults() -> None:
+    text = _edited("log_level = 2\nnotify_when_inactive = true\n", "")
+
+    result = CODEC.decode(text)
+
+    assert result.data == make_stored()
+    assert CODEC.encode(make_stored()) == SPEC_EXAMPLE_TEXT
+
+
+def test_unknown_log_level_is_reported_on_its_field() -> None:
+    result = CODEC.decode(_edited("log_level = 2", "log_level = 9"))
+
+    assert result.validation.error_codes == (ErrorCodeEnum.ENUM_VALUE_UNKNOWN,)
+    assert result.validation.issues[0].field == "settings.log_level"
+
+
+def test_log_level_written_as_text_is_a_type_error() -> None:
+    result = CODEC.decode(_edited("log_level = 2", "log_level = 'INFO'"))
+
+    assert result.validation.error_codes == (ErrorCodeEnum.STORAGE_FIELD_INVALID_TYPE,)

@@ -3,7 +3,9 @@
 from datetime import UTC, datetime
 from typing import Final
 
+from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.user_data_defaults import SectionDefaults
+from concentrator.domain.settings.log_level_enum import LogLevelEnum
 from concentrator.domain.timer.chime_settings import ChimeSettings
 from concentrator.domain.timer.duration import Duration
 from concentrator.domain.timer.hourly_chime import HourlyChime, HourlyChimeId
@@ -25,6 +27,7 @@ DEFAULT_SECTIONS: Final = SectionDefaults(
     presets=tuple(Duration.from_minutes(minutes) for minutes in DEFAULT_PRESET_MINUTES),
     chime_enabled=False,
     chime=DEFAULT_CHIME_SETTINGS,
+    settings=SettingsDefaults(log_level=LogLevelEnum.INFO, notify_when_inactive=True),
 )
 
 

@@ -48,13 +48,14 @@ class UserDataMapper:
 
         Args:
             schema: Validated DTO.
-            limits: Bounds from ``concentrator.ini`` applied by the domain rules.
+            limits: Bounds from ``concentrator.ini`` applied by the domain rules, and the defaults of
+                the settings an older file does not have.
 
         Returns:
             The data and its ``saved_at``, or every rule failure (dotted file paths). A section the
             file does not have yet is ``None``.
         """
-        settings = UserSettingsMapper.to_domain(schema.settings, SETTINGS_FIELD)
+        settings = UserSettingsMapper.to_domain(schema.settings, SETTINGS_FIELD, limits.settings)
         timer = _optional(schema.timer, lambda section: TimerConfigMapper.to_domain(section, TIMER_FIELD, limits.timer))
         presets = _optional(
             schema.timer_presets, lambda section: TimerPresetsMapper.to_domain(section, PRESETS_FIELD, limits.timer)

@@ -9,13 +9,16 @@ from concentrator.application.common.app_config import (
     AppSection,
     ChimeSection,
     I18nSection,
+    JournalSection,
     LoggingSection,
     PathsSection,
+    SettingsSection,
     StorageSection,
     TimerSection,
     UiSection,
 )
 from concentrator.domain.settings.language_enum import LanguageEnum
+from concentrator.domain.settings.log_level_enum import LogLevelEnum
 
 
 def make_ui_section(**changes: int | str) -> UiSection:
@@ -86,12 +89,28 @@ def make_chime_section(**changes: int | str | bool) -> ChimeSection:
     return replace(section, **changes)
 
 
+def make_journal_section(**changes: int | tuple[int, ...]) -> JournalSection:
+    section = JournalSection(
+        search_debounce_ms=150,
+        copy_max_rows=2000,
+        default_table_ratio_percent=70,
+        default_column_widths_px=(110, 90, 240, 120),
+    )
+    return replace(section, **changes)
+
+
+def make_settings_section(**changes: LogLevelEnum | bool) -> SettingsSection:
+    section = SettingsSection(default_log_level=LogLevelEnum.INFO, default_notify_when_inactive=True)
+    return replace(section, **changes)
+
+
 def make_app_config(
     root: Path = Path("C:/concentrator-tests"),
     ui: UiSection | None = None,
     storage: StorageSection | None = None,
     timer: TimerSection | None = None,
     chime: ChimeSection | None = None,
+    journal: JournalSection | None = None,
 ) -> AppConfig:
     return AppConfig(
         app=AppSection(
@@ -118,5 +137,7 @@ def make_app_config(
             file_backup_count=5,
             journal_buffer_size=5000,
         ),
+        journal=journal or make_journal_section(),
+        settings=make_settings_section(),
         i18n=I18nSection(default_language=LanguageEnum.ENGLISH, fallback_language=LanguageEnum.ENGLISH),
     )

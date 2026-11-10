@@ -7,6 +7,7 @@ from concentrator.application.ports.error_reporter_port import ErrorReporterPort
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.settings.language_hint import LanguageHint
 from concentrator.application.settings.settings_commands import SettingsCommands
+from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.settings.settings_queries import SettingsQueries
 from concentrator.application.storage.external_change_commands import ExternalChangeCommands
 from concentrator.application.storage.save_coordinator import SaveCoordinator
@@ -54,20 +55,21 @@ class Storage:
 
 
 def _data_file(
-    core: Core, config: AppConfig, writer: WriterThread, app_version: str, limits: UserDataLimits
+    core: Core, config: AppConfig, writer: WriterThread, app_version: str, timer: TimerDefaults
 ) -> TomlUserDataFile:
     """Create the TOML data file adapter.
 
     Args:
         core: Main-thread services.
-        config: Loaded configuration.
+        config: Loaded configuration (``[settings]`` defaults of older files).
         writer: The single writer thread.
         app_version: Written in ``app_version``.
-        limits: Bounds applied by the domain rules when a file is read.
+        timer: Bounds applied by the domain rules when a file is read.
 
     Returns:
         The adapter.
     """
+    limits = UserDataLimits(timer=timer.limits, settings=SettingsDefaults.from_section(config.settings))
     return TomlUserDataFile(
         codec=UserDataCodec(app_version, limits),
         writer=writer,
@@ -103,25 +105,25 @@ def _startup_commands(
         session=store,
         coordinator=coordinator,
         preferences=core.preferences,
-        ids=core.ids,
-        clock=core.clock,
         defaults=defaults,
         default_path=config.paths.default_data_file,
     )
 
 
-def _user_data_defaults(core: Core, timer: TimerDefaults, chime: ChimeDefaults) -> UserDataDefaults:
+def _user_data_defaults(core: Core, config: AppConfig, timer: TimerDefaults, chime: ChimeDefaults) -> UserDataDefaults:
     """Create the builder of new and completed data files.
 
     Args:
         core: Main-thread services (ids and clock).
+        config: Loaded configuration (``[settings]`` values).
         timer: ``[timer]`` values.
         chime: ``[chime]`` values.
 
     Returns:
         The builder.
     """
-    return UserDataDefaults(core.ids, core.clock, SectionDefaults.from_defaults(timer, chime))
+    settings = SettingsDefaults.from_section(config.settings)
+    return UserDataDefaults(core.ids, core.clock, SectionDefaults.from_defaults(timer, chime, settings))
 
 
 def build_storage(
@@ -142,9 +144,9 @@ def build_storage(
     writer = WriterThread(core.dispatcher, reporter)
     timer_defaults = TimerDefaults.from_section(config.timer)
     chime_defaults = ChimeDefaults.from_section(config.chime)
-    file = _data_file(core, config, writer, app_version, UserDataLimits(timer=timer_defaults.limits))
+    file = _data_file(core, config, writer, app_version, timer_defaults)
     store = UserDataStore(core.event_bus)
-    defaults = _user_data_defaults(core, timer_defaults, chime_defaults)
+    defaults = _user_data_defaults(core, config, timer_defaults, chime_defaults)
     coordinator = SaveCoordinator(
         session=store, file=file, scheduler=core.scheduler, event_bus=core.event_bus, storage=config.storage
     )

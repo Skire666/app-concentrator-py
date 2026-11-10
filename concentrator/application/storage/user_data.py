@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final, Self
 
+from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.domain.settings.user_settings import UserSettings
 from concentrator.domain.timer.hourly_chime import HourlyChime
 from concentrator.domain.timer.timer_config import TimerConfig
@@ -109,13 +110,15 @@ class UserData:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class UserDataLimits:
-    """Limits from ``concentrator.ini`` that the domain rules apply when a file is read.
+    """Values from ``concentrator.ini`` that the read pipeline needs.
 
     Attributes:
-        timer: Bounds of the timer configuration and of the favorites.
+        timer: Bounds of the timer configuration and of the favorites, applied by the domain rules.
+        settings: Values of the ``[settings]`` keys that a file written before phase 4 does not have.
     """
 
     timer: TimerLimits
+    settings: SettingsDefaults
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
