@@ -3,8 +3,10 @@
 from typing import Final
 
 from PySide6.QtCore import QByteArray, Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
 
+from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
 from concentrator.presentation.timer.timer_layout import TimerLayout
@@ -51,6 +53,7 @@ class FocusPage(QWidget):
         self._splitter = QSplitter(Qt.Orientation.Horizontal, self)
         self._splitter.setChildrenCollapsible(False)
         zone1 = QWidget(self._splitter)
+        self._new_task = QShortcut(zone1)
         self._tabs = TodoTabsPanel(zone1)
         self._toolbar = TodoToolbarPanel(zone1)
         self._quick_add = QuickAddPanel(zone1)
@@ -81,6 +84,11 @@ class FocusPage(QWidget):
     def special_options_panel(self) -> SpecialOptionsPanel:
         """Special options at the bottom of zone 2."""
         return self._options
+
+    @property
+    def new_task_shortcut(self) -> QShortcut:
+        """Ctrl+N anywhere in zone 1 (for tests)."""
+        return self._new_task
 
     @property
     def tabs_panel(self) -> TodoTabsPanel:
@@ -175,7 +183,7 @@ class FocusPage(QWidget):
         return self._splitter.sizes()
 
     def _connect_table(self, todo: TodoPresenters) -> None:
-        """Connect the task table to its presenter.
+        """Connect the task table, and Ctrl+N of zone 1, to their presenters.
 
         Args:
             todo: Presenters of the TODO manager.
@@ -188,6 +196,7 @@ class FocusPage(QWidget):
         table.toggle_requested.connect(todo.table.on_selection_toggled)
         table.action_requested.connect(todo.toolbar.on_action_requested)
         table.move_requested.connect(todo.toolbar.on_move_requested)
+        self._new_task.activated.connect(lambda: todo.toolbar.on_action_requested(int(ActionIdEnum.TASK_NEW)))
 
     def _build_splitter(self, zone1: QWidget, zone2: QWidget) -> None:
         """Zone 1 and zone 2 side by side, shared by the ini ratio.
@@ -211,6 +220,8 @@ class FocusPage(QWidget):
             zone1: Container of zone 1.
             spacing_px: Space between its parts.
         """
+        self._new_task.setKey(QKeySequence(QKeySequence.StandardKey.New))
+        self._new_task.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self._todo_splitter.addWidget(self._table)
         self._todo_splitter.addWidget(self._details)
         self._todo_splitter.setCollapsible(0, False)

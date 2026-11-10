@@ -297,7 +297,9 @@ def test_keyboard_toggles_deletes_and_opens_the_selected_task(harness: ShellHarn
     _settle(harness)
     assert harness.todo.task_window.shows == 1
 
-    QTest.keyClick(table, Qt.Key.Key_N, Qt.KeyboardModifier.ControlModifier)
+    shortcut = harness.window.focus_page.new_task_shortcut
+    assert shortcut.context() is Qt.ShortcutContext.WidgetWithChildrenShortcut
+    shortcut.activated.emit()
     _settle(harness)
     assert harness.todo.task_window.shows == 2
 

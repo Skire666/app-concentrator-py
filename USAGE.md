@@ -125,7 +125,7 @@ tasks of the current list in a table and, under it, the details of the selected 
 - **Quick add**: type in the **Add a task...** field above the table and press Enter: the task is added
   to the current list and selected, and the field empties so that you can type the next one. An empty
   field does nothing; a text too long shows why under the field.
-- **New...** (or Ctrl+N in the table) opens the task dialog: the text (several lines; the first line is
+- **New...** (or Ctrl+N anywhere in zone 1) opens the task dialog: the text (several lines; the first line is
   the title shown in the table, at most 5000 characters in all), the list, and optionally a due date
   (tick **Due date**, then pick it in the calendar) and a due time (tick **Time**; only with a date).
 - **Edit...**, a double click or Enter on a task opens the same dialog. **Save** is enabled once

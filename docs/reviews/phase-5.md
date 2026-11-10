@@ -151,3 +151,16 @@ at 100 % and 150 % scaling. Steps 1 to 5 are the spec script.
 4. **Overdue colour** is the highlight colour of the Windows palette (blue by default), as for the
    journal errors, since colours are never hard-coded. Default: keep it until the themes phase.
 5. **Duplicate** of a done task gives an open copy. Default: keep it.
+
+## Changes after the review (2026-11-10)
+
+The owner approved the build items of ADR-041 and the defaults of the open questions ("Suit tes
+recommandations"; ADR-041 amendment).
+
+1. **Ctrl+N anywhere in zone 1** (question 1): it now opens the task dialog from the tabs, the toolbar,
+   the quick add field, the table and the details pane, not only from the table.
+2. Questions 2 to 5 keep what was built: priority marks, 09:00 proposed time, palette colour for overdue
+   tasks, open copy of a duplicated done task.
+
+Manual check to add: with the focus in **Add a task...**, press Ctrl+N: the task dialog opens on the
+current list. On the Journal or Settings page, Ctrl+N does nothing.

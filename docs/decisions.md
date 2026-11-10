@@ -1014,3 +1014,11 @@ superseded.
 - Consequences: phase 6 adds recurrence, history display, filters, search and links on top of `Task`,
   `TaskHistory` and the task table; phase 7 reuses `TaskCommands` for the focus queue and
   `TaskStateChangedEvent` to remove completed items.
+- Amendment (phase 5 review, owner decision 2026-11-10: "Suit tes recommandations"): the items "decided
+  during the build" are approved and the open questions of the review report take their defaults.
+  1. **Ctrl+N works anywhere in zone 1** (tabs, toolbar, quick add, table, details): a
+     `QShortcut` with the `WidgetWithChildrenShortcut` context on zone 1, owned by `FocusPage`, sends
+     `TASK_NEW` to the toolbar presenter. The table no longer reads Ctrl+N itself (build item 14).
+  2. The tab priority marks (`‼`, `↑`, none, `↓`), the 09:00 proposed due time, the palette highlight
+     colour for overdue tasks (until the themes phase) and the open copy of a duplicated done task stay
+     as built.

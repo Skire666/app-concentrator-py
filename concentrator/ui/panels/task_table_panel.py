@@ -16,7 +16,7 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtGui import QKeyEvent, QKeySequence
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QLabel, QMenu, QStackedLayout, QTableView, QWidget
 
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
@@ -34,7 +34,7 @@ class TaskTablePanel(QWidget):
         check_toggled(str): Check box of a row clicked.
         activated(str): Double click or Enter on a row.
         toggle_requested(): Space.
-        action_requested(int): Context menu item, Del (``TASK_DELETE``), Ctrl+N (``TASK_NEW``).
+        action_requested(int): Context menu item, Del (``TASK_DELETE``).
         move_requested(str): "Move to list" item of the context menu.
     """
 
@@ -216,7 +216,7 @@ class TaskTablePanel(QWidget):
         return super().eventFilter(watched, event)
 
     def _key_handler(self, event: QKeyEvent) -> Callable[[], None] | None:
-        """Space toggles done, Enter opens, Del deletes, Ctrl+N creates (while the table has the focus).
+        """Space toggles done, Enter opens, Del deletes (while the table has the focus).
 
         Args:
             event: Key press on the table.
@@ -224,8 +224,6 @@ class TaskTablePanel(QWidget):
         Returns:
             The handler of the key, ``None`` for any other key (the table handles it).
         """
-        if event.matches(QKeySequence.StandardKey.New):
-            return lambda: self.action_requested.emit(int(ActionIdEnum.TASK_NEW))
         if event.modifiers() not in {Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.KeypadModifier}:
             return None
         handlers: dict[int, Callable[[], None]] = {
