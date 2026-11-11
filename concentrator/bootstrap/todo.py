@@ -140,7 +140,7 @@ def _editors(
         queries=queries,
         commands=tasks,
         clock=core.clock,
-        limits=defaults.limits,
+        defaults=defaults,
         state=view.state,
     )
     list_editor = ListEditPresenter(

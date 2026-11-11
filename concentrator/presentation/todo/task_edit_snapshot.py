@@ -59,6 +59,107 @@ class DueFieldSnapshot:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class WeekdayToggleSnapshot:
+    """One weekday button of a weekly series.
+
+    Attributes:
+        value: ``WeekdayEnum`` value sent back when it is toggled.
+        text: Short name (``Mon``).
+        tooltip: Full name (``Monday``).
+        checked: Whether the day is chosen.
+    """
+
+    value: int
+    text: str
+    tooltip: str
+    checked: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DateValueSnapshot:
+    """A date shown by a date field.
+
+    Attributes:
+        year: Year.
+        month: Month.
+        day: Day.
+    """
+
+    year: int
+    month: int
+    day: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RecurrenceRuleSnapshot:
+    """How often the task repeats.
+
+    Attributes:
+        every_label: Caption before the interval (``Every``).
+        interval: Number of units.
+        interval_max: Largest interval (``todo.max_recurrence_interval``).
+        frequency: Unit of the interval (days, weeks, months, years).
+        weekdays_visible: Whether the weekday buttons are shown (weekly series).
+        weekdays: The seven weekday buttons, Monday first.
+    """
+
+    every_label: str
+    interval: int
+    interval_max: int
+    frequency: ChoiceFieldSnapshot
+    weekdays_visible: bool
+    weekdays: tuple[WeekdayToggleSnapshot, ...]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RecurrenceEndSnapshot:
+    """When the series ends.
+
+    Attributes:
+        end: Never, on a date, after a count (``label`` is the caption ``Ends``).
+        end_date_visible: Whether the end date field is shown.
+        end_date: Date shown by the end date field.
+        date_format: Display format of the date field.
+        end_count_visible: Whether the count field is shown.
+        end_count: Count shown by the count field.
+        end_count_max: Largest count (``todo.max_recurrence_count``).
+        end_count_suffix: Text after the count (``times``).
+    """
+
+    end: ChoiceFieldSnapshot
+    end_date_visible: bool
+    end_date: DateValueSnapshot
+    date_format: str
+    end_count_visible: bool
+    end_count: int
+    end_count_max: int
+    end_count_suffix: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RecurrenceFieldSnapshot:
+    """The Repeat section: rule, end, summary and the next dates.
+
+    Attributes:
+        repeat_label: Text of the Repeat check box.
+        enabled: Whether the task repeats (the other fields are enabled only then).
+        rule: Interval, unit and weekdays.
+        ending: End condition.
+        summary: ``Every 2 weeks on Monday and Friday, 10 times``, ``""`` when off.
+        preview: The next dates after the due date, ``""`` when off or invalid.
+        error: First inline message of the section, ``""`` when valid.
+    """
+
+    repeat_label: str
+    enabled: bool
+    rule: RecurrenceRuleSnapshot
+    ending: RecurrenceEndSnapshot
+    summary: str
+    preview: str
+    error: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class TaskEditSnapshot:
     """Everything the task dialog shows.
 
@@ -67,6 +168,7 @@ class TaskEditSnapshot:
         text: Multi-line text; the first line is the title of the task.
         task_list: List of the task.
         due: Due date and time.
+        recurrence: Repeat section.
         save: Save button.
         cancel: Cancel button.
     """
@@ -75,5 +177,6 @@ class TaskEditSnapshot:
     text: TextFieldSnapshot
     task_list: ChoiceFieldSnapshot
     due: DueFieldSnapshot
+    recurrence: RecurrenceFieldSnapshot
     save: ButtonSnapshot
     cancel: ButtonSnapshot

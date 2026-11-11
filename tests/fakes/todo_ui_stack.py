@@ -105,7 +105,7 @@ class TodoUiStack(TodoStack):
             queries=self.queries,
             commands=self.task_commands,
             clock=self.clock,
-            limits=DEFAULTS.limits,
+            defaults=DEFAULTS,
             state=self.state,
         )
         self.task_editor.attach(self.task_window, self.dialogs)

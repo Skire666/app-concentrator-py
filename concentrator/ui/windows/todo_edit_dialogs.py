@@ -14,12 +14,30 @@ from concentrator.presentation.common.render_section_enum import RenderSectionEn
 from concentrator.presentation.ports.editor_dialog_port import EditorDialogPort
 from concentrator.presentation.todo.list_edit_presenter import ListEditPresenter
 from concentrator.presentation.todo.list_edit_snapshot import ListEditSnapshot
+from concentrator.presentation.todo.recurrence_field_presenter import RecurrenceFieldPresenter
 from concentrator.presentation.todo.task_edit_presenter import TaskEditPresenter
 from concentrator.presentation.todo.task_edit_snapshot import TaskEditSnapshot
 from concentrator.presentation.todo.todo_layout import TodoLayout
 from concentrator.ui.panels.list_edit_form_panel import ListEditFormPanel
+from concentrator.ui.panels.recurrence_form_panel import RecurrenceFormPanel
 from concentrator.ui.panels.task_edit_form_panel import TaskEditFormPanel
 from concentrator.ui.support.modal_host import DialogRunner
+
+
+def _connect_recurrence(panel: RecurrenceFormPanel, presenter: RecurrenceFieldPresenter) -> None:
+    """Connect the Repeat section to its presenter.
+
+    Args:
+        panel: Repeat section of the task dialog.
+        presenter: Its presenter.
+    """
+    panel.repeat_toggled.connect(presenter.on_repeat_toggled)
+    panel.interval_changed.connect(presenter.on_interval_changed)
+    panel.frequency_selected.connect(presenter.on_frequency_selected)
+    panel.weekday_toggled.connect(presenter.on_weekday_toggled)
+    panel.end_selected.connect(presenter.on_end_selected)
+    panel.end_date_changed.connect(presenter.on_end_date_changed)
+    panel.end_count_changed.connect(presenter.on_end_count_changed)
 
 
 class TaskEditDialog(QDialog):
@@ -111,6 +129,7 @@ class TaskEditWindow(EditorDialogPort):
         panel.due_date_changed.connect(presenter.on_due_date_changed)
         panel.due_time_changed.connect(presenter.on_due_time_changed)
         panel.action_requested.connect(presenter.on_action_requested)
+        _connect_recurrence(panel.recurrence_panel, presenter.recurrence)
         renderer.register(RenderSectionEnum.TASK_EDIT, presenter.build_snapshot, self._dialog.render_snapshot)
 
     @property

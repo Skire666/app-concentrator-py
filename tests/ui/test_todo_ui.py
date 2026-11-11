@@ -411,3 +411,43 @@ def test_filter_bar_due_filter_and_recurring_toggle(harness: ShellHarness) -> No
     _settle(harness)
     assert table.model.rowCount() == 0
     assert filters.recurring_box.isChecked()
+
+
+def test_task_dialog_saves_a_weekly_repetition(qtbot: QtBot) -> None:
+    stack = TodoUiStack(register_editors=False)
+    window = TaskEditWindow(stack.task_editor, stack.renderer, ScreenDialogRunner(), LAYOUT)
+    qtbot.addWidget(window.dialog)
+    stack.task_editor.attach(window, stack.dialogs)
+    panel = window.dialog.panel
+    repeat = panel.recurrence_panel
+    seen: dict[str, object] = {}
+
+    def act() -> None:
+        QTest.keyClicks(panel.text_input, "Backup")
+        panel.date_inputs[0].setChecked(True)
+        repeat.repeat_box.setChecked(True)
+        stack.scheduler.run_pending()
+        seen["visible"] = not repeat.weekday_input.isHidden()
+        seen["checked"] = [button.isChecked() for button in repeat.weekday_input.buttons]
+        repeat.weekday_input.buttons[0].click()
+        repeat.interval_input.setValue(2)
+        end, _end_date, end_count = repeat.end_inputs
+        end.setCurrentIndex(2)
+        stack.scheduler.run_pending()
+        end_count.setValue(4)
+        stack.scheduler.run_pending()
+        seen["count_visible"] = not end_count.isHidden()
+        seen["summary"] = repeat.texts[0].text()
+        panel.buttons[0].click()
+
+    QTimer.singleShot(0, act)
+    stack.task_editor.open_new(WORK_LIST_ID)
+
+    recurrence = stack.tasks().items[0].recurrence
+    assert recurrence is not None
+    assert (recurrence.interval, recurrence.end_count) == (2, 4)
+    assert [int(day) for day in recurrence.weekdays] == [1, 5]
+    assert seen["visible"] is True
+    assert seen["checked"] == [False, False, False, False, True, False, False]
+    assert seen["count_visible"] is True
+    assert str(seen["summary"]).startswith("en:todo.recurrence.times.other(")

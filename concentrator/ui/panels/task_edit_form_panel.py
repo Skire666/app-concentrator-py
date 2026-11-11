@@ -1,4 +1,4 @@
-"""Fields of the task dialog: text, list, due date and optional due time."""
+"""Fields of the task dialog: text, list, due date, optional due time and the Repeat section."""
 
 from PySide6.QtCore import QDate, QSignalBlocker, QTime, Signal
 from PySide6.QtWidgets import (
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from concentrator.presentation.todo.task_edit_snapshot import DueFieldSnapshot, TaskEditSnapshot
+from concentrator.ui.panels.recurrence_form_panel import RecurrenceFormPanel
 from concentrator.ui.support.styles import INVALID_INPUT_STYLE, INVALID_PROPERTY, set_dynamic_property
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
@@ -60,6 +61,7 @@ class TaskEditFormPanel(QWidget):
         self._time = QTimeEdit(self)
         self._time.setDisplayFormat(TIME_FORMAT)
         self._due_error = FieldErrorLabel(self)
+        self._recurrence = RecurrenceFormPanel(self)
         self._save = SnapshotButton(self)
         self._cancel = SnapshotButton(self)
         self._connect()
@@ -86,6 +88,11 @@ class TaskEditFormPanel(QWidget):
         return self._has_time, self._time
 
     @property
+    def recurrence_panel(self) -> RecurrenceFormPanel:
+        """Repeat section."""
+        return self._recurrence
+
+    @property
     def buttons(self) -> tuple[SnapshotButton, SnapshotButton]:
         """Save and Cancel (for tests)."""
         return self._save, self._cancel
@@ -107,6 +114,7 @@ class TaskEditFormPanel(QWidget):
         self._list_caption.setText(snapshot.task_list.label)
         self._list.apply(snapshot.task_list)
         self._apply_due(snapshot.due)
+        self._recurrence.render_snapshot(snapshot.recurrence)
         self._save.apply(snapshot.save)
         self._cancel.apply(snapshot.cancel)
         self.setUpdatesEnabled(True)
@@ -156,7 +164,7 @@ class TaskEditFormPanel(QWidget):
         self.due_time_changed.emit(self._has_time.isChecked(), value.hour(), value.minute())
 
     def _build_layout(self, spacing_px: int) -> None:
-        """Text, list, due row, buttons.
+        """Text, list, due row, Repeat section, buttons.
 
         Args:
             spacing_px: Space between the parts.
@@ -179,4 +187,5 @@ class TaskEditFormPanel(QWidget):
         layout.addLayout(form)
         layout.addLayout(due)
         layout.addWidget(self._due_error)
+        layout.addWidget(self._recurrence)
         layout.addLayout(buttons)

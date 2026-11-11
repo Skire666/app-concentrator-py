@@ -8,13 +8,14 @@ from typing import Final
 from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.todo.task_commands import TaskCommands
+from concentrator.application.todo.todo_defaults import TodoDefaults
 from concentrator.application.todo.todo_queries import TodoQueries
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.todo.task_rules import DUE_TIME_FIELD, TEXT_FIELD
-from concentrator.domain.todo.todo_limits import TodoLimits
 from concentrator.presentation.common.action_button import action_button
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
+from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
 from concentrator.presentation.common.ui_texts import UiTexts
@@ -22,6 +23,7 @@ from concentrator.presentation.ports.dialog_port import DialogPort
 from concentrator.presentation.ports.editor_dialog_port import EditorDialogPort
 from concentrator.presentation.settings.settings_snapshot import ChoiceFieldSnapshot
 from concentrator.presentation.todo.edit_dialog_host import EditDialogHost
+from concentrator.presentation.todo.recurrence_field_presenter import RecurrenceFieldPresenter
 from concentrator.presentation.todo.task_edit_form import TaskEditDraft, TaskEditForm
 from concentrator.presentation.todo.task_edit_snapshot import DueFieldSnapshot, TaskEditSnapshot, TextFieldSnapshot
 from concentrator.presentation.todo.todo_view_state import TodoViewState
@@ -48,7 +50,7 @@ class TaskEditPresenter:
         queries: TodoQueries,
         commands: TaskCommands,
         clock: ClockPort,
-        limits: TodoLimits,
+        defaults: TodoDefaults,
         state: TodoViewState,
     ) -> None:
         """Create the presenter; the dialog and the dialog service come with ``attach``.
@@ -60,7 +62,7 @@ class TaskEditPresenter:
             queries: Lists and tasks.
             commands: Stores the task.
             clock: Today's date, proposed when a due date is switched on.
-            limits: Bounds from ``concentrator.ini``.
+            defaults: Limits of the rules and the number of dates of the Repeat preview.
             state: Selection (a created task is selected).
         """
         self._translator = translator
@@ -70,14 +72,41 @@ class TaskEditPresenter:
         self._queries = queries
         self._commands = commands
         self._clock = clock
+        limits = defaults.limits
         self._limits = limits
         self._state = state
         self._host = EditDialogHost(translator, RenderSectionEnum.TASK_EDIT, renderer)
-        self._form = TaskEditForm(TaskEditDraft(text="", list_id=""), limits=limits, task_id="")
+        self._form = TaskEditForm(
+            TaskEditDraft(text="", list_id=""), limits=limits, task_id="", today=clock.now_local().date()
+        )
+        self._recurrence = self._repeat_section(defaults)
         self._actions: dict[ActionIdEnum, Callable[[], ValidationResult]] = {
             ActionIdEnum.TASK_EDIT_SAVE: self._save,
             ActionIdEnum.TASK_EDIT_CANCEL: lambda: self._host.cancel(is_dirty=self._form.is_dirty),
         }
+
+    def _repeat_section(self, defaults: TodoDefaults) -> RecurrenceFieldPresenter:
+        """Create the presenter of the Repeat section, bound to the open form.
+
+        Args:
+            defaults: Limits and the number of dates of the preview.
+
+        Returns:
+            The presenter.
+        """
+        return RecurrenceFieldPresenter(
+            self._translator,
+            self._renderer,
+            form=lambda: self._form,
+            dates=DateTimeFormatter(self._translator, self._clock),
+            limits=defaults.limits,
+            preview_count=defaults.recurrence_preview_count,
+        )
+
+    @property
+    def recurrence(self) -> RecurrenceFieldPresenter:
+        """Repeat section of the dialog."""
+        return self._recurrence
 
     def attach(
         self, window: EditorDialogPort, dialogs: DialogPort, session_ending: Callable[[], bool] | None = None
@@ -100,7 +129,9 @@ class TaskEditPresenter:
         Returns:
             Success once the dialog closed.
         """
-        self._form = TaskEditForm(TaskEditDraft(text="", list_id=list_id), limits=self._limits, task_id="")
+        self._form = TaskEditForm(
+            TaskEditDraft(text="", list_id=list_id), limits=self._limits, task_id="", today=self._today()
+        )
         return self._host.show()
 
     def open_edit(self, task_id: str) -> ValidationResult:
@@ -115,7 +146,9 @@ class TaskEditPresenter:
         task = self._queries.task(task_id)
         if task.data is None:
             return task.validation
-        self._form = TaskEditForm(TaskEditDraft.of(task.data), limits=self._limits, task_id=task_id)
+        self._form = TaskEditForm(
+            TaskEditDraft.of(task.data), limits=self._limits, task_id=task_id, today=self._today()
+        )
         return self._host.show()
 
     def build_snapshot(self) -> TaskEditSnapshot:
@@ -137,6 +170,7 @@ class TaskEditPresenter:
             ),
             task_list=self._list_field(),
             due=self._due_field(),
+            recurrence=self._recurrence.build(),
             save=action_button(self._texts, self._gate, ActionIdEnum.TASK_EDIT_SAVE, enabled=form.can_submit),
             cancel=action_button(self._texts, self._gate, ActionIdEnum.TASK_EDIT_CANCEL),
         )
@@ -209,12 +243,20 @@ class TaskEditPresenter:
         form = self._form
         if not form.can_submit:
             return ValidationResult.skipped()
-        draft = form.draft.to_task_draft()
+        draft = form.to_task_draft()
         result = self._commands.create(draft) if form.is_new else self._commands.update(form.task_id, draft)
         if result.data is None:
             return result.validation
         self._state.select_tasks((result.data.id,))
         return self._host.close()
+
+    def _today(self) -> date:
+        """Local date.
+
+        Returns:
+            Today.
+        """
+        return self._clock.now_local().date()
 
     def _list_field(self) -> ChoiceFieldSnapshot:
         """Describe the list field.
