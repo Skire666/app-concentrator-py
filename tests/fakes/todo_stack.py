@@ -64,27 +64,39 @@ WRITE_FAILED = ValidationResult.failure(ErrorCodeEnum.STORAGE_WRITE_FAILED)
 
 
 class ScriptedTaskWriter(TaskWriterPort):
-    """The store writer, except that every write fails while ``fail`` is set."""
+    """The store writer, except that every write fails while ``fail`` is set.
+
+    ``writes_before_failure`` lets that many writes through, then fails the next ones.
+    """
 
     def __init__(self, inner: StoreTaskWriter) -> None:
         self._inner = inner
         self.fail = False
+        self.writes_before_failure: int | None = None
+
+    def _failing(self) -> bool:
+        if self.writes_before_failure is None:
+            return self.fail
+        if self.writes_before_failure == 0:
+            return True
+        self.writes_before_failure -= 1
+        return False
 
     @override
     def create(self, entity: Task) -> DataResult[Task]:
-        return DataResult.fail(WRITE_FAILED) if self.fail else self._inner.create(entity)
+        return DataResult.fail(WRITE_FAILED) if self._failing() else self._inner.create(entity)
 
     @override
     def update(self, entity: Task) -> DataResult[Task]:
-        return DataResult.fail(WRITE_FAILED) if self.fail else self._inner.update(entity)
+        return DataResult.fail(WRITE_FAILED) if self._failing() else self._inner.update(entity)
 
     @override
     def delete(self, entity_id: str) -> DataResult[Task]:
-        return DataResult.fail(WRITE_FAILED) if self.fail else self._inner.delete(entity_id)
+        return DataResult.fail(WRITE_FAILED) if self._failing() else self._inner.delete(entity_id)
 
     @override
     def copy_business(self, entity_id: str, new_id: str, now: datetime) -> DataResult[Task]:
-        return DataResult.fail(WRITE_FAILED) if self.fail else self._inner.copy_business(entity_id, new_id, now)
+        return DataResult.fail(WRITE_FAILED) if self._failing() else self._inner.copy_business(entity_id, new_id, now)
 
     @override
     def copy_technical(self, entity_id: str) -> DataResult[Task]:
@@ -92,11 +104,11 @@ class ScriptedTaskWriter(TaskWriterPort):
 
     @override
     def update_many(self, entities: Sequence[Task]) -> DataResult[tuple[Task, ...]]:
-        return DataResult.fail(WRITE_FAILED) if self.fail else self._inner.update_many(entities)
+        return DataResult.fail(WRITE_FAILED) if self._failing() else self._inner.update_many(entities)
 
     @override
     def delete_many(self, entity_ids: Sequence[str]) -> DataResult[tuple[Task, ...]]:
-        return DataResult.fail(WRITE_FAILED) if self.fail else self._inner.delete_many(entity_ids)
+        return DataResult.fail(WRITE_FAILED) if self._failing() else self._inner.delete_many(entity_ids)
 
 
 class TodoStack:
@@ -119,6 +131,7 @@ class TodoStack:
             tasks=StoreTaskReader(self.store),
             task_writer=self.task_writer,
         )
+        self.todo_stores = stores
         self.list_commands = TaskListCommands(
             stores=stores, ids=self.ids, clock=self.clock, event_bus=self.bus, limits=TODO_LIMITS
         )
