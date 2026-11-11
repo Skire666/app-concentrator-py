@@ -144,6 +144,36 @@ at 100 % and 150 % scaling. Steps 1 to 4 are the spec script.
 2. **A click on a link in the table** also selects the row. Default: keep it (one click shows the task and
    opens its link).
 3. **The table underlines only the links of the first line** (the column shows the first line only).
-   Default: keep it; the other links are in the Details tab and the Open link menu.
+   Default: keep it; the other links are in the Details tab and the Open link menu. Superseded by change 2
+   below: the column shows every line, so every link is underlined.
 4. **Reopen after the last occurrence** reopens the task with its last due date and the count kept; the
    next completion ends it again. Default: keep it (reset the count by editing the repetition).
+
+## Changes after the review (2026-11-11)
+
+The owner approved the build items of ADR-042 and the defaults of the open questions ("Suit tes
+recommandations"; ADR-042 amendment), and asked for two changes in the task table:
+
+1. **Rows keep their places** (`8e1498e`). Ticking a task, or completing an occurrence, no longer moves its
+   row, whatever the sort. A new task appears where the sort puts it; clicking a header, changing the
+   list, the filters, the scope or the search, opening another file or "Reset layout" sorts every task
+   again.
+2. **Every line in the task column** (`7e4b291`). The lines are joined by `  ·  `; a text wider than 80 %
+   of the column (`todo.text_width_percent`) is cut and followed by `... (N lines)`. The links of every
+   line are underlined; a link cut away cannot be clicked.
+
+The owner's message announced three changes and described two; the third is still to come.
+
+Gates on `7e4b291`: all green, 2920 tests passed.
+
+Manual checks to add:
+
+1. Sort by **Done** (state), tick an open task in the middle of the table: it stays on its row, ticked.
+   Click the header twice: the done task moves among the done ones.
+2. Sort by **Due**, tick a repeating task: it stays on its row with its new date.
+3. Add a task with quick add (default sort): it appears at the top, the others do not move.
+4. A task of three lines shows `line 1  ·  line 2  ·  line 3`. Narrow the column until the text no longer
+   fits: it is cut at about 80 % of the width and followed by `... (3 lines)`. Widen it again: the whole
+   text comes back without the counter.
+5. A URL on the second line of a task is underlined in the table when it is visible and opens on click;
+   once the column is too narrow to show it, clicking where it was does nothing.

@@ -1127,3 +1127,18 @@ superseded.
 - Consequences: phase 7 completes queued tasks through `TaskCommands.complete` (occurrences included) and
   removes items on `TaskOccurrenceCompletedEvent`; the History tab will need a text for the
   `source: "focus"` detail.
+- Amendment (phase 6 review, owner decision 2026-11-11: "Suit tes recommandations"): the items "decided
+  during the build" are approved and the open questions of the review report take their defaults (the
+  "Times" header, a click on a link also selects the row, a reopened series keeps its count). Two owner
+  requests change the task table:
+  1. **Rows keep their places.** Ticking a task, or completing an occurrence, no longer moves its row when
+     its sort value changes. After a change of the data, the tasks already shown keep their order; a new
+     task takes the place the sort gives it (quick add stays at the top with the default sort). A new
+     list, sort, filter, scope or search, another data file and "Reset layout" sort every task again
+     (`TodoView`).
+  2. **The task column shows every line**, joined by `  ·  ` (`todo.table.line_separator`). A text wider
+     than `todo.text_width_percent` of the column (new ini key, 80) is cut there and followed by
+     `... (N lines)`, N being every line of the task (`TableRowSnapshot.overflow`,
+     `TableSnapshot.overflow_column`, drawn by `LinkTextDelegate`). The links of every line are now
+     underlined in the table (this supersedes open question 3, "first line only"); a link cut away cannot
+     be clicked. The `todo.table.more_lines` texts are removed.

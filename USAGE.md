@@ -165,8 +165,7 @@ filter bar, the tasks in a table and, under it, the details and the history of t
 
 ### Table
 
-- Columns: done check box, task (first line, with `(+2 lines)` when the text has more), list (when the
-  table shows every list), due date and time, repetition, times done (`3 / 10` for a series of 10
+- Columns: done check box, task, list (when the table shows every list), due date and time, repetition, times done (`3 / 10` for a series of 10
   times), number of links, creation and change dates.
 - A task due today is bold; an overdue task (date past, or today with its time passed) is bold and
   highlighted. Done and archived tasks are greyed and never marked overdue.
@@ -186,6 +185,12 @@ filter bar, the tasks in a table and, under it, the details and the history of t
   - The counter on the right reads "12 of 87 tasks": the tasks shown, out of all the tasks of this list
     (or of every list), whatever their state.
 - Repetition, times done and links do not sort.
+- The task column shows the lines of the task one after the other, separated by `·`. A text that does not
+  fit in 80 % of the column (`text_width_percent` in `concentrator.ini`) is cut there and followed by
+  `... (5 lines)`, the number of lines of the task.
+- A row stays where it is while you work on it: ticking a task or completing an occurrence does not move
+  it, even when the table is sorted by state or by due date. A new task appears where the sort puts it.
+  Click a column header (or change the filters or the list) to sort every task again.
 - Drag the headers to reorder or resize the columns, and the bar between the table and the details to
   resize them (drag it down to hide the details).
 - The current list, the sort, the toggles, the filters, the search, the columns and the details size are
@@ -200,7 +205,7 @@ filter bar, the tasks in a table and, under it, the details and the history of t
   is allowed; spaces inside a path are fine. A link in the middle of a sentence stays plain text.
 - When you save the task, the backslashes of its paths become `/`: `C:\Users\me` is stored and shown as
   `C:/Users/me`.
-- Links are underlined in the Details tab and, for the first line, in the table. Click one to open it
+- Links are underlined in the Details tab and in the table. Click one to open it
   as Windows would with a double click: the folder opens in Explorer, a web address in your browser, a
   program runs. **Right-click > Open link** lists the links of the selected task (10 at most,
   `max_links_in_menu` in `concentrator.ini`).
