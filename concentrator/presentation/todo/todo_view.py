@@ -14,6 +14,25 @@ from concentrator.presentation.common.text_search import TextSearch, fold
 from concentrator.presentation.todo.todo_view_state import TodoViewState
 
 
+def _kept_in_place(tasks: TasksCollection, order: tuple[str, ...]) -> TasksCollection:
+    """Keep the tasks already shown in the order they had; new tasks keep the place of the sort.
+
+    The places the sort gives to tasks already shown are filled with those tasks in their previous order,
+    so a task that changed (ticked, moved to its next date) does not jump, and a new task appears where
+    the sort puts it (at the top for the newest first).
+
+    Args:
+        tasks: Tasks to show, filtered and sorted.
+        order: Ids of the tasks shown before, in table order.
+
+    Returns:
+        The tasks in display order.
+    """
+    rank = {task_id: index for index, task_id in enumerate(order)}
+    known = iter(sorted((task for task in tasks if task.id in rank), key=lambda task: rank[task.id]))
+    return TasksCollection([next(known) if task.id in rank else task for task in tasks])
+
+
 class TodoView:
     """Joins the queries and the view state; the tasks of the table are filtered and sorted once.
 
@@ -22,6 +41,10 @@ class TodoView:
     read them in the same render), or, with a due date filter that depends on the clock, when the local
     minute changes. The search runs on every line of the text, folded once per text (case and accents
     ignored).
+
+    The rows keep their places while the user works on them (owner decision, phase 6 review): after a
+    change of the data, the tasks already shown stay in the order they had, and only new tasks take the
+    place the sort gives them. A new query (list, sort, filters, scope, search) sorts everything again.
 
     After a change of the data, ``mark_stale`` defers the follow-up (show an existing list, drop vanished
     tasks from the selection) to the next read: a bulk change publishes one event per task, and following
@@ -44,6 +67,7 @@ class TodoView:
         self._minute: datetime | None = None
         self._search = TextSearch()
         self._folded: dict[MultilineText, str] = {}
+        self._order: tuple[str, ...] = ()
         self._visible = TasksCollection()
         self._stale = True
 
@@ -116,6 +140,11 @@ class TodoView:
         """The data changed: follow it at the next read."""
         self._stale = True
 
+    def sort_again(self) -> None:
+        """Forget the order shown: the next read sorts every task (another file, Reset layout)."""
+        self._order = ()
+        self._source = None
+
     def sync(self) -> None:
         """Follow the data now (startup)."""
         self._stale = True
@@ -141,11 +170,14 @@ class TodoView:
         minute = now.replace(second=0, microsecond=0) if query.task_filter.depends_on_time else None
         search = self._state.search
         if source is not self._source or query != self._query or minute != self._minute or search != self._search:
+            same_view = query == self._query and search == self._search
             self._source = source
             self._query = query
             self._minute = minute
             self._search = search
-            self._visible = self._searched(self._queries.tasks(query, now), search)
+            visible = self._searched(self._queries.tasks(query, now), search)
+            self._visible = _kept_in_place(visible, self._order) if same_view else visible
+            self._order = tuple(task.id for task in self._visible)
         return self._visible
 
     def _searched(self, tasks: TasksCollection, search: TextSearch) -> TasksCollection:

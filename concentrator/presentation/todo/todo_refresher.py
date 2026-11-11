@@ -51,11 +51,13 @@ class TodoRefresher:
             _event: Published by the storage use cases.
         """
         self._view.state.select_tasks(())
+        self._view.sort_again()
         self._refresh()
 
     def reset_layout(self) -> None:
         """Back to the ``[todo]`` defaults once "Reset layout" removed the stored sort and toggles."""
         self._view.state.reset()
+        self._view.sort_again()
         self._refresh()
 
     def _refresh(self) -> None:
