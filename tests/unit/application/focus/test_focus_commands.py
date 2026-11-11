@@ -1,6 +1,8 @@
 from dataclasses import replace
 from datetime import date
 
+import pytest
+
 from concentrator.application.focus.focus_events import FocusQueueChangedEvent
 from concentrator.application.todo.todo_events import TaskCreatedEvent
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
@@ -219,11 +221,43 @@ def test_quick_add_reports_a_failed_creation() -> None:
     assert stack.queued() == []
 
 
-def test_history_write_failure_is_reported_after_the_queue_changed() -> None:
+def test_history_write_failure_is_logged_and_the_queue_changed(caplog: pytest.LogCaptureFixture) -> None:
     stack = FocusStack(tasks=[make_task(1)])
     stack.task_writer.fail = True
 
     result = stack.focus_commands.add_tasks(["task-001"])
 
-    assert result.error_codes == (ErrorCodeEnum.STORAGE_WRITE_FAILED,)
+    assert result.is_success
     assert stack.queued() == ["task-001"]
+    assert "Focus history of 1 tasks not recorded" in caplog.text
+
+
+def test_quick_add_of_a_refused_text_creates_no_inbox() -> None:
+    stack = FocusStack()
+    names = [item.name for item in stack.lists()]
+
+    result = stack.focus_commands.quick_add("x" * 5001, "")
+
+    assert result.validation.error_codes == (ErrorCodeEnum.TASK_TEXT_TOO_LONG,)
+    assert [item.name for item in stack.lists()] == names
+
+
+def test_quick_add_succeeds_when_only_the_history_could_not_be_written() -> None:
+    stack = FocusStack()
+    stack.task_writer.writes_before_failure = 1
+
+    result = stack.focus_commands.quick_add("Pay", HOME_LIST_ID)
+
+    assert result.data is not None
+    assert stack.queued() == [result.data.id]
+
+
+def test_quick_add_finds_the_inbox_named_in_another_language() -> None:
+    inbox = make_list("fr:todo.default_list_name", list_id="list-boite", position=2)
+    stack = FocusStack(lists=[make_list("Work"), inbox])
+
+    task = stack.focus_commands.quick_add("Pay", "").data
+
+    assert task is not None
+    assert task.list_id == "list-boite"
+    assert len(stack.lists()) == 2

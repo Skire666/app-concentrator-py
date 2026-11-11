@@ -11,6 +11,7 @@ from concentrator.application.focus.focus_defaults import FocusDefaults
 from concentrator.application.focus.focus_queries import FocusQueries
 from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.translator_port import TranslatorPort
+from concentrator.application.storage.user_data_defaults import INBOX_NAME_KEY
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.common.validation_result import ValidationResult
@@ -209,7 +210,6 @@ class FocusQueuePresenter:
             _logger.warning("Focus row action %s (%d) is not handled", action.name, action_value)
             return
         self._feedback.report(self._gate.run(action, lambda: operation(item_id)))
-        self._renderer.request(RenderSectionEnum.FOCUS_QUEUE)
 
     def on_data_changed(self, _event: object) -> None:
         """The queue, a task, a list or the whole data file changed.
@@ -237,7 +237,6 @@ class FocusQueuePresenter:
         if result.is_success:
             self._fields[action] = ""
             self._cleared[action] += 1
-        self._renderer.request(RenderSectionEnum.FOCUS_QUEUE)
 
     def _field(self, action: ActionIdEnum, placeholder: str) -> FocusFieldSnapshot:
         """Describe a field.
@@ -263,7 +262,7 @@ class FocusQueuePresenter:
             ``New task for focus (Inbox)...``.
         """
         target = self._services.choice.current()
-        name = self._translator.tr("todo.default_list_name") if target is None else target.name
+        name = self._translator.tr(INBOX_NAME_KEY) if target is None else target.name
         return self._translator.tr("focus.quick_add.placeholder", list=name)
 
     def _choices(self) -> tuple[PickerChoiceSnapshot, ...]:

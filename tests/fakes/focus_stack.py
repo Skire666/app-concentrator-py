@@ -44,7 +44,9 @@ class FocusParts:
         )
         self.commands = FocusCommands(
             stores=self.stores,
-            todo=FocusTodo(tasks=stack.task_commands, history=self.history, quick_add_list=self.quick_add_list),
+            todo=FocusTodo(
+                tasks=stack.task_commands, history=self.history, quick_add_list=self.quick_add_list, limits=TODO_LIMITS
+            ),
             ids=stack.ids,
             clock=stack.clock,
             event_bus=stack.bus,

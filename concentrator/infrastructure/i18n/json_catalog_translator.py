@@ -180,6 +180,13 @@ class JsonCatalogTranslator(TranslatorPort):
             return text
 
     @override
+    def translations(self, key: str) -> tuple[str, ...]:
+        languages = (self._language, self._fallback_language, *self._catalogs)
+        texts = (self._catalogs.get(language, {}).get(key) for language in languages)
+        found = tuple(dict.fromkeys(text for text in texts if text is not None))
+        return found or (key,)
+
+    @override
     def tr_plural(self, key: str, count: int, **params: object) -> str:
         is_one = _PLURAL_RULES.get(self._language, _PLURAL_RULES[LanguageEnum.ENGLISH])(count)
         form = PLURAL_ONE if is_one else PLURAL_OTHER

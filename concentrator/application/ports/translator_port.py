@@ -48,6 +48,17 @@ class TranslatorPort(Protocol):
         """
         ...
 
+    def translations(self, key: str) -> tuple[str, ...]:
+        """Return the text of a key in every loaded language (to recognize a name written in either).
+
+        Args:
+            key: Dotted catalog key.
+
+        Returns:
+            The texts, the current language first, without repeats; ``(key,)`` when no catalog has it.
+        """
+        ...
+
     def tr_plural(self, key: str, count: int, **params: object) -> str:
         """Translate a key whose text depends on a count (``<key>.one`` / ``<key>.other``).
 

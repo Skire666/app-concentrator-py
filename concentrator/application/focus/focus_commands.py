@@ -7,7 +7,7 @@ from datetime import datetime
 
 from concentrator.application.common.event_bus import EventBus
 from concentrator.application.focus.focus_events import FocusQueueChangedEvent
-from concentrator.application.focus.focus_removal import FocusRemoval, FocusStores
+from concentrator.application.focus.focus_removal import FocusRemoval, FocusStores, log_history_failure
 from concentrator.application.focus.quick_add_list import QuickAddList
 from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.id_generator_port import IdGeneratorPort
@@ -15,7 +15,7 @@ from concentrator.application.todo.task_commands import TaskCommands
 from concentrator.application.todo.task_focus_history import TaskFocusHistory
 from concentrator.application.todo.task_lookup import find_tasks
 from concentrator.domain.common.data_result import DataResult
-from concentrator.domain.common.error_code_enum import ErrorCodeEnum
+from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.focus.focus_item import FocusItem, FocusItemId
 from concentrator.domain.focus.focus_items_collection import FocusItemsCollection
@@ -24,7 +24,10 @@ from concentrator.domain.focus.focus_removal_reason_enum import FocusRemovalReas
 from concentrator.domain.focus.focus_rules import FocusRules
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_event import SOURCE_FOCUS
-from concentrator.domain.todo.task_rules import TEXT_FIELD
+from concentrator.domain.todo.task_rules import TaskRules
+from concentrator.domain.todo.task_state_enum import TaskStateEnum
+from concentrator.domain.todo.tasks_collection import TasksCollection
+from concentrator.domain.todo.todo_limits import TodoLimits
 
 _logger = logging.getLogger(__name__)
 
@@ -37,11 +40,25 @@ class FocusTodo:
         tasks: Creates and completes the tasks.
         history: Records the queue changes in the history of the tasks.
         quick_add_list: List of the tasks created by the quick-add field.
+        limits: Bounds of a task text, checked before an Inbox is created for it.
     """
 
     tasks: TaskCommands
     history: TaskFocusHistory
     quick_add_list: QuickAddList
+    limits: TodoLimits
+
+
+def is_open(task: Task) -> bool:
+    """Tell whether a task can be queued as far as its state goes.
+
+    Args:
+        task: Task.
+
+    Returns:
+        Whether it is open.
+    """
+    return task.state is TaskStateEnum.OPEN
 
 
 class FocusCommands:
@@ -85,28 +102,29 @@ class FocusCommands:
             task_ids: Tasks to queue.
 
         Returns:
-            Success; skipped for no task; ``ENTITY_NOT_FOUND``; when none can be queued, the reason for the
-            first one (``FOCUS_TASK_NOT_OPEN``, ``FOCUS_TASK_ALREADY_QUEUED``); ``FOCUS_QUEUE_FULL`` when
-            they do not all fit (nothing queued).
+            Success (a history that could not be written is logged, the tasks are queued); skipped for no
+            task; ``ENTITY_NOT_FOUND``; when none can be queued, the reason for the first one
+            (``FOCUS_TASK_NOT_OPEN``, ``FOCUS_TASK_ALREADY_QUEUED``); ``FOCUS_QUEUE_FULL`` when they do not
+            all fit (nothing queued).
         """
         found = find_tasks(self._stores.tasks, task_ids)
         if found.data is None:
             return found.validation
         queue = self._stores.queue()
-        tasks = [task for task in found.data if FocusRules.can_queue(task, queue)]
-        if not tasks:
-            return FocusRules.validate_add(found.data.items[0], queue, self._limits)
-        room = FocusRules.validate_room(queue, len(tasks), self._limits)
+        tasks = self._queueable(found.data, queue)
+        if tasks.data is None:
+            return tasks.validation
+        room = FocusRules.validate_room(queue, len(tasks.data), self._limits)
         if room.is_failure:
             return room
-        written = self._queued(tasks, queue, self._clock.now_utc())
+        written = self._queued(tasks.data, queue, self._clock.now_utc())
         if written.is_failure:
             return written
-        queued = tuple(task.id for task in tasks)
+        queued = tuple(task.id for task in tasks.data)
         _logger.info("%d tasks added to the focus queue", len(queued))
-        recorded = self._todo.history.record_added(queued)
+        log_history_failure(self._todo.history.record_added(queued), len(queued))
         self._event_bus.publish(FocusQueueChangedEvent(task_ids=queued))
-        return recorded if recorded.is_failure else ValidationResult.success()
+        return ValidationResult.success()
 
     def toggle_task(self, task_id: str) -> ValidationResult:
         """Queue a task, or take it out of the queue (star of the task table).
@@ -195,11 +213,12 @@ class FocusCommands:
             preferred_list_id: List chosen for the quick add (``""`` for the Inbox).
 
         Returns:
-            The created task; ``TASK_TEXT_EMPTY``, ``FOCUS_QUEUE_FULL`` (no task created) or the other
-            creation failures.
+            The created task; ``TASK_TEXT_EMPTY`` or ``TASK_TEXT_TOO_LONG`` (checked first, so no Inbox is
+            created for a refused text), ``FOCUS_QUEUE_FULL`` (no task created) or the other creation failures.
         """
-        if not text.strip():
-            return DataResult.fail(ValidationResult.failure(ErrorCodeEnum.TASK_TEXT_EMPTY, field=TEXT_FIELD))
+        checked = TaskRules.validate_text(MultilineText.from_text(text.strip()), self._todo.limits)
+        if checked.is_failure:
+            return DataResult.fail(checked)
         room = FocusRules.validate_room(self._stores.queue(), 1, self._limits)
         if room.is_failure:
             return DataResult.fail(room)
@@ -214,7 +233,26 @@ class FocusCommands:
             return DataResult.fail(queued)
         return created
 
-    def _queued(self, tasks: Sequence[Task], queue: FocusItemsCollection, now: datetime) -> ValidationResult:
+    def _queueable(self, tasks: TasksCollection, queue: FocusItemsCollection) -> DataResult[TasksCollection]:
+        """Keep the tasks that are open and not queued yet.
+
+        Args:
+            tasks: Selected tasks (at least one).
+            queue: Current queue.
+
+        Returns:
+            The tasks, or the reason the first task cannot be queued when none can.
+        """
+        queued = queue.task_ids()
+        kept = tasks.filtered(lambda task: FocusRules.can_queue(task.id, is_open=is_open(task), queued=queued))
+        if kept:
+            return DataResult.ok(kept)
+        first = tasks.items[0]
+        return DataResult.fail(
+            FocusRules.validate_add(first.id, is_open=is_open(first), queue=queue, limits=self._limits)
+        )
+
+    def _queued(self, tasks: TasksCollection, queue: FocusItemsCollection, now: datetime) -> ValidationResult:
         """Write one item per task at the end of the queue.
 
         Args:

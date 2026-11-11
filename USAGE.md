@@ -236,8 +236,9 @@ your lists: completing it in the queue completes the task, and the task keeps it
     `picker_max_results` in `concentrator.ini`). Click an entry, or press Enter for the first one;
   - or type a new task in the quick-add field and press Enter: the task is created in the quick-add list,
     then queued. The hint of the field names that list. Right-click a list tab > **Use for focus quick
-    add** to choose it; until then, the list named "Inbox" (in the current language) is used, and one is
-    created if no list has that name.
+    add** to choose it; until then, the list named "Inbox" or "Boîte de réception" is used (whatever the
+    current language), and an Inbox is created in the current language if no list has either name. A text
+    that is refused (too long) creates nothing.
 - **Tick** an entry to complete its task. The task is done in its list and its history reads "Completed,
   from the focus queue". A repeating task completes its current occurrence, moves to its next date and
   leaves the queue.

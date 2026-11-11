@@ -1,6 +1,5 @@
 """Records in the history of the tasks that they joined or left the focus queue."""
 
-import logging
 from collections.abc import Sequence
 
 from concentrator.application.ports.clock_port import ClockPort
@@ -11,8 +10,6 @@ from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_event import DETAIL_REASON, TaskEvent
 from concentrator.domain.todo.task_event_kind_enum import TaskEventKindEnum
 from concentrator.domain.todo.todo_limits import TodoLimits
-
-_logger = logging.getLogger(__name__)
 
 
 class TaskFocusHistory:
@@ -80,7 +77,4 @@ class TaskFocusHistory:
         if not changed:
             return ValidationResult.skipped()
         written = self._stores.task_writer.update_many(changed)
-        if written.data is None:
-            _logger.warning("Focus history of %d tasks not recorded: %s", len(changed), written.validation.error_codes)
-            return written.validation
-        return ValidationResult.success()
+        return written.validation if written.data is None else ValidationResult.success()

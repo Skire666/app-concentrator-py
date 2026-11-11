@@ -1211,3 +1211,21 @@ superseded.
   history keeps 10 events, the search field proposes nothing until something is typed, "Show in list" keeps
   the scope, the star column stays right after the check box, and the due badge of a row uses the format of
   the table.
+- Amendment 2 (phase 7 code review, 2026-11-11); details in `docs/reviews/phase-7-code-review.md`.
+  1. **`domain.focus` imports only `TaskId` from `domain.todo`** (`AGENTS.md` section 4.2): `FocusRules` takes a
+     task id and whether it is open; `usable` takes the open state of every task by id. An architecture test
+     enforces it.
+  2. **A history that cannot be written does not fail a queue change**: the queue changed and the event was
+     published, so the use case succeeds and the failure is logged (WARNING). Otherwise a quick add
+     reported as failed but already queued would be typed again and created twice.
+  3. **Quick add checks the text with `TaskRules.validate_text` first**, so a refused text (empty, too long)
+     never creates an Inbox (`FocusTodo.limits`).
+  4. **The Inbox is recognized in every UI language** (`TranslatorPort.translations`): a file created in
+     French keeps using its "Boîte de réception" after a switch to English; a new Inbox takes the current
+     language.
+  5. **Enter on a highlighted entry of the search drop-down queues only that entry**: the completer forwards
+     Enter to the field before it activates the entry, so the field ignores Enter while the drop-down has a
+     highlighted entry.
+  6. **The task table keeps its scroll position after a model reset** and scrolls only to a selection of
+     other tasks (`ui/support/table_selection.py`).
+  7. **The row tooltip of the queue is escaped** (`plain_tooltip`, `AGENTS.md` section 8.5).

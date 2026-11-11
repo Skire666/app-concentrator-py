@@ -1,5 +1,7 @@
 """Focus queue of zone 2 and the star of the task table, on the offscreen platform."""
 
+from dataclasses import replace
+
 import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
@@ -8,11 +10,15 @@ from pytestqt.qtbot import QtBot
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
 from concentrator.presentation.common.row_tone_enum import RowToneEnum
+from concentrator.presentation.common.table_snapshot import TableRowSnapshot, TableSnapshot
 from concentrator.presentation.focus.focus_queue_snapshot import (
     FocusFieldSnapshot,
     FocusRowSnapshot,
     PickerChoiceSnapshot,
 )
+from concentrator.presentation.todo.task_menu_snapshot import TaskMenuSnapshot
+from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
+from concentrator.ui.panels.task_table_panel import TaskTablePanel
 from concentrator.ui.widgets.focus_row_widget import FocusRowWidget
 from concentrator.ui.widgets.task_picker_widget import TaskPickerWidget
 from tests.fakes.todo_factory import WORK_LIST_ID
@@ -197,3 +203,62 @@ def test_picker_widget_emits_the_task_of_the_current_entry(qtbot: QtBot) -> None
     QTest.keyClick(widget.input, Qt.Key.Key_Return)
 
     assert picked == ["t2", "t1"]
+
+
+def test_enter_on_a_highlighted_entry_picks_only_that_entry(qtbot: QtBot) -> None:
+    widget = TaskPickerWidget()
+    qtbot.addWidget(widget)
+    widget.show()
+    qtbot.waitExposed(widget)
+    widget.input.setFocus()
+    picked: list[str] = []
+    widget.picked.connect(picked.append)
+    field = FocusFieldSnapshot(text="re", placeholder="Search", tooltip="", cleared_count=0)
+    widget.apply(
+        field, (PickerChoiceSnapshot(task_id="t1", text="Report"), PickerChoiceSnapshot(task_id="t2", text="Read"))
+    )
+    widget.completer.complete()
+    popup = widget.completer.popup()
+    assert popup is not None
+    assert popup.isVisible()
+
+    QTest.keyClick(popup, Qt.Key.Key_Down)
+    QTest.keyClick(popup, Qt.Key.Key_Down)
+    QTest.keyClick(popup, Qt.Key.Key_Return)
+
+    assert picked == ["t2"]
+
+
+def _table(keys: list[str], selected: int) -> TaskTableSnapshot:
+    rows = tuple(TableRowSnapshot(key=key, cells=("", "", key)) for key in keys)
+    table = TableSnapshot(columns=("a", "b", "c"), rows=rows, selection=(keys.index(f"t{selected:03d}"),))
+    return TaskTableSnapshot(table=table, menu=TaskMenuSnapshot(buttons=(), move_targets=()))
+
+
+def test_table_keeps_its_scroll_after_a_reset_and_scrolls_to_a_new_selection(qtbot: QtBot) -> None:
+    panel = TaskTablePanel((60, 40, 120, 140, 130, 50, 50, 140, 140), 80)
+    qtbot.addWidget(panel)
+    panel.resize(400, 200)
+    panel.show()
+    keys = [f"t{number:03d}" for number in range(100)]
+    panel.render_snapshot(_table(keys, 0))
+    bar = panel.table.verticalScrollBar()
+    bar.setValue(bar.maximum())
+
+    panel.render_snapshot(_table([key for key in keys if key != "t050"], 0))
+    kept = bar.value()
+    panel.render_snapshot(_table([key for key in keys if key != "t050"], 99))
+
+    assert kept > bar.maximum() // 2
+    assert panel.table.rowAt(panel.table.viewport().height() // 2) > 80
+    panel.render_snapshot(_table([key for key in keys if key != "t050"], 1))
+    assert panel.table.rowAt(0) <= 1
+
+
+def test_row_tooltip_shows_html_of_a_task_as_typed(qtbot: QtBot) -> None:
+    widget = FocusRowWidget()
+    qtbot.addWidget(widget)
+
+    widget.apply(replace(_row(), tooltip="<b>Fix</b> layout\nList: Work"))
+
+    assert "&lt;b&gt;Fix&lt;/b&gt; layout" in widget.text_label.toolTip()

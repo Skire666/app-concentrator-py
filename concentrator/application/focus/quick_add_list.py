@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 
 
 class QuickAddList:
-    """The quick-add list: the chosen one, else the Inbox, created when missing (phase 7 spec)."""
+    """The quick-add list: the chosen one, else the Inbox, created in the current language when missing."""
 
     def __init__(
         self,
@@ -46,12 +46,17 @@ class QuickAddList:
             preferred_list_id: List chosen by the user (``""`` for none).
 
         Returns:
-            The chosen list when it exists, else the first list named like the translated "Inbox", else
-            ``None``.
+            The chosen list when it exists, else the first list named "Inbox" in one of the UI languages (the
+            current one first: a file created in French keeps its "Boîte de réception" after a switch to
+            English), else ``None``.
         """
         lists = self._lists.all_items().value_or(TaskListsCollection())
         chosen = lists.get(preferred_list_id).data if preferred_list_id else None
-        return chosen or lists.ordered().with_name(self._translator.tr(INBOX_NAME_KEY))
+        if chosen is not None:
+            return chosen
+        ordered = lists.ordered()
+        names = self._translator.translations(INBOX_NAME_KEY)
+        return next((found for name in names if (found := ordered.with_name(name)) is not None), None)
 
     def resolve(self, preferred_list_id: str) -> DataResult[TaskList]:
         """Find the list, creating an Inbox when needed.

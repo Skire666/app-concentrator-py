@@ -43,6 +43,17 @@ class FocusStores:
         return self.items.all_items().value_or(FocusItemsCollection())
 
 
+def log_history_failure(result: ValidationResult, count: int) -> None:
+    """Log a focus history that could not be written; the queue change it follows stands.
+
+    Args:
+        result: Result of ``TaskFocusHistory``.
+        count: Number of tasks concerned.
+    """
+    if result.is_failure:
+        _logger.warning("Focus history of %d tasks not recorded: %s", count, result.error_codes)
+
+
 class FocusRemoval:
     """Deletes the items of some tasks in one write, records the removal, publishes the change."""
 
@@ -67,7 +78,8 @@ class FocusRemoval:
                 from the queue, whose event already says so).
 
         Returns:
-            Success, skipped when none is queued, or the writer failure.
+            Success (a history that could not be written is logged, the queue still changed), skipped when
+            none is queued, or the failure of the queue write.
         """
         items = self._stores.queue().items_of_tasks(task_ids)
         if not items:
@@ -78,6 +90,7 @@ class FocusRemoval:
         removed = tuple(item.task_id for item in items)
         reason_name = "none" if reason is None else reason.name
         _logger.info("%d tasks removed from the focus queue (%s)", len(removed), reason_name)
-        recorded = ValidationResult.skipped() if reason is None else self._history.record_removed(removed, reason)
+        if reason is not None:
+            log_history_failure(self._history.record_removed(removed, reason), len(removed))
         self._event_bus.publish(FocusQueueChangedEvent(task_ids=removed))
-        return recorded if recorded.is_failure else ValidationResult.success()
+        return ValidationResult.success()

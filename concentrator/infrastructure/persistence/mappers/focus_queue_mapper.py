@@ -10,6 +10,7 @@ from concentrator.domain.focus.focus_items_collection import FocusItemsCollectio
 from concentrator.domain.focus.focus_limits import FocusLimits
 from concentrator.domain.focus.focus_rules import FocusRules
 from concentrator.domain.todo.task import TaskId
+from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.domain.todo.tasks_collection import TasksCollection
 from concentrator.infrastructure.persistence.schemas.focus_item_schema import FocusItemSchema
 
@@ -50,7 +51,8 @@ class FocusQueueMapper:
             )
             for schema in schemas
         ]
-        usable = FocusRules.usable(items, {task.id: task for task in tasks}, limits)
+        open_by_task: dict[str, bool] = {task.id: task.state is TaskStateEnum.OPEN for task in tasks}
+        usable = FocusRules.usable(items, open_by_task, limits)
         for issue in usable.validation.issues:
             index = issue.field.partition(_FIELD_SEPARATOR)[0]
             _logger.warning(

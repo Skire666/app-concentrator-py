@@ -102,4 +102,4 @@ def test_a_failed_history_write_is_logged(caplog: pytest.LogCaptureFixture) -> N
     assert stack.task_commands.archive(["task-001"]).is_success
 
     assert stack.queued() == []
-    assert "Focus queue not updated after a task change" in caplog.text
+    assert "Focus history of 1 tasks not recorded" in caplog.text

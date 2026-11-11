@@ -40,6 +40,13 @@ class FakeTranslator(TranslatorPort):
         return text
 
     @override
+    def translations(self, key: str) -> tuple[str, ...]:
+        others = (
+            language for language in (LanguageEnum.ENGLISH, LanguageEnum.FRENCH) if language is not self._language
+        )
+        return tuple(f"{language.iso_code}:{key}" for language in (self._language, *others))
+
+    @override
     def tr_plural(self, key: str, count: int, **params: object) -> str:
         form = "one" if count == 1 else "other"
         return self.tr(f"{key}.{form}", count=count, **params)

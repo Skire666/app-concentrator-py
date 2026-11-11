@@ -10,6 +10,7 @@ from concentrator.domain.focus.focus_rules import FocusRules
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_list import TaskList
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
+from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.domain.todo.tasks_collection import TasksCollection
 
 
@@ -79,8 +80,10 @@ class FocusQueries:
         Returns:
             The tasks in stored order (the presenter searches and limits them).
         """
-        queue = self._stores.queue()
-        return self._all_tasks().filtered(lambda task: FocusRules.can_queue(task, queue))
+        queued = self._stores.queue().task_ids()
+        return self._all_tasks().filtered(
+            lambda task: FocusRules.can_queue(task.id, is_open=task.state is TaskStateEnum.OPEN, queued=queued)
+        )
 
     def quick_add_list(self, preferred_list_id: str) -> TaskList | None:
         """Return the list that will receive a quick-added task.

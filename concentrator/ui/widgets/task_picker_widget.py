@@ -99,6 +99,13 @@ class TaskPickerWidget(QWidget):
             self.picked.emit(task_id)
 
     def _pick_first(self) -> None:
-        """Enter in the field: send the first entry, if any."""
+        """Enter in the field: send the first entry, unless the drop-down is choosing its highlighted entry.
+
+        The completer forwards Enter to the field before it activates the highlighted entry, so both would
+        send a task (code review of phase 7).
+        """
+        popup = self._completer.popup()
+        if popup is not None and popup.isVisible() and popup.currentIndex().isValid():
+            return
         if self._choices:
             self.picked.emit(self._choices[0].task_id)

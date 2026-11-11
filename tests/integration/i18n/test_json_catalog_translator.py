@@ -142,3 +142,11 @@ def test_load_catalogs_warns_about_keys_missing_from_a_catalog(tmp_path: Path) -
     assert result.validation.error_codes == (ErrorCodeEnum.CATALOG_KEY_MISSING,)
     assert result.validation.issues[0].field == "b"
     assert result.validation.issues[0].params == (("language", "fr"),)
+
+
+def test_translations_give_every_language_current_first_without_repeats() -> None:
+    assert _translator(LanguageEnum.FRENCH).translations("greeting") == ("Bonjour {name}", "Hello {name}")
+    assert _translator(LanguageEnum.ENGLISH).translations("greeting") == ("Hello {name}", "Bonjour {name}")
+    assert _translator().translations("minutes.one") == ("{count} minute",)
+    assert _translator().translations("only.english") == ("Only in English",)
+    assert _translator().translations("no.such.key") == ("no.such.key",)

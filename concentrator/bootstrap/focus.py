@@ -120,7 +120,7 @@ def build_focus_core(
     )
     commands = FocusCommands(
         stores=stores,
-        todo=FocusTodo(tasks=todo.tasks, history=history, quick_add_list=quick_add_list),
+        todo=FocusTodo(tasks=todo.tasks, history=history, quick_add_list=quick_add_list, limits=todo.defaults.limits),
         ids=core.ids,
         clock=core.clock,
         event_bus=core.event_bus,

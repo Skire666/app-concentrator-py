@@ -2,6 +2,7 @@ from dataclasses import replace
 
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.severity_enum import SeverityEnum
+from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.focus.focus_item import FocusItemId
 from concentrator.domain.focus.focus_items_collection import FocusItemsCollection
 from concentrator.domain.focus.focus_limits import FocusLimits
@@ -14,29 +15,37 @@ from tests.fakes.todo_factory import make_task
 SMALL = FocusLimits(max_items=2)
 
 
-def _tasks(*tasks: Task) -> dict[str, Task]:
-    return {task.id: task for task in tasks}
+def _tasks(*tasks: Task) -> dict[str, bool]:
+    return {task.id: task.state is TaskStateEnum.OPEN for task in tasks}
+
+
+def _add(task: Task, queue: FocusItemsCollection, limits: FocusLimits = FOCUS_LIMITS) -> ValidationResult:
+    return FocusRules.validate_add(task.id, is_open=task.state is TaskStateEnum.OPEN, queue=queue, limits=limits)
+
+
+def _can(task: Task, queue: FocusItemsCollection) -> bool:
+    return FocusRules.can_queue(task.id, is_open=task.state is TaskStateEnum.OPEN, queued=queue.task_ids())
 
 
 def test_validate_add_accepts_an_open_task_not_queued() -> None:
-    assert FocusRules.validate_add(make_task(3), make_queue(1, 2), FOCUS_LIMITS).is_success
+    assert _add(make_task(3), make_queue(1, 2), FOCUS_LIMITS).is_success
 
 
 def test_validate_add_refuses_a_task_that_is_not_open() -> None:
     for state in (TaskStateEnum.DONE, TaskStateEnum.ARCHIVED):
-        result = FocusRules.validate_add(make_task(3, state=state), make_queue(), FOCUS_LIMITS)
+        result = _add(make_task(3, state=state), make_queue(), FOCUS_LIMITS)
 
         assert result.error_codes == (ErrorCodeEnum.FOCUS_TASK_NOT_OPEN,)
 
 
 def test_validate_add_refuses_a_duplicate() -> None:
-    result = FocusRules.validate_add(make_task(1), make_queue(1), FOCUS_LIMITS)
+    result = _add(make_task(1), make_queue(1), FOCUS_LIMITS)
 
     assert result.error_codes == (ErrorCodeEnum.FOCUS_TASK_ALREADY_QUEUED,)
 
 
 def test_validate_add_refuses_beyond_the_capacity() -> None:
-    result = FocusRules.validate_add(make_task(3), make_queue(1, 2), SMALL)
+    result = _add(make_task(3), make_queue(1, 2), SMALL)
 
     assert result.error_codes == (ErrorCodeEnum.FOCUS_QUEUE_FULL,)
     issue = result.first_failure
@@ -52,9 +61,9 @@ def test_validate_room_counts_every_item_to_add() -> None:
 def test_can_queue_needs_an_open_task_not_queued() -> None:
     queue = make_queue(1)
 
-    assert FocusRules.can_queue(make_task(2), queue)
-    assert not FocusRules.can_queue(make_task(1), queue)
-    assert not FocusRules.can_queue(make_task(2, state=TaskStateEnum.DONE), queue)
+    assert _can(make_task(2), queue)
+    assert not _can(make_task(1), queue)
+    assert not _can(make_task(2, state=TaskStateEnum.DONE), queue)
 
 
 def test_usable_keeps_valid_items_in_position_order_and_renumbers() -> None:

@@ -42,3 +42,19 @@ def test_only_the_toml_codec_imports_tomllib() -> None:
     importers = sorted(relative(path) for path in source_files() if "tomllib" in _imported_modules(parse(path)))
 
     assert importers == ["concentrator/infrastructure/persistence/toml_codec.py"]
+
+
+def test_domain_focus_imports_only_identifiers_of_domain_todo() -> None:
+    allowed = {("concentrator.domain.todo.task", "TaskId")}
+    imported: list[str] = []
+    for path in source_files():
+        if not relative(path).startswith("concentrator/domain/focus/"):
+            continue
+        for node in ast.walk(parse(path)):
+            if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("concentrator.domain.todo"):
+                imported.extend(
+                    f"{relative(path)}: {node.module}.{alias.name}"
+                    for alias in node.names
+                    if (node.module, alias.name) not in allowed
+                )
+    assert imported == []

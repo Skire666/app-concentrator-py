@@ -152,7 +152,7 @@ and `infrastructure -> application -> domain`. `bootstrap` wires everything.
 | `bootstrap` | everything | — (only `__main__` imports it) |
 
 Feature isolation in the domain: `domain.timer` and `domain.todo` never import each other;
-`domain.focus` may import `domain.todo` identifiers. `domain.common` imports no other feature.
+`domain.focus` may import `domain.todo` identifiers only (`TaskId`; tested in `tests/architecture`). `domain.common` imports no other feature.
 
 Ports live in the layer that consumes them. Adapters explicitly subclass the Protocol they implement
 (so basedpyright checks conformance at definition) and mark methods with `@override`.
@@ -496,7 +496,8 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
   (`"timer.button.start": "Start"`). Placeholders `{name}`. Plain JSON, loaded at startup.
 - `TranslatorPort.tr(key, **params)` and `tr_plural(key, count, **params)` (keys `<key>.one` and
   `<key>.other`; French uses "one" for 0 and 1, English only for 1). Missing key: fall back to English,
-  then to the key itself, and log a WARNING once.
+  then to the key itself, and log a WARNING once. `translations(key)` gives the text in every loaded
+  language, the current one first, to recognize a name stored in either (the Inbox, ADR-043).
 - Date/time formats and month/day names are catalog entries (`format.date`, ...). Do not use the
   `locale` module. The formatter zero-pads day, month, hour and minute before filling the
   `{day}`/`{month}`/`{year}`/`{hour}`/`{minute}` templates (`06/11/2026`, never `6/11/2026`).

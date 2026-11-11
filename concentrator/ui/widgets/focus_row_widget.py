@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLabel, QToolButton, QWidg
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.row_tone_enum import RowToneEnum
 from concentrator.presentation.focus.focus_queue_snapshot import FocusRowSnapshot
+from concentrator.ui.support.plain_text import plain_tooltip
 from concentrator.ui.support.styles import ALERT_PROPERTY, FOCUS_ROW_STYLE, WARNING_PROPERTY, set_dynamic_property
 
 _KEY_ACTIONS = {Qt.Key.Key_Up: ActionIdEnum.FOCUS_MOVE_UP, Qt.Key.Key_Down: ActionIdEnum.FOCUS_MOVE_DOWN}
@@ -82,7 +83,7 @@ class FocusRowWidget(QWidget):
         self._check.setToolTip(snapshot.complete.tooltip)
         blocker.unblock()
         self._text.setText(snapshot.text)
-        self._text.setToolTip(snapshot.tooltip)
+        self._text.setToolTip(plain_tooltip(snapshot.tooltip))
         self._due.setText(snapshot.due_text)
         self._due.setVisible(bool(snapshot.due_text))
         self._list.setText(snapshot.list_name)

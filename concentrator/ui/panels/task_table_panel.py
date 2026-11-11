@@ -3,18 +3,7 @@
 from collections.abc import Callable
 from typing import override
 
-from PySide6.QtCore import (
-    QByteArray,
-    QEvent,
-    QItemSelection,
-    QItemSelectionModel,
-    QModelIndex,
-    QObject,
-    QPoint,
-    QSignalBlocker,
-    Qt,
-    Signal,
-)
+from PySide6.QtCore import QByteArray, QEvent, QModelIndex, QObject, QPoint, QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QLabel, QMenu, QStackedLayout, QTableView, QWidget
 
@@ -24,6 +13,7 @@ from concentrator.presentation.todo.task_menu_snapshot import TaskMenuSnapshot
 from concentrator.presentation.todo.task_row_formatter import TASK_COLUMN
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
 from concentrator.ui.panels.task_context_menu import TaskMenuIntents, build_task_menu
+from concentrator.ui.support.table_selection import TableSelection
 from concentrator.ui.widgets.link_text_delegate import LinkTextDelegate
 from concentrator.ui.widgets.snapshot_table_model import SnapshotTableModel
 
@@ -75,6 +65,7 @@ class TaskTablePanel(QWidget):
         self._popup: QMenu | None = None
         self._sort_indicator = (-1, Qt.SortOrder.AscendingOrder)
         self._toggle_column = -1
+        self._selection = TableSelection(self._table, TASK_COLUMN)
         self._configure_table()
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty.setWordWrap(True)
@@ -115,11 +106,7 @@ class TaskTablePanel(QWidget):
         self._model.set_columns(table.columns)
         reset = self._model.set_rows(table.rows)
         blocker.unblock()
-        selection_changed = self._apply_selection(table.selection)
-        if reset:
-            self._table.verticalScrollBar().setValue(scroll)
-        if selection_changed and table.selection:
-            self._table.scrollTo(self._model.index(min(table.selection), TASK_COLUMN))
+        self._selection.show(table, scroll if reset else None)
         self._toggle_column = table.toggle_column
         self._apply_header(table)
         self._links.set_overflow_column(table.overflow_column)
@@ -293,27 +280,6 @@ class TaskTablePanel(QWidget):
         header = self._table.horizontalHeader()
         if header.count() > TASK_COLUMN:
             header.setSectionResizeMode(TASK_COLUMN, QHeaderView.ResizeMode.Stretch)
-
-    def _apply_selection(self, rows: tuple[int, ...]) -> bool:
-        """Select the rows of the snapshot when the table shows another selection.
-
-        Args:
-            rows: Indices of the rows to select.
-
-        Returns:
-            Whether the selection changed (a task selected from elsewhere is then scrolled into view).
-        """
-        model = self._table.selectionModel()
-        if tuple(sorted(index.row() for index in model.selectedRows())) == tuple(sorted(rows)):
-            return False
-        selection = QItemSelection()
-        last_column = max(0, self._model.columnCount() - 1)
-        for row in rows:
-            selection.select(self._model.index(row, 0), self._model.index(row, last_column))
-        blocker = QSignalBlocker(model)
-        model.select(selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
-        blocker.unblock()
-        return True
 
     def _emit_selection(self, *_args: object) -> None:
         """Send the ids of the selected rows, in table order."""
