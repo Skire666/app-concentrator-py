@@ -66,7 +66,7 @@ Une phase ne doit pas dépendre de l’historique de la conversation. Elle doit 
 
 ```
 ## Phase 4 — Export CSV des rapports
-Modèle : sonnet · Effort : medium · Dépend de : phase 3
+Modèle : sonnet  ·  Effort : medium · Dépend de : phase 3
 
 **Objectif** : exporter une liste de rapports en CSV.
 **À lire d'abord** : src/rapports/models.py
