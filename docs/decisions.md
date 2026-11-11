@@ -1142,3 +1142,67 @@ superseded.
      `TableSnapshot.overflow_column`, drawn by `LinkTextDelegate`). The links of every line are now
      underlined in the table (this supersedes open question 3, "first line only"); a link cut away cannot
      be clicked. The `todo.table.more_lines` texts are removed.
+
+## ADR-043 — Phase 7 focus queue decisions
+
+- Status: accepted, owner decisions at the phase 7 plan review (2026-11-11: "Suit tes recommandations");
+  the items "decided during the build" are to be approved at the phase 7 review.
+- Context: the phase 7 spec adds the focus queue of zone 2 (ADR-013). It leaves open whether a completion
+  made from the queue also records a removal (the history keeps 10 events, ADR-041), whether completed items
+  stay visible, how the user chooses the quick-add list, what "Show in list" does when filters hide the
+  task, and how "Add to focus" treats a mixed selection.
+- Owner decisions (2026-11-11):
+  1. **No extra removal event after a completion made from the queue**: its `COMPLETED` or
+     `OCCURRENCE_COMPLETED` event already says `source = "focus"`. Removing by hand, archiving, and
+     completing from zone 1 record `REMOVED_FROM_FOCUS` with the reason; deleting records nothing.
+  2. **Completed items leave the queue at once** (spec review question 2): no "Clear completed" button, no
+     `clear_done()` use case, no `FOCUS_CLEAR_DONE` action.
+  3. **The quick-add list is chosen from the tab menu**: "Use for focus quick add" (`FOCUS_SET_QUICK_ADD_LIST`),
+     checked on the chosen list; the hint of the quick-add field names the list. The choice is the view
+     preference `focus/quick_add_list_id` (not a layout key, so "Reset layout" keeps it); unset or gone, the
+     first list named like the translated "Inbox" is used (case ignored), else an Inbox is created.
+  4. **"Show in list"** shows the list of the task, clears the due date filter, "Recurring only" and the
+     search, selects the task and scrolls to it. The scope (This list / All lists) is kept.
+  5. **"Add to focus" on a selection** skips the tasks already queued or not open; if the others do not all
+     fit, none is added and the queue shows "The focus queue is full".
+  6. **No timer start from a focus item** (spec review question 1).
+  7. **A row shows the first line of the task**; the tooltip shows every line and the list.
+- Decided during the build (please approve):
+  1. **Positions:** a removal leaves a gap; a move renumbers the queue `0, 1, 2...`; reading a file
+     renumbers it too. `FocusItemWriterPort` has `update_many` and `delete_many` like the tasks (ADR-041).
+  2. **Lenient reading** (like the favorites, ADR-039): besides an item whose task is missing
+     (`FOCUS_TASK_MISSING`, as the spec says), an item of a task that is not open, a repeated item and the
+     items beyond `focus.max_items` are left out with a WARNING in the log; the file never becomes invalid
+     because of the queue. A phase 6 file gets `focus_queue = []` at its next opening and is saved once.
+  3. **`TaskFocusHistory`** (`application/todo/task_focus_history.py`) writes `ADDED_TO_FOCUS` and
+     `REMOVED_FROM_FOCUS`: the focus feature never calls the task writer (`AGENTS.md` section 6.3). Those
+     events change `updated_at`. The reason is stored as the `reason` detail (`FocusRemovalReasonEnum`
+     value: 1 by hand, 2 completed, 3 occurrence completed, 4 archived).
+  4. **Completion source:** `TaskCommands.complete(task_ids, source=...)`; when the last occurrence of a
+     series is completed from the queue, both its `OCCURRENCE_COMPLETED` and `COMPLETED` events carry
+     `source = "focus"`. The reactions recognize a completion made from the queue by the last event of the
+     task. A series that ends from zone 1 leaves the queue with the reason "occurrence completed" (that
+     event comes first). The History tab reads "Completed, from the focus queue".
+  5. **Picker search in the presenter** (deviation from the spec, which puts it in `focus_queries`): the
+     queries give the open tasks not queued; the presenter filters them with `TextSearch` (phase 4, as the
+     table search of phase 6, ADR-042 item 9), tasks due first, then by creation, at most
+     `focus.picker_max_results`. Nothing is proposed while the field is empty.
+  6. **Quick add order:** an empty text is refused first (no message), then a full queue (no task created),
+     then the list is resolved (the Inbox may be created) and the task is created and queued.
+  7. **Focus column** right after the check box: `TASK_COLUMN` becomes 2, the header blob moves to
+     `layout/focus_page/todo_header_v3` and `todo.default_column_widths_px` has nine values (Focus: 40 px).
+     The star is a catalog text (`todo.table.focus_on` ★, `todo.table.focus_off` ☆), empty for a closed task;
+     the column does not sort. `TableSnapshot.toggle_column` and `TableRowSnapshot.toggle_enabled` are new;
+     a click on that cell sends `focus_toggled(task_id)`; a double click there does not open the task.
+  8. **One inline message** under the fields of the queue for every focus action (zone 1 and zone 2,
+     `FocusFeedback`); it disappears at the next action or key press.
+  9. **The task table scrolls to a selection made elsewhere** (Show in list, quick add, duplicate).
+  10. **Picker widget:** the `QCompleter` is attached with `setWidget`, not `QLineEdit.setCompleter`, so
+      choosing an entry never writes its text in the field; Enter without a highlighted entry picks the
+      first one.
+  11. **Numbers and keys:** `ActionIdEnum` 90 to 100, `RenderSectionEnum.FOCUS_QUEUE` 23; ini `[focus]`
+      `max_items` and `picker_max_results`, both 1 to 100. Field labels `field.focus_queue.*` name the
+      queue fields in the recovery dialog.
+  12. **Self-check:** the round trip also holds one queued task.
+- Consequences: phase 8 measures the queue with a full queue and a large task list; the "Clear completed"
+  behaviour can come back only with a new decision.

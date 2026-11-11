@@ -366,7 +366,7 @@ shows the save state.
 | File | Owner | Content | Access |
 |---|---|---|---|
 | `concentrator.ini` | application (next to the exe; `assets/config/` in dev) | constants and defaults | read-only, validated by pydantic into `AppConfig` at startup |
-| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path (`storage/data_file_path`), language hint for the startup dialogs (`shell/language_hint`, ADR-027) | read-write only through `ViewPreferencesPort`; Qt blobs (geometry, splitter and header states) cross the presentation layer as opaque base64 strings via `LayoutStateKeeper`, under `layout/*` keys (ADR-022); persisted filters are layout keys too, so "Reset layout" removes exactly `layout/*` (ADR-040) |
+| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path (`storage/data_file_path`), language hint for the startup dialogs (`shell/language_hint`, ADR-027), quick-add list of the focus queue (`focus/quick_add_list_id`, ADR-043) | read-write only through `ViewPreferencesPort`; Qt blobs (geometry, splitter and header states) cross the presentation layer as opaque base64 strings via `LayoutStateKeeper`, under `layout/*` keys (ADR-022); persisted filters are layout keys too, so "Reset layout" removes exactly `layout/*` (ADR-040) |
 | user TOML file | user | business data and personal settings | `UserDataFilePort` only |
 
 `AppConfig` values support the tokens `{appdata}`, `{localappdata}` and `{app_dir}`, resolved by

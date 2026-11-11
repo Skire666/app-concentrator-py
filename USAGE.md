@@ -4,8 +4,8 @@ Concentrator keeps your TODO lists and your settings in a data file you choose, 
 rings with an MP3 alarm, even when the window is in the background. Favorites start the timer in one
 click, and an hourly chime can mark each full hour. The journal shows what Concentrator logs, and the
 settings page gathers your settings and the data file commands. Tasks can repeat, be searched and
-filtered, and the folders and web addresses written in them open in one click. The focus queue arrives in
-the next phase.
+filtered, and the folders and web addresses written in them open in one click. Under the timer, the focus
+queue holds the few tasks you work on now.
 
 ## Starting
 
@@ -165,8 +165,9 @@ filter bar, the tasks in a table and, under it, the details and the history of t
 
 ### Table
 
-- Columns: done check box, task, list (when the table shows every list), due date and time, repetition, times done (`3 / 10` for a series of 10
-  times), number of links, creation and change dates.
+- Columns: done check box, focus star (see "Focus queue"), task, list (when the table shows every list), due
+  date and time, repetition, times done (`3 / 10` for a series of 10 times), number of links, creation and
+  change dates.
 - A task due today is bold; an overdue task (date past, or today with its time passed) is bold and
   highlighted. Done and archived tasks are greyed and never marked overdue.
 - Click a column header to sort by it; click again to reverse the order. Tasks without a due date stay
@@ -184,7 +185,7 @@ filter bar, the tasks in a table and, under it, the details and the history of t
     appears). Quick add still adds to the current tab.
   - The counter on the right reads "12 of 87 tasks": the tasks shown, out of all the tasks of this list
     (or of every list), whatever their state.
-- Repetition, times done and links do not sort.
+- Focus, repetition, times done and links do not sort.
 - The task column shows the lines of the task one after the other, separated by `·`. A text that does not
   fit in 80 % of the column (`text_width_percent` in `concentrator.ini`) is cut there and followed by
   `... (5 lines)`, the number of lines of the task.
@@ -215,10 +216,42 @@ filter bar, the tasks in a table and, under it, the details and the history of t
 ### History
 
 Each task keeps a short history (creation, text, due date and repetition changes, completions and
-occurrences, reopenings, archiving, moves, copies): the last 10 events, the creation always kept
+occurrences, reopenings, archiving, moves, copies, focus queue additions and removals): the last 10 events, the creation always kept
 (`max_history_events` in `concentrator.ini`). The **History** tab under the table lists them, newest
 first, with their local date and time, for example "06/11/2026 17:45 - Occurrence 3 completed (due
 10/11/2026, next 17/11/2026)".
+
+## Focus queue
+
+The focus queue, under the timer, lists the few tasks you want to do now. Every entry is a real task of
+your lists: completing it in the queue completes the task, and the task keeps its history.
+
+- **Add a task**:
+  - click the star (☆) of a task in the table; a full star (★) shows a queued task, a click on it takes the
+    task out of the queue;
+  - or select tasks and use **Add to focus** in the toolbar or the context menu (the tasks already queued
+    or not open are skipped);
+  - or type in the search field of the queue: it proposes the open tasks of every list that are not queued
+    yet (every word must appear, case and accents do not matter, the tasks due first, 20 at most,
+    `picker_max_results` in `concentrator.ini`). Click an entry, or press Enter for the first one;
+  - or type a new task in the quick-add field and press Enter: the task is created in the quick-add list,
+    then queued. The hint of the field names that list. Right-click a list tab > **Use for focus quick
+    add** to choose it; until then, the list named "Inbox" (in the current language) is used, and one is
+    created if no list has that name.
+- **Tick** an entry to complete its task. The task is done in its list and its history reads "Completed,
+  from the focus queue". A repeating task completes its current occurrence, moves to its next date and
+  leaves the queue.
+- **×** takes the task out of the queue; the task itself is untouched. **Remove from focus** in the toolbar
+  does the same for the selected tasks.
+- **Right-click** an entry: **Move up**, **Move down** (or **Alt+Up** / **Alt+Down** on the selected entry)
+  and **Show in list**, which shows its list, clears the filters and the search, and selects the task.
+- A task completed, archived or deleted in its list leaves the queue; reopening it does not queue it again.
+  Its history says why it left ("Left the focus queue: archived"); a deleted task has no history left.
+- The header shows the number of tasks out of the capacity (`4 / 20`, `max_items` in `concentrator.ini`,
+  `[focus]`). When the queue is full, adding a task shows a message under the fields and adds nothing.
+- An overdue entry is bold and highlighted, an entry due today is bold, as in the table.
+- The queue, its order and the quick-add list are kept: the queue in the data file, the list choice in the
+  UI state.
 
 ## The timer
 
@@ -379,8 +412,8 @@ The other sections act at once:
 - **Module bar** (left, full height): **Focus**, **Journal** and **Settings** switch the page. The
   button of the visible page is highlighted; the Journal button shows the number of new errors.
 - **Focus** page: zone 1 (TODO lists, left) and zone 2, separated by a splitter you can drag. Zone 2
-  shows, from top to bottom, the timer, room for the focus queue (later), the favorites and the special
-  options. Zone 1 is the TODO manager (see "TODO lists").
+  shows, from top to bottom, the timer, the focus queue (it takes the free height), the favorites and the
+  special options. Zone 1 is the TODO manager (see "TODO lists").
 - **Journal** and **Settings** pages: see above.
 - **Status bar** (bottom, one line): the save state on the left, the language button on the right.
   The button shows the current language (`ENG` or `FRA`); click it to switch every text between
