@@ -16,6 +16,15 @@ La hauteur des boutons, la faire un peu plus grande que ceux proposé.
 Cooldown aussi lorque l'on clique (100ms c'est bien, mais un petit 120ms je pense que ça serait parfait)
 Si la save échoue, mettre un bouton manuel qui retry
 
+Bug : un compteur temps réel en seconde, n'était pas actualisé dans l'IHM
+car le garbage collector perdait le pointeur, dans le compteur n'était plus décrémneter visuellement dans l'IHM (mais en mémoire c'était toujours ok)
+
+Dans les réglages, il m'avait mis l'événement molette sur tous les contrôles, meme lorsqu'il n'était pas focus (un simple survol suffisait à "capter" la souris).
+Du coup, quand je faisais l'usage de la molette, ça descendé parfois la page, mais si j'avais le mahleur d'avoir un compteur ou une liste, ça changé la valeur du composant, et du coup le scroll ne descendait pas la page. Genre pas besoin de clique, juste le survol suffisé à attraper le scroll.
+Donc dans l'idée, je lui ai dit ne plus focus le composant.
+Par contre, difficile d'avoir une règle général : toujours scroll page ?.
+Typiquement, le menu principale, y'a pas de scroll écran, juste le tableau à l'intérieur. J'ai donc envie que le focus ce fasse sur le tableau, et on sur la page.
+
 -------
 
 Demander a claude d'économiser des tokens ?
