@@ -109,6 +109,12 @@ class ErrorCodeEnum(BaseIntEnum):
     RECURRENCE_END_KIND_UNSET = 5207
     RECURRENCE_END_DATE_MISSING = 5208
 
+    # 6xxx focus queue
+    FOCUS_TASK_ALREADY_QUEUED = 6001
+    FOCUS_QUEUE_FULL = 6002
+    FOCUS_TASK_NOT_OPEN = 6003
+    FOCUS_TASK_MISSING = 6004
+
     # 70xx links and folders
     LINK_OPEN_FAILED = 7003
 
