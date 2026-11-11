@@ -1,5 +1,7 @@
 """Wiring of the TODO manager: stores, use cases, view state, presenters and their dialogs."""
 
+from collections.abc import Callable
+
 from concentrator.application.common.app_config import AppConfig
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.storage.storage_events import UserDataReplacedEvent
@@ -209,19 +211,26 @@ def _subscribe(core: Core, refresher: TodoRefresher) -> None:
 
 
 def attach_todo_dialogs(
-    todo: TodoPresenters, runner: DialogRunner, dialogs: QtDialogService, core: Core, layout: TodoLayout
+    todo: TodoPresenters,
+    runner: DialogRunner,
+    dialogs: tuple[QtDialogService, Callable[[], bool]],
+    core: Core,
+    config: AppConfig,
 ) -> None:
     """Give the TODO presenters their dialogs over the main window (ADR-036).
 
     Args:
         todo: TODO presenters.
         runner: The main window's modal host.
-        dialogs: Dialog service of the main window.
+        dialogs: Dialog service of the main window, and whether the Windows session ends (the task and
+            list dialogs then close without asking).
         core: Main-thread services (render coordinator).
-        layout: Spacing of the dialogs.
+        config: Loaded configuration (spacing of the dialogs).
     """
     renderer = core.renderer
-    todo.task_editor.attach(TaskEditWindow(todo.task_editor, renderer, runner, layout), dialogs)
-    todo.list_editor.attach(ListEditWindow(todo.list_editor, renderer, runner, layout), dialogs)
-    todo.actions.attach(dialogs)
-    todo.tabs.attach(dialogs)
+    layout = TodoLayout.from_config(config)
+    service, session_ending = dialogs
+    todo.task_editor.attach(TaskEditWindow(todo.task_editor, renderer, runner, layout), service, session_ending)
+    todo.list_editor.attach(ListEditWindow(todo.list_editor, renderer, runner, layout), service, session_ending)
+    todo.actions.attach(service)
+    todo.tabs.attach(service)

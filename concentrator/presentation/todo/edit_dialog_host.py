@@ -1,5 +1,6 @@
 """Shows, closes and cancels the task and list dialogs; a changed form asks before its changes are lost."""
 
+from collections.abc import Callable
 from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
@@ -10,6 +11,15 @@ from concentrator.presentation.ports.dialog_port import DialogPort
 from concentrator.presentation.ports.editor_dialog_port import EditorDialogPort
 
 _NOT_ATTACHED: Final = "EditDialogHost.attach() was not called"
+
+
+def _never() -> bool:
+    """Default answer of ``session_ending``.
+
+    Returns:
+        ``False``.
+    """
+    return False
 
 
 class EditDialogHost:
@@ -28,16 +38,22 @@ class EditDialogHost:
         self._renderer = renderer
         self._window: EditorDialogPort | None = None
         self._dialogs: DialogPort | None = None
+        self._session_ending: Callable[[], bool] = _never
 
-    def attach(self, window: EditorDialogPort, dialogs: DialogPort) -> None:
+    def attach(
+        self, window: EditorDialogPort, dialogs: DialogPort, session_ending: Callable[[], bool] | None = None
+    ) -> None:
         """Set the dialog and the dialog service.
 
         Args:
             window: The form dialog.
             dialogs: Discard question over the main window.
+            session_ending: Tells whether Windows announced the end of the session; nothing is asked then
+                (ADR-038). Never by default.
         """
         self._window = window
         self._dialogs = dialogs
+        self._session_ending = session_ending or _never
 
     def show(self) -> ValidationResult:
         """Render the form, then run the dialog until it closes.
@@ -61,7 +77,7 @@ class EditDialogHost:
         return ValidationResult.success()
 
     def cancel(self, *, is_dirty: bool) -> ValidationResult:
-        """Close the dialog without saving; ask first when the form changed.
+        """Close the dialog without saving; ask first when the form changed, unless the Windows session ends.
 
         Args:
             is_dirty: Whether the form changed.
@@ -70,7 +86,7 @@ class EditDialogHost:
             Success when the dialog closed, skipped when the user kept editing.
         """
         window, dialogs = self._attached()
-        if is_dirty:
+        if is_dirty and not self._session_ending():
             tr = self._translator.tr
             discard = dialogs.confirm(
                 tr("todo.discard.title"), tr("todo.discard.message"), tr("todo.discard.accept"), tr("todo.discard.keep")

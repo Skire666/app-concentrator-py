@@ -53,6 +53,6 @@ class TodoRefresher:
         self._refresh()
 
     def _refresh(self) -> None:
-        """Follow the data and request every TODO section."""
-        self._view.sync()
+        """Follow the data at the next read (once for a bulk change) and request every TODO section."""
+        self._view.mark_stale()
         self._renderer.request(*TODO_SECTIONS)

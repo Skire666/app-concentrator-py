@@ -436,7 +436,10 @@ silent code-level defaults for ini keys.
   defines for painting), wrapped in `setUpdatesEnabled(False/True)` and
   `QSignalBlocker` for programmatic value changes.
 - Tables use `SnapshotTableModel` (`QAbstractTableModel`) fed with snapshot rows: append-only changes
-  insert rows, other changes reset the model. Sorting and filtering happen in presenters (testable),
+  insert rows, rows dropped at the head are removed, changed cells of the same rows (same keys, same
+  order) are updated in place, other changes reset the model (ADR-041). A widget that changes its own
+  state on a click (tab bar, sort indicator) shows the rendered state again at once: the next snapshot
+  moves it, and an ignored click produces no snapshot change. Sorting and filtering happen in presenters (testable),
   not in `QSortFilterProxyModel`.
 
 ### 8.3 Action gate

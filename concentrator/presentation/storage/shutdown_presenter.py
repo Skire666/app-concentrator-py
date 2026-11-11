@@ -66,6 +66,14 @@ class ShutdownPresenter:
         """
         self._edits = edits
 
+    def is_session_ending(self) -> bool:
+        """Tell whether Windows announced the end of the session (``commitDataRequest``).
+
+        Returns:
+            Whether no question may be asked any more (ADR-038).
+        """
+        return self._session_ending
+
     def may_close(self) -> bool:
         """Ask whether to quit, then flush (``closeEvent``: close button, notification area "Quit").
 

@@ -79,14 +79,17 @@ class TaskEditPresenter:
             ActionIdEnum.TASK_EDIT_CANCEL: lambda: self._host.cancel(is_dirty=self._form.is_dirty),
         }
 
-    def attach(self, window: EditorDialogPort, dialogs: DialogPort) -> None:
+    def attach(
+        self, window: EditorDialogPort, dialogs: DialogPort, session_ending: Callable[[], bool] | None = None
+    ) -> None:
         """Set the dialog and the dialog service (built with the main window).
 
         Args:
             window: The task dialog.
             dialogs: Discard confirmation.
+            session_ending: Tells whether Windows announced the end of the session (no question then).
         """
-        self._host.attach(window, dialogs)
+        self._host.attach(window, dialogs, session_ending)
 
     def open_new(self, list_id: str) -> ValidationResult:
         """Create a task in a list (``TASK_NEW``).

@@ -333,7 +333,7 @@ def _attach_dialogs(
     extras.preset_editor.attach(PresetEditWindow(extras.preset_editor, renderer, host, layout))
     extras.presets.attach(dialogs)
     extras.chime_editor.attach(ChimeSettingsWindow(extras.chime_editor, renderer, host, layout), dialogs)
-    attach_todo_dialogs(presenters.todo, host, dialogs, services.core, TodoLayout.from_config(config))
+    attach_todo_dialogs(presenters.todo, host, (dialogs, presenters.shutdown.is_session_ending), services.core, config)
     if services.startup is not None:
         services.startup.dialogs.move_to_window(host)
         services.startup.presenter.attach_session(services.startup.dialogs, dialogs)

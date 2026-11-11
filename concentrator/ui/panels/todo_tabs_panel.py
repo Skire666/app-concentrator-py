@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QTabBar, QVBoxLayout, 
 
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.todo.todo_tabs_snapshot import TabSnapshot, TodoTabsSnapshot
+from concentrator.ui.support.plain_text import plain_tooltip, without_mnemonic
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
 
 
@@ -35,6 +36,7 @@ class TodoTabsPanel(QWidget):
         self._description.setTextFormat(Qt.TextFormat.PlainText)
         self._description.setWordWrap(True)
         self._tabs: tuple[TabSnapshot, ...] = ()
+        self._selected_index = -1
         self._menu: QMenu | None = None
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
@@ -76,9 +78,10 @@ class TodoTabsPanel(QWidget):
         while self._tab_bar.count() < len(snapshot.tabs):
             self._tab_bar.addTab("")
         for index, tab in enumerate(snapshot.tabs):
-            self._tab_bar.setTabText(index, tab.text)
-            self._tab_bar.setTabToolTip(index, tab.tooltip)
+            self._tab_bar.setTabText(index, without_mnemonic(tab.text))
+            self._tab_bar.setTabToolTip(index, plain_tooltip(tab.tooltip))
         self._tab_bar.setCurrentIndex(snapshot.selected_index)
+        self._selected_index = snapshot.selected_index
         blocker.unblock()
         self._tabs = snapshot.tabs
         self._add.apply(snapshot.add)
@@ -100,7 +103,7 @@ class TodoTabsPanel(QWidget):
             self._menu.deleteLater()
         menu = QMenu(self)
         for item in tab.menu:
-            entry = menu.addAction(item.text)
+            entry = menu.addAction(without_mnemonic(item.text))
             entry.setToolTip(item.tooltip)
             entry.setEnabled(item.enabled)
             entry.triggered.connect(partial(self.list_action_requested.emit, int(item.action), tab.list_id))
@@ -116,10 +119,16 @@ class TodoTabsPanel(QWidget):
         self.show_menu(self._tab_bar.tabAt(pos), self._tab_bar.mapToGlobal(pos))
 
     def _emit_select(self, index: int) -> None:
-        """Send ``LIST_SELECT`` for the tab the user chose.
+        """Send ``LIST_SELECT`` for the tab the user chose; the tab bar keeps showing the rendered tab.
+
+        The next snapshot moves it. When the choice is ignored (cooldown), the snapshot does not change and
+        no render comes, so the tab bar must not show a list the table does not show (code review).
 
         Args:
             index: New current tab.
         """
+        blocker = QSignalBlocker(self._tab_bar)
+        self._tab_bar.setCurrentIndex(self._selected_index)
+        blocker.unblock()
         if 0 <= index < len(self._tabs):
             self.list_action_requested.emit(int(ActionIdEnum.LIST_SELECT), self._tabs[index].list_id)

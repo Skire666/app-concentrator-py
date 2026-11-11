@@ -78,7 +78,7 @@ class TaskActions:
         self._editor = editor
         self._dialogs: DialogPort | None = None
         self._operations: dict[ActionIdEnum, Callable[[], ValidationResult]] = {
-            ActionIdEnum.TASK_NEW: lambda: editor.open_new(view.state.list_id),
+            ActionIdEnum.TASK_NEW: lambda: editor.open_new(view.list_id),
             ActionIdEnum.TASK_EDIT: self._edit,
             ActionIdEnum.TASK_COMPLETE: lambda: commands.complete(self._ids(ActionIdEnum.TASK_COMPLETE)),
             ActionIdEnum.TASK_REOPEN: lambda: commands.reopen(self._ids(ActionIdEnum.TASK_REOPEN)),

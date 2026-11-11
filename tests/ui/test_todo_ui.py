@@ -8,8 +8,11 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QDialog, QMenu
 from pytestqt.qtbot import QtBot
 
+from concentrator.application.todo.task_list_commands import ListValues
 from concentrator.domain.common.multiline_text import MultilineText
+from concentrator.domain.todo.priority_enum import PriorityEnum
 from concentrator.domain.todo.task_draft import TaskDraft
+from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.todo.todo_layout import TodoLayout
@@ -307,3 +310,64 @@ def test_keyboard_toggles_deletes_and_opens_the_selected_task(harness: ShellHarn
     _settle(harness)
     assert [task.text.first_line for task in harness.todo.tasks()] == ["Report"]
     assert harness.stack.dialogs.texts("confirm")[-1][1] == "en:todo.delete_tasks.message.one(count=1)"
+
+
+def test_a_tab_click_ignored_during_the_cooldown_keeps_the_tab_of_the_list_shown(harness: ShellHarness) -> None:
+    bar = harness.window.focus_page.tabs_panel.tab_bar
+    bar.setCurrentIndex(1)
+    harness.turn()
+
+    bar.setCurrentIndex(0)
+    harness.turn()
+
+    assert harness.todo.state.list_id == HOME_LIST_ID
+    assert bar.currentIndex() == 1
+
+
+def test_an_ampersand_in_a_list_name_is_shown_as_typed(harness: ShellHarness) -> None:
+    harness.todo.list_commands.create(ListValues(name="R&D", description=MultilineText(), priority=PriorityEnum.URGENT))
+    _add(harness, "Report")
+    page = harness.window.focus_page
+    page.table_panel.table.selectRow(0)
+    harness.turn()
+
+    assert (
+        page.tabs_panel.tab_bar.tabText(0)
+        == "en:todo.tab.text_no_open(badge=en:todo.priority.badge.urgent,name=R&&D,count=0)"
+    )
+    move_menu = page.toolbar_panel.move_button.menu()
+    assert move_menu is not None
+    assert "R&&D" in [action.text() for action in move_menu.actions()]
+
+
+def test_a_header_click_ignored_during_the_cooldown_keeps_the_indicator_of_the_order(
+    harness: ShellHarness, qtbot: QtBot
+) -> None:
+    _add(harness, "b", "a")
+    harness.window.show()
+    qtbot.waitExposed(harness.window)
+    header = harness.window.focus_page.table_panel.table.horizontalHeader()
+
+    def click(section: int) -> None:
+        position = QPoint(header.sectionViewportPosition(section) + 5, 5)
+        QTest.mouseClick(header.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, position)
+        harness.turn()
+
+    click(1)
+    click(2)
+
+    assert harness.todo.state.sort_key is TaskSortKeyEnum.TEXT
+    assert (header.sortIndicatorSection(), header.sortIndicatorOrder()) == (1, Qt.SortOrder.AscendingOrder)
+
+
+def test_a_tab_tooltip_shows_html_of_a_description_as_typed(harness: ShellHarness) -> None:
+    harness.todo.list_commands.update(
+        WORK_LIST_ID,
+        ListValues(name="Work", description=MultilineText(("<b>bold</b>", "x")), priority=PriorityEnum.HIGH),
+    )
+    harness.turn()
+
+    tooltip = harness.window.focus_page.tabs_panel.tab_bar.tabToolTip(0)
+
+    assert "&lt;b&gt;bold&lt;/b&gt;" in tooltip
+    assert "<b>" not in tooltip

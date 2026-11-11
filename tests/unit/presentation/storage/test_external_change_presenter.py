@@ -129,3 +129,12 @@ def test_conflict_found_at_session_end_is_asked_if_the_session_goes_on(setup: Se
     setup.stack.scheduler.run_pending()
 
     assert [texts[1] for texts in setup.stack.dialogs.texts("confirm")] == ["en:external_change.message"]
+
+
+def test_session_end_is_known_after_the_commit_data_flush(setup: Setup) -> None:
+    shutdown = _shutdown(setup)
+    assert not shutdown.is_session_ending()
+
+    shutdown.flush_on_session_end()
+
+    assert shutdown.is_session_ending()

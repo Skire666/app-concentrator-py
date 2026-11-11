@@ -9,6 +9,7 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
 from concentrator.presentation.todo.task_menu_snapshot import MoveTargetSnapshot
 from concentrator.presentation.todo.todo_toolbar_snapshot import TodoToolbarSnapshot
+from concentrator.ui.support.plain_text import without_mnemonic
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
 from concentrator.ui.widgets.snapshot_check_box import SnapshotCheckBox
 
@@ -105,6 +106,6 @@ class TodoToolbarPanel(QWidget):
         self._targets = targets
         self._move_menu.clear()
         for target in targets:
-            entry = self._move_menu.addAction(target.text)
+            entry = self._move_menu.addAction(without_mnemonic(target.text))
             entry.setEnabled(target.enabled)
             entry.triggered.connect(partial(self.move_requested.emit, target.list_id))

@@ -15,6 +15,10 @@ class TodoView:
     The stored tasks are immutable: a new collection means new data, so the visible tasks are rebuilt
     only when the stored collection or the query changes (the tabs, toolbar, table and details panes all
     read them in the same render).
+
+    After a change of the data, ``mark_stale`` defers the follow-up (show an existing list, drop vanished
+    tasks from the selection) to the next read: a bulk change publishes one event per task, and following
+    the data once per event would cost the square of the number of tasks (code review of phase 5).
     """
 
     def __init__(self, queries: TodoQueries, state: TodoViewState) -> None:
@@ -29,11 +33,18 @@ class TodoView:
         self._source: TasksCollection | None = None
         self._query: TaskQuery | None = None
         self._visible = TasksCollection()
+        self._stale = True
 
     @property
     def state(self) -> TodoViewState:
-        """Current list, sort, filters and selection."""
+        """Current list, sort, filters and selection (read ``list_id`` here once the data changed)."""
         return self._state
+
+    @property
+    def list_id(self) -> str:
+        """Current list, an existing one once the data changed."""
+        self._follow_data()
+        return self._state.list_id
 
     def lists(self) -> TaskListsCollection:
         """Return the lists in tab order.
@@ -41,6 +52,7 @@ class TodoView:
         Returns:
             The lists.
         """
+        self._follow_data()
         return self._queries.lists()
 
     def overviews(self) -> tuple[ListOverview, ...]:
@@ -49,6 +61,7 @@ class TodoView:
         Returns:
             The overviews.
         """
+        self._follow_data()
         return self._queries.overviews()
 
     def current_list(self) -> TaskList | None:
@@ -57,13 +70,49 @@ class TodoView:
         Returns:
             The list, ``None`` when it does not exist.
         """
-        return self._queries.task_list(self._state.list_id).data
+        return self._queries.task_list(self.list_id).data
 
     def visible(self) -> TasksCollection:
         """Return the tasks of the table, in display order.
 
         Returns:
             The tasks of the current list, filtered and sorted.
+        """
+        self._follow_data()
+        return self._current_tasks()
+
+    def selected(self) -> tuple[Task, ...]:
+        """Return the selected tasks that the table shows, in table order.
+
+        Returns:
+            The tasks.
+        """
+        visible = self.visible()
+        selected = set(self._state.selected_ids)
+        return tuple(task for task in visible if task.id in selected)
+
+    def mark_stale(self) -> None:
+        """The data changed: follow it at the next read."""
+        self._stale = True
+
+    def sync(self) -> None:
+        """Follow the data now (startup)."""
+        self._stale = True
+        self._follow_data()
+
+    def _follow_data(self) -> None:
+        """Once after a change of the data: show an existing list and drop vanished tasks from the selection."""
+        if not self._stale:
+            return
+        self._stale = False
+        self._state.follow_lists(self._queries.lists())
+        self._state.keep_visible(task.id for task in self._current_tasks())
+
+    def _current_tasks(self) -> TasksCollection:
+        """Filter and sort the tasks of the current list when the data or the query changed.
+
+        Returns:
+            The tasks of the table.
         """
         source = self._queries.all_tasks()
         query = self._state.query()
@@ -72,17 +121,3 @@ class TodoView:
             self._query = query
             self._visible = self._queries.tasks(query)
         return self._visible
-
-    def selected(self) -> tuple[Task, ...]:
-        """Return the selected tasks that the table shows, in table order.
-
-        Returns:
-            The tasks.
-        """
-        selected = set(self._state.selected_ids)
-        return tuple(task for task in self.visible() if task.id in selected)
-
-    def sync(self) -> None:
-        """After a change of the data: show an existing list and drop vanished tasks from the selection."""
-        self._state.follow_lists(self.lists())
-        self._state.keep_visible(task.id for task in self.visible())

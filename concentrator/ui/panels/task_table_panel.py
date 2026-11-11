@@ -22,6 +22,7 @@ from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QLabel, QMenu, QSt
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.todo.task_menu_snapshot import TaskMenuSnapshot
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
+from concentrator.ui.support.plain_text import without_mnemonic
 from concentrator.ui.widgets.snapshot_table_model import SnapshotTableModel
 
 
@@ -60,6 +61,7 @@ class TaskTablePanel(QWidget):
         self._empty = QLabel(self)
         self._menu = TaskMenuSnapshot(buttons=(), move_targets=())
         self._popup: QMenu | None = None
+        self._sort_indicator = (-1, Qt.SortOrder.AscendingOrder)
         self._configure_table()
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty.setWordWrap(True)
@@ -105,6 +107,7 @@ class TaskTablePanel(QWidget):
             self._table.verticalScrollBar().setValue(scroll)
         header_blocker = QSignalBlocker(self._table.horizontalHeader())
         order = Qt.SortOrder.DescendingOrder if table.sort_descending else Qt.SortOrder.AscendingOrder
+        self._sort_indicator = (table.sort_column, order)
         self._table.horizontalHeader().setSortIndicator(table.sort_column, order)
         header_blocker.unblock()
         self._empty.setText(table.empty_text)
@@ -172,7 +175,7 @@ class TaskTablePanel(QWidget):
         submenu = menu.addMenu(text)
         submenu.setEnabled(enabled)
         for target in self._menu.move_targets:
-            entry = submenu.addAction(target.text)
+            entry = submenu.addAction(without_mnemonic(target.text))
             entry.setEnabled(target.enabled)
             entry.triggered.connect(partial(self.move_requested.emit, target.list_id))
 
@@ -201,7 +204,7 @@ class TaskTablePanel(QWidget):
         selection = self._table.selectionModel()
         selection.selectionChanged.connect(self._emit_selection)
         self._model.check_toggled.connect(self._emit_check)
-        self._table.horizontalHeader().sectionClicked.connect(self.sort_requested.emit)
+        self._table.horizontalHeader().sectionClicked.connect(self._emit_sort)
         self._table.doubleClicked.connect(self._emit_activated)
         self._table.customContextMenuRequested.connect(self._open_menu_at)
         self._model.modelReset.connect(self._stretch_task_column)
@@ -233,6 +236,21 @@ class TaskTablePanel(QWidget):
             Qt.Key.Key_Delete: lambda: self.action_requested.emit(int(ActionIdEnum.TASK_DELETE)),
         }
         return handlers.get(event.key())
+
+    def _emit_sort(self, column: int) -> None:
+        """Send the column clicked; the header keeps the indicator of the rendered order.
+
+        Qt moves the indicator itself on a click. The next snapshot shows the new order; when the click is
+        ignored (cooldown), no render comes, so the indicator must not show an order the rows do not have.
+
+        Args:
+            column: Header clicked.
+        """
+        header = self._table.horizontalHeader()
+        blocker = QSignalBlocker(header)
+        header.setSortIndicator(*self._sort_indicator)
+        blocker.unblock()
+        self.sort_requested.emit(column)
 
     def _emit_check(self, key: object) -> None:
         """Send the id of the row whose check box was clicked.

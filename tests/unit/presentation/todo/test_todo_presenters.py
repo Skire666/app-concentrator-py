@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from datetime import date, time, timedelta
 from pathlib import Path
 
@@ -449,3 +450,21 @@ def test_menu_buttons_are_disabled_while_their_action_is_busy() -> None:
     stack.scheduler.run_pending()
 
     assert _button(stack.rendered_toolbar[-1].menu, ActionIdEnum.TASK_COMPLETE).enabled is False
+
+
+def test_a_bulk_change_follows_the_data_once_not_once_per_task() -> None:
+    stack = _stack(*(make_task(number) for number in range(1, 51)))
+    stack.select(*(f"task-{number:03d}" for number in range(1, 51)))
+    calls: list[int] = []
+    keep_visible = stack.state.keep_visible
+
+    def counting(visible_ids: Iterable[str]) -> None:
+        calls.append(1)
+        keep_visible(visible_ids)
+
+    stack.state.keep_visible = counting
+    stack.toolbar.on_action_requested(int(ActionIdEnum.TASK_COMPLETE))
+    stack.settle()
+
+    assert len(calls) == 1
+    assert {task.state for task in stack.tasks()} == {TaskStateEnum.DONE}

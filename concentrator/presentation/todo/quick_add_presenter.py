@@ -91,7 +91,7 @@ class QuickAddPresenter:
         Returns:
             The result of the use case.
         """
-        created = self._commands.quick_add(self._view.state.list_id, self._text)
+        created = self._commands.quick_add(self._view.list_id, self._text)
         if created.data is None:
             failing = set(created.validation.error_codes)
             self._error = ValidationResult.success() if failing <= SILENT_CODES else created.validation

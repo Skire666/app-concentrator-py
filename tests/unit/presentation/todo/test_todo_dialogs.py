@@ -190,3 +190,17 @@ def test_tab_edit_opens_the_list_dialog() -> None:
     stack.tabs.on_list_action_requested(int(ActionIdEnum.LIST_EDIT), WORK_LIST_ID)
 
     assert stack.list_window.shows == 1
+
+
+def test_cancel_after_the_windows_session_end_closes_without_asking() -> None:
+    stack = TodoUiStack(tasks=[make_task(1)])
+    ending = [False]
+    stack.task_editor.attach(stack.task_window, stack.dialogs, session_ending=lambda: ending[0])
+    stack.task_editor.open_edit("task-001")
+    stack.task_editor.on_text_changed("Changed")
+    ending[0] = True
+
+    stack.task_editor.on_action_requested(CANCEL_TASK)
+
+    assert stack.task_window.closes == 1
+    assert stack.dialogs.calls == []

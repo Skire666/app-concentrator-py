@@ -2,7 +2,6 @@
 
 import logging
 from collections.abc import Callable
-from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.domain.common.validation_result import ValidationResult
@@ -18,8 +17,6 @@ from concentrator.presentation.todo.todo_toolbar_snapshot import TodoToolbarSnap
 from concentrator.presentation.todo.todo_view import TodoView
 
 _logger = logging.getLogger(__name__)
-
-TOGGLE_ACTIONS: Final = frozenset({ActionIdEnum.TODO_TOGGLE_SHOW_DONE, ActionIdEnum.TODO_TOGGLE_SHOW_ARCHIVED})
 
 
 class TodoToolbarPresenter:
