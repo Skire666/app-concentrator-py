@@ -3,8 +3,9 @@
 Concentrator keeps your TODO lists and your settings in a data file you choose, and its countdown timer
 rings with an MP3 alarm, even when the window is in the background. Favorites start the timer in one
 click, and an hourly chime can mark each full hour. The journal shows what Concentrator logs, and the
-settings page gathers your settings and the data file commands. Recurring tasks, search and clickable
-links, then the focus queue, arrive in the next phases.
+settings page gathers your settings and the data file commands. Tasks can repeat, be searched and
+filtered, and the folders and web addresses written in them open in one click. The focus queue arrives in
+the next phase.
 
 ## Starting
 
@@ -101,8 +102,8 @@ save.
 
 ## TODO lists
 
-Zone 1 of the Focus page (left) is the TODO manager: your lists as tabs, a toolbar, a quick add field, the
-tasks of the current list in a table and, under it, the details of the selected task.
+Zone 1 of the Focus page (left) is the TODO manager: your lists as tabs, a toolbar, a quick add field, a
+filter bar, the tasks in a table and, under it, the details and the history of the selected task.
 
 ### Lists
 
@@ -140,30 +141,79 @@ tasks of the current list in a table and, under it, the details of the selected 
 - **Duplicate** copies the selected task as a new open task (its history starts again). **Move to list**
   moves the selected tasks to another list. **Delete...** (or Del) always asks first, with the number
   of tasks.
+- **Set due date...** gives one date to every selected task (each keeps its due time); **Clear due
+  date** removes their dates. Clear due date is greyed when a selected task repeats: a repeating task
+  needs a date. Both change every selected task or none.
 - Select several tasks with Ctrl+click or Shift+click; the toolbar buttons and the context menu
   (right-click in the table) follow the selection.
 
+### Repeating tasks
+
+- In the task dialog, tick **Repeat**: every N days, weeks, months or years. A weekly series repeats on
+  the days you choose (the weekday of the due date at first). **Ends**: never, on a date, or after N
+  times. The dialog shows the repetition in words ("Every 2 weeks on Monday and Friday, 4 times") and the
+  next 4 dates (`recurrence_preview_count` in `concentrator.ini`). A repeating task needs a due date.
+- A monthly series keeps the day of its first date: on the 31st it falls on the 30th in April and on
+  the 28th (or 29th) in February. A yearly series on 29 February falls on 28 February in other years.
+- **Done** (or the check box, or Space) on a repeating task completes the current occurrence: the task
+  stays open and moves to its next date. If you complete it late, it moves to the next date that is
+  today or later; the dates passed over are noted in its history but do not count as done.
+- After the last occurrence (the number of times reached, or the next date after the end date), the
+  task is done.
+- Changing the due date of a repeating task by hand starts its series again on that date. Unticking
+  **Repeat** makes it a one-off task.
+
 ### Table
 
-- Columns: done check box, task (first line, with `(+2 lines)` when the text has more), due date and
-  time, creation and change dates.
+- Columns: done check box, task (first line, with `(+2 lines)` when the text has more), list (when the
+  table shows every list), due date and time, repetition, times done (`3 / 10` for a series of 10
+  times), number of links, creation and change dates.
 - A task due today is bold; an overdue task (date past, or today with its time passed) is bold and
   highlighted. Done and archived tasks are greyed and never marked overdue.
 - Click a column header to sort by it; click again to reverse the order. Tasks without a due date stay
   at the end when sorting by due date. New data files sort by creation date, newest first
   (`default_sort` and `default_sort_descending` in `concentrator.ini`).
 - **Show done** and **Show archived** show or hide those tasks (done shown, archived hidden at first).
+- The filter bar above the table narrows it:
+  - **Due**: all dates, overdue, today, this week (Monday to Sunday), next 7 days (today included), with a
+    date, without a date. Overdue shows open tasks only.
+  - **Recurring only** keeps the tasks that repeat.
+  - **Search**: every word you type must appear somewhere in the text of the task, on any line; case and
+    accents do not matter (`etat` finds "État des lieux"). The table follows 150 ms after the last key
+    (`search_debounce_ms` in `concentrator.ini`).
+  - **This list** / **All lists**: the tasks of the current tab or of every list (a List column then
+    appears). Quick add still adds to the current tab.
+  - The counter on the right reads "12 of 87 tasks": the tasks shown, out of all the tasks of this list
+    (or of every list), whatever their state.
+- Repetition, times done and links do not sort.
 - Drag the headers to reorder or resize the columns, and the bar between the table and the details to
   resize them (drag it down to hide the details).
-- The current list, the sort, the two toggles, the columns and the details size are restored at the
-  next start; **Reset layout** on the Settings page brings the defaults back.
-- The details pane shows the full text, list, due date, state and dates of the selected task.
+- The current list, the sort, the toggles, the filters, the search, the columns and the details size are
+  restored at the next start; **Reset layout** on the Settings page brings the defaults back.
+- The **Details** tab under the table shows the full text, list, due date, repetition, state and dates of
+  the selected task.
+
+### Links
+
+- A line of a task that holds only a web address (`https://...`), a folder or file path on any drive
+  (`C:\Users\me\My folder`, `D:/Projects`) or a network path (`\\nas\backup`) is a link. A `- ` before it
+  is allowed; spaces inside a path are fine. A link in the middle of a sentence stays plain text.
+- When you save the task, the backslashes of its paths become `/`: `C:\Users\me` is stored and shown as
+  `C:/Users/me`.
+- Links are underlined in the Details tab and, for the first line, in the table. Click one to open it
+  as Windows would with a double click: the folder opens in Explorer, a web address in your browser, a
+  program runs. **Right-click > Open link** lists the links of the selected task (10 at most,
+  `max_links_in_menu` in `concentrator.ini`).
+- Concentrator never checks a link before opening it: a path that does not exist is still a link. If
+  Windows refuses to open it, nothing pops up; the journal shows a warning (without the link).
 
 ### History
 
-Each task keeps a short history (creation, text and due date changes, completions, reopenings,
-archiving, moves, copies): the last 10 events, the creation always kept (`max_history_events` in
-`concentrator.ini`). It is stored in the data file and shown in a later phase.
+Each task keeps a short history (creation, text, due date and repetition changes, completions and
+occurrences, reopenings, archiving, moves, copies): the last 10 events, the creation always kept
+(`max_history_events` in `concentrator.ini`). The **History** tab under the table lists them, newest
+first, with their local date and time, for example "06/11/2026 17:45 - Occurrence 3 completed (due
+10/11/2026, next 17/11/2026)".
 
 ## The timer
 

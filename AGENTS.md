@@ -185,8 +185,9 @@ engine, chime service and journal polling run from that tick. Nothing in `ui/` o
   normalize in their factory and are validated by `*Rules`.
 - Multi-line text is `MultilineText(lines: tuple[str, ...])`. Paths and URLs are single-line and
   normalized (`\` replaced by `/`) by the domain, so the UI shows the stored form after saving.
-- Paths (`C:/`, `D:/`, UNC) and URLs detected in task text are only made clickable like hyperlinks
-  and opened as-is: never checked for existence or type before opening.
+- A line of task text that holds only a path (`C:/`, `D:/`, UNC) or a URL (after an optional `- `
+  bullet) is a link (ADR-042): it is only made clickable like a hyperlink and opened as-is, never
+  checked for existence or type before opening.
 
 ### 5.2 Enums
 
@@ -253,7 +254,7 @@ class DataResult[T]:
 `TranslatorPort`, `LogFeedPort` (`entries_since`, `error_count`), `LoggingControlPort` (root level),
 `SoundPlayerPort` (plays a `SoundPlayback`: candidate files tried in order, then the system beep),
 `SoundCatalogPort` (built-in sounds, file of a `SoundRef`), `AttentionPort`
-(`is_application_active`, `request_attention`), `LinkOpenerPort` (`open_folder`, links in phase 6),
+(`is_application_active`, `request_attention`), `LinkOpenerPort` (`open_folder`, `open` for the links of the tasks),
 `ViewPreferencesPort` (string key-value, `remove_group`), `UserDataFilePort`, and one `*ReaderPort` /
 `*WriterPort` pair per aggregate. Presenters use `presentation.ports` (`DialogPort`, `ClipboardPort`,
 ...), implemented by `ui.support`.
@@ -385,8 +386,8 @@ silent code-level defaults for ini keys.
 - `QtSingleInstanceGuard`: `QLockFile` (per user) for exclusivity plus `QLocalServer`/`QLocalSocket`
   so a second launch asks the first instance to show itself, then exits with code 0.
 - `QtScheduler`, `QtMainThreadDispatcher` (signal with queued connection), `QtLinkOpener`
-  (`QDesktopServices.openUrl` with `QUrl.fromLocalFile`; creates a missing application folder on
-  request), `QSettingsViewPreferences`, Qt message handler bridge to logging.
+  (`QDesktopServices.openUrl`: URLs as they are, paths through `QUrl.fromLocalFile`; creates a missing
+  application folder on request), `QSettingsViewPreferences`, Qt message handler bridge to logging.
 - `infrastructure/system/windows_shell.py` sets the AppUserModelID (ctypes) before the
   `QApplication` exists, so the taskbar and toasts show Concentrator, not Python.
 

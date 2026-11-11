@@ -7,6 +7,9 @@ Depends on: phase 5. Branch: `phase-6-todo-advanced`.
 Recurring tasks with occurrence counting, a readable history per task, due-date filters and search,
 bulk editing, and clickable folder paths and URLs inside task text.
 
+The owner decisions of the plan review (2026-11-11) are written into this spec; ADR-042 lists them with
+the choices made during the build.
+
 ## Recurrence
 
 `Recurrence` value object (in `Task.recurrence`, `None` for a one-off task):
@@ -35,12 +38,14 @@ Completing a recurring task (from the table, the toolbar, or later the focus que
 1. `occurrences_done += 1`; history `OCCURRENCE_COMPLETED` with `occurrence`, `due`, `next_due`.
 2. If the end condition is reached (AFTER_COUNT: `occurrences_done >= end_count`; ON_DATE: next due
    after `end_date`), the task becomes DONE (`COMPLETED` event).
-3. Otherwise it stays OPEN with `due_date = next due` (computed from the current due date, even if
-   it is still in the past: no occurrence is skipped silently).
+3. Otherwise it stays OPEN with `due_date = next due`: the first date of the series after the current
+   due date that is today or later (owner decision). The dates passed over are counted in the event
+   (`skipped`), not in `occurrences_done`.
 
 Editor: a "Repeat" section in `TaskEditDialog` (frequency, interval, weekday toggles, ends: never /
 on date / after N occurrences) with a live summary ("Every 2 weeks on Monday and Friday, 10 times")
-and the next three dates as a preview.
+and the next `todo.recurrence_preview_count` dates (4) as a preview. A due date changed by hand moves the
+anchor of the series; completing an occurrence never does. The due time is kept.
 
 ## History
 
@@ -72,13 +77,11 @@ does not exist or fails to open, the user is responsible.
 
 - `LinkTarget` value object: `LinkKindEnum` (`URL=1, LOCAL_PATH=2, UNC_PATH=3`) and normalized
   `value` (single line, `\` replaced by `/`, drive letter upper-case, surrounding quotes removed).
-- `LinkDetector` (pure domain) finds links in each text line:
-  - URL: a scheme listed in `links.url_schemes` followed by `://`, up to whitespace, trailing
-    `.,;:!?)]}>"'` excluded; `file:///C:/...` becomes a LOCAL_PATH.
-  - Drive path on any drive letter (`C:/...`, `D:\...`, `E:/...`) and UNC (`//server/share` or
-    `\\server\share`): when it starts the line (after an optional bullet `- `), the path runs to the
-    end of the line, spaces included; elsewhere it runs to the next whitespace unless quoted with
-    `"..."` or `<...>`.
+- `LinkDetector` (pure domain) finds links in each text line (owner decision, ADR-014 amendment): a link
+  is a whole line, written alone on it after an optional bullet `- `, the surrounding spaces aside. The
+  line starts with a scheme of `links.url_schemes` followed by `://` (URL), a drive path on any drive
+  letter (`C:/...`, `D:\...`, `E:/...`) or a UNC path (`//server/share` or `\\server\share`); paths may hold
+  spaces. Links inside a sentence, quoted paths, `file:///` and `ftp` are plain text.
 - Normalization happens in the domain when a task is created or updated: detected paths in the text
   are rewritten with `/`, so the TOML file stores flat paths in literal strings and the UI shows the
   same.
@@ -138,8 +141,10 @@ max_recurrence_interval = 999
 max_recurrence_count = 9999
 search_debounce_ms = 150
 
+recurrence_preview_count = 4
+
 [links]
-url_schemes = http, https, ftp, file
+url_schemes = http, https
 max_links_in_menu = 10
 ```
 
@@ -154,6 +159,7 @@ max_links_in_menu = 10
 | 5205 | `RECURRENCE_COUNT_OUT_OF_RANGE` |
 | 5206 | `RECURRENCE_FREQUENCY_UNSET` |
 | 5207 | `RECURRENCE_END_KIND_UNSET` |
+| 5208 | `RECURRENCE_END_DATE_MISSING` (ADR-042) |
 
 Link opening reuses `LINK_OPEN_FAILED` (7003, phase 4).
 
@@ -164,9 +170,9 @@ Link opening reuses `LINK_OPEN_FAILED` (7003, phase 4).
   terminates for every weekday set.
 - Completion: AFTER_COUNT stops at N; ON_DATE stops when the next due passes the end; overdue
   occurrence keeps its sequence; history details correct.
-- `LinkDetector` table: URL with trailing punctuation, URL in parentheses, whole-line path with
-  spaces, inline path without spaces, quoted path, UNC both syntaxes, `file:///`, two links on one
-  line, no false positive on `"ratio 3:2"` or times like `10:30`.
+- `LinkDetector` table: whole-line URL and path with spaces, bulleted line, any drive letter, UNC both
+  syntaxes; plain text for an inline URL or path, a quoted path, `file:///`, `ftp`, `"ratio 3:2"` and
+  times like `10:30`.
 - Normalization: backslashes rewritten only inside detected paths; idempotent.
 - Link opening with a fake opener: the normalized target reaches the opener unchanged for every
   kind; nothing touches the file system before opening (a non-existent path is opened like any
@@ -202,5 +208,7 @@ Link opening reuses `LINK_OPEN_FAILED` (7003, phase 4).
 ## Review gate questions
 
 1. Completing an overdue recurring occurrence moves to the next date after the old due date (may
-   still be overdue). Keep, or jump to the first future occurrence?
-2. Links only detected in the text (default), or also a dedicated "Links" field in the editor?
+   still be overdue). Keep, or jump to the first future occurrence? Answered at the plan review: jump to
+   the first date that is today or later.
+2. Links only detected in the text (default), or also a dedicated "Links" field in the editor? Answered
+   at the plan review: text only, a link being a whole line.

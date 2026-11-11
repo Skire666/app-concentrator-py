@@ -163,6 +163,10 @@ superseded.
 - Accepted consequences: a link to an executable runs it; an unreachable network path can make the
   opening slow.
 - Alternative kept for the phase 6 review: a dedicated "Links" field in the editor.
+- Amendment (phase 6 plan review, owner decision 2026-11-11, ADR-042): no dedicated field. A link is a
+  whole line of the text (an optional `- ` bullet and the surrounding spaces aside) that starts with
+  `http://` or `https://`, a drive letter followed by `:\` or `:/`, or `\\` or `//` (UNC). Links in the
+  middle of a sentence, quoted paths, `file:///` and `ftp` are plain text.
 
 ## ADR-015 — Packaging with PyInstaller onedir
 
@@ -1039,3 +1043,87 @@ superseded.
   sends them to the viewport of its scroll area; those controls get the `StrongFocus` policy, so the wheel
   no longer gives them the focus. The keyboard and the mouse buttons still change the values. The dialogs
   do not scroll and keep the default wheel behavior.
+
+## ADR-042 — Phase 6 recurrence, history, filters, search and links decisions
+
+- Status: accepted, owner decisions at the phase 6 plan review (2026-11-11: answers to questions 1, 2, 4,
+  6, 7 and 8, then "Suit tes recommandations" for the others and for the two follow-up questions); the
+  items "decided during the build" are to be approved at the phase 6 review.
+- Context: the phase 6 spec adds recurring tasks, the History tab, due date filters, search, bulk due
+  dates and clickable links. It leaves open what completing a late occurrence does, how links are found,
+  how many dates the preview shows (three in the text, four in the acceptance criterion), and how the
+  bulk actions treat recurring tasks.
+- Owner decisions (2026-11-11):
+  1. **A late occurrence jumps to the future** (spec review question 1; supersedes step 3 of "Completing a
+     recurring task"). The next due date is the first date of the series after the current one that is
+     today or later; a date that falls today stays to do today. The dates passed over are counted in the
+     `OCCURRENCE_COMPLETED` event (`skipped`), not in `occurrences_done`: "after N times" counts the
+     completions. An `ON_DATE` series ends when that date is after the end date.
+  2. **Links are whole lines** (spec review question 2; amends ADR-014): see the ADR-014 amendment. Any
+     drive letter, UNC paths in both spellings and an optional `- ` bullet are accepted;
+     `links.url_schemes = http, https`. No dedicated Links field.
+  3. **The preview shows the next `todo.recurrence_preview_count` dates** after the due date (new ini key,
+     4: "30 Nov, 31 Dec, 31 Jan, 28 Feb" for a due date on 31 October, as the acceptance criterion lists).
+  4. **The anchor follows a due date changed by hand** (task dialog, Set due date); completing an
+     occurrence never moves it. The due time is kept from one occurrence to the next.
+  5. **Clear due date is disabled when a selected task repeats**; its tooltip gives the reason. The use
+     case refuses it too (`RECURRENCE_REQUIRES_DUE_DATE`).
+  6. **Set due date asks one date**; each task keeps its due time; the dialog closes without question.
+  7. **Scope "All lists" applies to the whole table**, not only to a search, and shows a List column;
+     quick add still adds to the list of the current tab. The counter reads "shown of all the tasks of
+     the scope", whatever their state.
+  8. **Due filters:** This week is Monday to Sunday of the current week, past days included; Next 7 days
+     is today to today + 6; Overdue keeps the open tasks only, with the rule of the table marks (ADR-041).
+  9. **The search text is restored at start** (as the acceptance criterion asks; a layout key, so "Reset
+     layout" clears it), unlike the journal search.
+- Decided during the build (please approve):
+  1. **`TaskScheduleCommands`** holds `set_due_date` and `clear_due_date`: `TaskCommands` already has ten
+     use cases (`AGENTS.md` section 6.3). There is no `set_recurrence`: the recurrence is part of
+     `TaskDraft` and is stored by `update`, one write and one event per changed part.
+     `RECURRENCE_CHANGED` is added when the rule changes, not when only the anchor follows the due date.
+  2. **`RECURRENCE_END_DATE_MISSING` (5208)** reports an "on a date" series without end date (a hand-edited
+     file); the spec lists 5201 to 5207 only.
+  3. **`completed_at` stays unset while a series goes on**, so Unarchive returns such a task to open.
+  4. **`TaskOccurrenceCompletedEvent`** is published for every completed occurrence (phase 7 removes the
+     queued item with it); `TaskStateChangedEvent` only when the state changes.
+  5. **The overdue rule moves to `domain/todo/due_marks.py`**, shared by the table marks and the Overdue
+     filter.
+  6. **`Recurrence.create` drops the values that do not apply** (weekdays of a series that is not weekly,
+     the end value of another end kind), also when a file is read; the next save drops them from the file.
+  7. **File:** `recurrence` is an inline table and `occurrences_done` is written only for a recurring task
+     or a non-zero count, so phase 5 files read and write unchanged; `schema_version` stays 1. A negative
+     count is `STORAGE_FIELD_INVALID_VALUE`.
+  8. **Table:** columns List (hidden in "This list"), Repeat, Times and Links around Task and Due; these four
+     do not sort. `TableSnapshot.hidden_columns` and `TableRowSnapshot.links` (`CellLinkSnapshot`) are new.
+     The header blob moves to `layout/focus_page/todo_header_v2`, since the stored one has five columns;
+     `todo.default_column_widths_px` now has eight values.
+  9. **Filters:** `TaskFilter` (due date filter, Recurring only) and `TaskScopeEnum` are part of `TaskQuery`
+     in the application layer; the search runs in `TodoView` (presentation, `TextSearch` of phase 4) with
+     the folded text kept per task text. A filter that depends on the clock is computed again when the
+     local minute changes. Show done and Show archived stay in the toolbar; the filter bar holds the due
+     date filter, Recurring only, the search, the scope and the counter.
+  10. **Bulk date dialog:** `DialogPort.ask_date(DatePrompt)` implemented by `QtDialogService` with
+      `ui/support/date_prompt_dialog.py`, run by `ModalHost`, instead of `ui/windows/bulk_due_date_dialog.py`
+      with its own presenter and section: `ui.support` may not import `ui.windows`, and one date needs no
+      form. No Save/Cancel actions are added.
+  11. **History tab:** the details pane becomes Details / History tabs (`QTabWidget` built by `FocusPage`,
+      section `TODO_HISTORY`); a moved task names its lists, "a deleted list" when one is gone; an event
+      of a newer version reads "Event not recognized".
+  12. **Links:** links are numbered in reading order over the whole text. The details pane is a
+      `QTextBrowser` fed with escaped text and `link:<n>` anchors, never followed by Qt. The task column
+      uses `LinkTextDelegate`: links of the first line are underlined in the palette link colour with a
+      pointing hand; a click on a link opens it (the row is selected too), elsewhere only selects. "Open
+      link" is a submenu of the table context menu, not a toolbar button. Logs name the kind of a link,
+      never the link. The row formatter keeps the links per task text (the table of 1,000 tasks builds in
+      22 ms).
+  13. **Text normalization** runs in `TaskCommands` (create, update, quick add) through the domain
+      `LinkDetector`; a text read from the file is shown as stored until it is edited.
+  14. **Numbers and keys:** `ActionIdEnum` 83 to 89, `RenderSectionEnum` 21 and 22; ini keys
+      `todo.max_recurrence_interval` (999), `todo.max_recurrence_count` (9999), `todo.search_debounce_ms`
+      (150), `todo.recurrence_preview_count` (4), `[links] url_schemes` and `max_links_in_menu` (10), each
+      with a range. Field labels `field.tasks.recurrence.*` name the recurrence fields in the recovery
+      dialog.
+  15. **Self-check:** the round trip also holds a weekly task with one occurrence completed.
+- Consequences: phase 7 completes queued tasks through `TaskCommands.complete` (occurrences included) and
+  removes items on `TaskOccurrenceCompletedEvent`; the History tab will need a text for the
+  `source: "focus"` detail.
