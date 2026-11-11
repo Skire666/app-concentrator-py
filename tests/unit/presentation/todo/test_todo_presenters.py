@@ -132,12 +132,15 @@ def test_table_rows_show_state_text_due_and_marks() -> None:
     table = stack.table.build_snapshot().table
     rows = {row.key: row for row in table.rows}
 
-    assert table.columns[1] == "en:todo.column.task"
+    assert table.columns[1:3] == ("en:todo.column.focus", "en:todo.column.task")
     separator = "en:todo.table.line_separator"
-    assert rows["task-001"].cells[1] == separator.join(("Report", "with sources", "and charts"))
-    assert table.overflow_column == 1
-    assert rows["task-001"].cells[3] == "en:format.date(day=05,month=11,year=2026)"
-    assert rows["task-002"].cells[3] == "en:format.date(day=06,month=11,year=2026) en:format.time(hour=18,minute=00)"
+    assert rows["task-001"].cells[1] == "en:todo.table.focus_off"
+    assert not rows["task-004"].cells[1]
+    assert (rows["task-001"].toggle_enabled, rows["task-004"].toggle_enabled) == (True, False)
+    assert rows["task-001"].cells[2] == separator.join(("Report", "with sources", "and charts"))
+    assert (table.overflow_column, table.toggle_column) == (2, 1)
+    assert rows["task-001"].cells[4] == "en:format.date(day=05,month=11,year=2026)"
+    assert rows["task-002"].cells[4] == "en:format.date(day=06,month=11,year=2026) en:format.time(hour=18,minute=00)"
     assert [rows[key].tone for key in ("task-001", "task-002", "task-003", "task-004", "task-005")] == [
         RowToneEnum.ERROR,
         RowToneEnum.WARNING,
@@ -146,8 +149,8 @@ def test_table_rows_show_state_text_due_and_marks() -> None:
         RowToneEnum.NORMAL,
     ]
     assert (rows["task-004"].checked, rows["task-005"].checked) == (True, False)
-    assert (table.check_column, table.sort_column, table.sort_descending) == (0, 7, True)
-    assert table.hidden_columns == (2,)
+    assert (table.check_column, table.sort_column, table.sort_descending) == (0, 8, True)
+    assert table.hidden_columns == (3,)
     assert [row.key for row in table.rows] == ["task-005", "task-004", "task-003", "task-002", "task-001"]
 
 
@@ -167,7 +170,7 @@ def test_selection_is_kept_after_a_render_and_after_sorting() -> None:
 
     assert stack.rendered_table[-1].table.selection == (1,)
 
-    stack.table.on_sort_requested(7)
+    stack.table.on_sort_requested(8)
     stack.settle()
 
     table = stack.rendered_table[-1].table
@@ -179,10 +182,11 @@ def test_selection_is_kept_after_a_render_and_after_sorting() -> None:
 def test_sorting_a_new_column_is_ascending_and_other_columns_are_ignored() -> None:
     stack = _stack(make_task(1, text="b"), make_task(2, text="a"))
 
-    stack.table.on_sort_requested(1)
+    stack.table.on_sort_requested(2)
     stack.settle()
-    stack.table.on_sort_requested(9)
-    stack.table.on_sort_requested(4)
+    stack.table.on_sort_requested(10)
+    stack.table.on_sort_requested(5)
+    stack.table.on_sort_requested(1)
     stack.settle()
 
     assert [row.key for row in stack.rendered_table[-1].table.rows] == ["task-002", "task-001"]
@@ -204,6 +208,7 @@ def test_toolbar_states_follow_a_mixed_selection() -> None:
         ActionIdEnum.TASK_ARCHIVE,
         ActionIdEnum.TASK_MOVE,
         ActionIdEnum.TASK_SET_DUE_DATE,
+        ActionIdEnum.FOCUS_ADD_SELECTED,
         ActionIdEnum.TASK_DELETE,
     }
     assert [(target.list_id, target.enabled) for target in menu.move_targets] == [(HOME_LIST_ID, True)]

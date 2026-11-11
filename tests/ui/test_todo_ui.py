@@ -29,7 +29,10 @@ from tests.ui.shell_harness import ShellHarness
 pytestmark = pytest.mark.ui
 
 LAYOUT = TodoLayout(
-    table_ratio_percent=75, column_widths_px=(60, 120, 140, 130, 50, 50, 140, 140), text_width_percent=80, spacing_px=10
+    table_ratio_percent=75,
+    column_widths_px=(60, 40, 120, 140, 130, 50, 50, 140, 140),
+    text_width_percent=80,
+    spacing_px=10,
 )
 
 
@@ -58,8 +61,8 @@ def test_table_with_three_rows_renders_them_newest_first(harness: ShellHarness) 
     table = harness.window.focus_page.table_panel
 
     assert table.model.rowCount() == 3
-    assert [table.model.index(row, 1).data() for row in range(3)] == ["third", "second", "first"]
-    assert table.model.headerData(1, Qt.Orientation.Horizontal) == "en:todo.column.task"
+    assert [table.model.index(row, 2).data() for row in range(3)] == ["third", "second", "first"]
+    assert table.model.headerData(2, Qt.Orientation.Horizontal) == "en:todo.column.task"
 
 
 def test_check_box_click_completes_the_right_task(harness: ShellHarness) -> None:
@@ -160,11 +163,11 @@ def test_header_click_sorts_and_shows_the_indicator(harness: ShellHarness) -> No
     _add(harness, "b", "a")
     table = harness.window.focus_page.table_panel
 
-    table.table.horizontalHeader().sectionClicked.emit(1)
+    table.table.horizontalHeader().sectionClicked.emit(2)
     _settle(harness)
 
-    assert [table.model.index(row, 1).data() for row in range(2)] == ["a", "b"]
-    assert table.table.horizontalHeader().sortIndicatorSection() == 1
+    assert [table.model.index(row, 2).data() for row in range(2)] == ["a", "b"]
+    assert table.table.horizontalHeader().sortIndicatorSection() == 2
 
 
 def test_reset_columns_keeps_the_task_column_stretching(harness: ShellHarness) -> None:
@@ -175,7 +178,7 @@ def test_reset_columns_keeps_the_task_column_stretching(harness: ShellHarness) -
 
     table.reset_columns()
 
-    assert [header.logicalIndex(visual) for visual in range(header.count())] == list(range(9))
+    assert [header.logicalIndex(visual) for visual in range(header.count())] == list(range(10))
     assert header.sectionSize(0) == LAYOUT.column_widths_px[0]
 
 
@@ -359,11 +362,11 @@ def test_a_header_click_ignored_during_the_cooldown_keeps_the_indicator_of_the_o
         QTest.mouseClick(header.viewport(), Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, position)
         harness.turn()
 
-    click(1)
     click(2)
+    click(3)
 
     assert harness.todo.state.sort_key is TaskSortKeyEnum.TEXT
-    assert (header.sortIndicatorSection(), header.sortIndicatorOrder()) == (1, Qt.SortOrder.AscendingOrder)
+    assert (header.sortIndicatorSection(), header.sortIndicatorOrder()) == (2, Qt.SortOrder.AscendingOrder)
 
 
 def test_a_tab_tooltip_shows_html_of_a_description_as_typed(harness: ShellHarness) -> None:
@@ -391,12 +394,12 @@ def test_filter_bar_narrows_the_table_and_shows_the_counter(harness: ShellHarnes
 
     assert table.model.rowCount() == 1
     assert filters.counter_label.text() == "en:todo.filter.counter.other(count=2,shown=1)"
-    assert table.table.isColumnHidden(2)
+    assert table.table.isColumnHidden(3)
 
     filters.scope_box.setCurrentIndex(1)
     _settle(harness)
 
-    assert not table.table.isColumnHidden(2)
+    assert not table.table.isColumnHidden(3)
     assert filters.scope_box.currentIndex() == 1
 
 
@@ -486,8 +489,8 @@ def test_table_link_click_and_open_link_menu_reach_the_opener(harness: ShellHarn
     page = harness.window.focus_page
     table = page.table_panel
     table.table.resize(900, 300)
-    table.table.setColumnWidth(1, 600)
-    rect = table.table.visualRect(table.model.index(0, 1))
+    table.table.setColumnWidth(2, 600)
+    rect = table.table.visualRect(table.model.index(0, 2))
 
     QTest.mouseClick(
         table.table.viewport(), Qt.MouseButton.LeftButton, pos=rect.center() - QPoint(rect.width() // 2 - 12, 0)
@@ -553,10 +556,10 @@ def test_long_task_text_is_cut_and_a_link_after_the_cut_is_not_clickable(harness
     harness.turn()
     table = harness.window.focus_page.table_panel
     table.table.resize(900, 300)
-    table.table.setColumnWidth(1, 300)
+    table.table.setColumnWidth(2, 300)
     harness.window.show()
     table.table.viewport().grab()
-    rect = table.table.visualRect(table.model.index(0, 1))
+    rect = table.table.visualRect(table.model.index(0, 2))
 
     QTest.mouseClick(table.table.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(rect.right() - 5, rect.center().y()))
     _settle(harness)

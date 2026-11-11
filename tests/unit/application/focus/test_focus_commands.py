@@ -12,6 +12,7 @@ from concentrator.domain.todo.recurrence_frequency_enum import RecurrenceFrequen
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_event import DETAIL_REASON, DETAIL_SOURCE, SOURCE_FOCUS, TaskEvent
 from concentrator.domain.todo.task_event_kind_enum import TaskEventKindEnum
+from concentrator.domain.todo.task_list import TaskList
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.domain.todo.weekday_enum import WeekdayEnum
 from tests.fakes.focus_factory import make_queue
@@ -41,6 +42,11 @@ def _weekly(number: int = 1) -> Task:
         end_kind=RecurrenceEndEnum.NEVER,
     )
     return replace(make_task(number, due_date=TODAY), recurrence=recurrence)
+
+
+def _name(task_list: TaskList | None) -> str:
+    assert task_list is not None
+    return task_list.name
 
 
 def test_add_tasks_queues_at_the_end_records_and_publishes() -> None:
@@ -176,7 +182,7 @@ def test_quick_add_uses_the_list_named_like_the_inbox_when_the_chosen_one_is_gon
 
     assert task is not None
     assert task.list_id == "list-inbox"
-    assert stack.focus_queries.quick_add_list_name("") == "en:todo.default_list_name"
+    assert _name(stack.focus_queries.quick_add_list("")) == "en:todo.default_list_name"
 
 
 def test_quick_add_creates_an_inbox_when_no_list_is_named_so() -> None:
@@ -187,7 +193,7 @@ def test_quick_add_creates_an_inbox_when_no_list_is_named_so() -> None:
     assert task is not None
     names = {item.id: item.name for item in stack.lists()}
     assert names[task.list_id] == "en:todo.default_list_name"
-    assert stack.focus_queries.quick_add_list_name("") == "en:todo.default_list_name"
+    assert _name(stack.focus_queries.quick_add_list("")) == "en:todo.default_list_name"
 
 
 def test_quick_add_on_a_full_queue_or_without_text_creates_nothing() -> None:

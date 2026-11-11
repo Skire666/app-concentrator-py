@@ -127,7 +127,7 @@ def test_scope_all_lists_searches_every_list_and_shows_the_list_column() -> None
     table = stack.rendered_table[-1].table
     assert [row.key for row in table.rows] == ["task-005", "task-001"]
     assert table.hidden_columns == ()
-    assert table.rows[0].cells[2] == "Home"
+    assert table.rows[0].cells[3] == "Home"
     assert stack.rendered_filters[-1].counter == "en:todo.filter.counter.other(count=5,shown=2)"
 
 

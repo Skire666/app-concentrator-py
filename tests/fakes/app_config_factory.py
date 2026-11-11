@@ -119,7 +119,7 @@ def make_todo_section(**changes: object) -> TodoSection:
         default_sort=TaskSortKeyEnum.CREATED,
         default_sort_descending=True,
         default_table_ratio_percent=75,
-        default_column_widths_px=(60, 120, 140, 130, 50, 50, 140, 140),
+        default_column_widths_px=(60, 40, 120, 140, 130, 50, 50, 140, 140),
     )
     return replace(section, **changes)
 

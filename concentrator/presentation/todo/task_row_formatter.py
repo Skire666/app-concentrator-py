@@ -19,13 +19,16 @@ from concentrator.presentation.todo.todo_texts import STATE_KEYS, UNKNOWN_KEY
 
 STATE_COLUMN: Final = 0
 """Index of the check box column."""
-TASK_COLUMN: Final = 1
-"""Index of the column of the first line of the text."""
-LIST_COLUMN: Final = 2
+FOCUS_COLUMN: Final = 1
+"""Index of the focus star column (phase 7): a click queues or unqueues the task."""
+TASK_COLUMN: Final = 2
+"""Index of the column of the lines of the text."""
+LIST_COLUMN: Final = 3
 """Index of the List column, shown only when the table shows every list."""
 
 COLUMN_SORT_KEYS: Final[tuple[TaskSortKeyEnum | None, ...]] = (
     TaskSortKeyEnum.STATE,
+    None,
     TaskSortKeyEnum.TEXT,
     None,
     TaskSortKeyEnum.DUE,
@@ -39,6 +42,7 @@ COLUMN_SORT_KEYS: Final[tuple[TaskSortKeyEnum | None, ...]] = (
 
 COLUMN_KEYS: Final = (
     "todo.column.state",
+    "todo.column.focus",
     "todo.column.task",
     "todo.column.list",
     "todo.column.due",
@@ -103,26 +107,28 @@ class TaskRowFormatter:
         """
         return tuple(self._translator.tr(key) for key in COLUMN_KEYS)
 
-    def row(self, task: Task, now: datetime, list_name: str = "") -> TableRowSnapshot:
+    def row(self, task: Task, now: datetime, list_name: str = "", *, queued: bool = False) -> TableRowSnapshot:
         """Describe one task.
 
         Args:
             task: Task.
             now: Current local time (due marks).
             list_name: Name of its list (List column).
+            queued: Whether the task is in the focus queue (its star).
 
         Returns:
-            The row keyed by the task id.
+            The row keyed by the task id; the star of an open task can be clicked.
         """
         links = self.links(task.text)
         return TableRowSnapshot(
             key=task.id,
-            cells=self._cells(task, list_name, len(links)),
+            cells=self._cells(task, list_name, len(links), queued=queued),
             tone=_tone(task, due_marks(task, now)),
             checked=task.state is not TaskStateEnum.OPEN,
             check_enabled=task.state in CHECKABLE_STATES,
             links=self._cell_links(task.text, links),
             overflow=self._translator.tr_plural("todo.table.overflow", task.text.line_count),
+            toggle_enabled=task.state is TaskStateEnum.OPEN,
         )
 
     def _cell_links(self, text: MultilineText, links: tuple[DetectedLink, ...]) -> tuple[CellLinkSnapshot, ...]:
@@ -148,19 +154,21 @@ class TaskRowFormatter:
             for number, link in enumerate(links)
         )
 
-    def _cells(self, task: Task, list_name: str, link_count: int) -> tuple[str, ...]:
+    def _cells(self, task: Task, list_name: str, link_count: int, *, queued: bool) -> tuple[str, ...]:
         """Texts of the columns of a task.
 
         Args:
             task: Task.
             list_name: Name of its list.
             link_count: Number of links in its text.
+            queued: Whether the task is in the focus queue.
 
         Returns:
             One text per column, in column order.
         """
         return (
             self._translator.tr(STATE_KEYS[TaskStateEnum.ARCHIVED]) if task.state is TaskStateEnum.ARCHIVED else "",
+            self.focus_mark(task, queued=queued),
             self.title(task),
             list_name,
             self.due_text(task),
@@ -170,6 +178,20 @@ class TaskRowFormatter:
             self._dates.date_time_minutes(task.created_at),
             self._dates.date_time_minutes(task.updated_at),
         )
+
+    def focus_mark(self, task: Task, *, queued: bool) -> str:
+        """Star of the Focus column.
+
+        Args:
+            task: Task.
+            queued: Whether it is in the focus queue.
+
+        Returns:
+            A full star when queued, an empty one for another open task, ``""`` for a closed task.
+        """
+        if queued:
+            return self._translator.tr("todo.table.focus_on")
+        return self._translator.tr("todo.table.focus_off") if task.state is TaskStateEnum.OPEN else ""
 
     def links(self, text: MultilineText) -> tuple[DetectedLink, ...]:
         """Links of a text, found once per text.

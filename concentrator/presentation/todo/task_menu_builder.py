@@ -1,6 +1,6 @@
 """Task actions enabled from the selection, for the toolbar and the context menu of the table."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from typing import Final
 
@@ -29,9 +29,12 @@ TASK_MENU_ACTIONS: Final = (
     ActionIdEnum.TASK_MOVE,
     ActionIdEnum.TASK_SET_DUE_DATE,
     ActionIdEnum.TASK_CLEAR_DUE_DATE,
+    ActionIdEnum.FOCUS_ADD_SELECTED,
+    ActionIdEnum.FOCUS_REMOVE_SELECTED,
     ActionIdEnum.TASK_DELETE,
 )
 """Buttons of the toolbar and items of the context menu, in order."""
+FOCUS_ACTIONS: Final = frozenset({ActionIdEnum.FOCUS_ADD_SELECTED, ActionIdEnum.FOCUS_REMOVE_SELECTED})
 
 ACTION_STATES: Final = {
     ActionIdEnum.TASK_COMPLETE: frozenset({TaskStateEnum.OPEN}),
@@ -45,6 +48,31 @@ SINGLE_TASK_ACTIONS: Final = frozenset({ActionIdEnum.TASK_EDIT, ActionIdEnum.TAS
 ANY_TASK_ACTIONS: Final = frozenset({ActionIdEnum.TASK_DELETE, ActionIdEnum.TASK_SET_DUE_DATE})
 NEEDS_DUE_DATE: Final = ValidationIssue(code=ErrorCodeEnum.RECURRENCE_REQUIRES_DUE_DATE, severity=SeverityEnum.ERROR)
 """Why "Clear due date" is off for a selection holding a repeating task (its tooltip)."""
+
+
+def no_task_queued() -> frozenset[str]:
+    """Queued tasks when no focus queue is wired (tests of the TODO manager alone).
+
+    Returns:
+        No id.
+    """
+    return frozenset()
+
+
+def focus_applicable(tasks: Sequence[Task], action: ActionIdEnum, queued: frozenset[str]) -> tuple[Task, ...]:
+    """Keep the selected tasks "Add to focus" or "Remove from focus" applies to.
+
+    Args:
+        tasks: Selected tasks.
+        action: ``FOCUS_ADD_SELECTED`` or ``FOCUS_REMOVE_SELECTED``.
+        queued: Ids of the queued tasks.
+
+    Returns:
+        The open tasks not queued yet (add), or the queued tasks (remove).
+    """
+    if action is ActionIdEnum.FOCUS_REMOVE_SELECTED:
+        return tuple(task for task in tasks if task.id in queued)
+    return tuple(task for task in tasks if task.state is TaskStateEnum.OPEN and task.id not in queued)
 
 
 def applicable(tasks: Sequence[Task], action: ActionIdEnum) -> tuple[Task, ...]:
@@ -64,7 +92,15 @@ def applicable(tasks: Sequence[Task], action: ActionIdEnum) -> tuple[Task, ...]:
 class TaskMenuBuilder:
     """Builds ``TaskMenuSnapshot`` from the selection, the lists and the busy actions."""
 
-    def __init__(self, texts: UiTexts, gate: ActionGate, *, links: LinkDetector, max_links: int) -> None:
+    def __init__(
+        self,
+        texts: UiTexts,
+        gate: ActionGate,
+        *,
+        links: LinkDetector,
+        max_links: int,
+        queued: Callable[[], frozenset[str]] = no_task_queued,
+    ) -> None:
         """Create the builder.
 
         Args:
@@ -72,11 +108,21 @@ class TaskMenuBuilder:
             gate: Busy actions.
             links: Finds the links of a task ("Open link").
             max_links: Most links listed (``links.max_links_in_menu``).
+            queued: Ids of the tasks in the focus queue ("Add to focus", "Remove from focus").
         """
         self._texts = texts
         self._gate = gate
         self._links = links
         self._max_links = max_links
+        self._queued = queued
+
+    def queued_task_ids(self) -> frozenset[str]:
+        """Return the tasks in the focus queue (the stars of the table).
+
+        Returns:
+            Their ids.
+        """
+        return self._queued()
 
     def build(self, selected: Sequence[Task], lists: TaskListsCollection, current_list_id: str) -> TaskMenuSnapshot:
         """Describe the task actions.
@@ -90,8 +136,11 @@ class TaskMenuBuilder:
             The buttons and the "Move to list" targets.
         """
         others = tuple(item for item in lists if item.id != current_list_id)
+        queued = self._queued()
         buttons = tuple(
-            self._button(action, selected, has_list=lists.contains(current_list_id), others=bool(others))
+            self._focus_button(action, selected, queued)
+            if action in FOCUS_ACTIONS
+            else self._button(action, selected, has_list=lists.contains(current_list_id), others=bool(others))
             for action in TASK_MENU_ACTIONS
         )
         move_enabled = bool(selected) and not self._gate.is_busy(ActionIdEnum.TASK_MOVE)
@@ -113,6 +162,19 @@ class TaskMenuBuilder:
             return ()
         found = self._links.find(selected[0].text)[: self._max_links]
         return tuple(LinkMenuItemSnapshot(index=index, text=link.target.value) for index, link in enumerate(found))
+
+    def _focus_button(self, action: ActionIdEnum, selected: Sequence[Task], queued: frozenset[str]) -> ButtonSnapshot:
+        """Describe "Add to focus" or "Remove from focus".
+
+        Args:
+            action: ``FOCUS_ADD_SELECTED`` or ``FOCUS_REMOVE_SELECTED``.
+            selected: Selected tasks.
+            queued: Ids of the queued tasks.
+
+        Returns:
+            The button, enabled when a selected task can be added or removed.
+        """
+        return action_button(self._texts, self._gate, action, enabled=bool(focus_applicable(selected, action, queued)))
 
     def _button(
         self, action: ActionIdEnum, selected: Sequence[Task], *, has_list: bool, others: bool

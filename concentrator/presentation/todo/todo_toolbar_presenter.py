@@ -12,7 +12,7 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.ui_texts import UiTexts
 from concentrator.presentation.todo.task_actions import TaskActions
-from concentrator.presentation.todo.task_menu_builder import TaskMenuBuilder
+from concentrator.presentation.todo.task_menu_builder import TaskMenuBuilder, no_task_queued
 from concentrator.presentation.todo.todo_tabs_presenter import TODO_SECTIONS
 from concentrator.presentation.todo.todo_toolbar_snapshot import TodoToolbarSnapshot
 from concentrator.presentation.todo.todo_view import TodoView
@@ -33,6 +33,7 @@ class TodoToolbarPresenter:
         actions: TaskActions,
         links: LinkDetector,
         max_links: int,
+        queued: Callable[[], frozenset[str]] = no_task_queued,
     ) -> None:
         """Create the presenter.
 
@@ -44,13 +45,14 @@ class TodoToolbarPresenter:
             actions: Task actions.
             links: Finds the links of a task (context menu of the table).
             max_links: Most links listed by "Open link".
+            queued: Ids of the tasks in the focus queue ("Add to focus", "Remove from focus").
         """
         self._texts = UiTexts(translator)
         self._gate = gate
         self._renderer = renderer
         self._view = view
         self._actions = actions
-        self._menu = TaskMenuBuilder(self._texts, gate, links=links, max_links=max_links)
+        self._menu = TaskMenuBuilder(self._texts, gate, links=links, max_links=max_links, queued=queued)
         self._toggles: dict[ActionIdEnum, Callable[[], None]] = {
             ActionIdEnum.TODO_TOGGLE_SHOW_DONE: view.state.toggle_show_done,
             ActionIdEnum.TODO_TOGGLE_SHOW_ARCHIVED: view.state.toggle_show_archived,

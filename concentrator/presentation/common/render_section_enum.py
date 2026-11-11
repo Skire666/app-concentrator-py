@@ -32,3 +32,4 @@ class RenderSectionEnum(BaseIntEnum):
     QUICK_ADD = 20
     TODO_FILTERS = 21
     TODO_HISTORY = 22
+    FOCUS_QUEUE = 23

@@ -98,6 +98,17 @@ ACTION_SECTIONS: Final = MappingProxyType(
         ActionIdEnum.TASK_EDIT_CANCEL: (RenderSectionEnum.TASK_EDIT,),
         ActionIdEnum.LIST_EDIT_SAVE: (RenderSectionEnum.LIST_EDIT,),
         ActionIdEnum.LIST_EDIT_CANCEL: (RenderSectionEnum.LIST_EDIT,),
+        ActionIdEnum.FOCUS_ADD_SELECTED: (RenderSectionEnum.TODO_TOOLBAR,),
+        ActionIdEnum.FOCUS_REMOVE_SELECTED: (RenderSectionEnum.TODO_TOOLBAR,),
+        ActionIdEnum.FOCUS_TOGGLE_TASK: (RenderSectionEnum.TODO_TABLE,),
+        ActionIdEnum.FOCUS_PICK: (RenderSectionEnum.FOCUS_QUEUE,),
+        ActionIdEnum.FOCUS_QUICK_ADD: (RenderSectionEnum.FOCUS_QUEUE,),
+        ActionIdEnum.FOCUS_COMPLETE: (RenderSectionEnum.FOCUS_QUEUE,),
+        ActionIdEnum.FOCUS_REMOVE: (RenderSectionEnum.FOCUS_QUEUE,),
+        ActionIdEnum.FOCUS_MOVE_UP: (RenderSectionEnum.FOCUS_QUEUE,),
+        ActionIdEnum.FOCUS_MOVE_DOWN: (RenderSectionEnum.FOCUS_QUEUE,),
+        ActionIdEnum.FOCUS_SHOW_IN_LIST: (RenderSectionEnum.FOCUS_QUEUE,),
+        ActionIdEnum.FOCUS_SET_QUICK_ADD_LIST: (RenderSectionEnum.TODO_TABS,),
     }
 )
 

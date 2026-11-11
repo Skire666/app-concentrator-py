@@ -8,6 +8,7 @@ from concentrator.domain.focus.focus_item import FocusItem
 from concentrator.domain.focus.focus_items_collection import FocusItemsCollection
 from concentrator.domain.focus.focus_rules import FocusRules
 from concentrator.domain.todo.task import Task
+from concentrator.domain.todo.task_list import TaskList
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
 from concentrator.domain.todo.tasks_collection import TasksCollection
 
@@ -81,17 +82,16 @@ class FocusQueries:
         queue = self._stores.queue()
         return self._all_tasks().filtered(lambda task: FocusRules.can_queue(task, queue))
 
-    def quick_add_list_name(self, preferred_list_id: str) -> str:
-        """Name the list that will receive a quick-added task.
+    def quick_add_list(self, preferred_list_id: str) -> TaskList | None:
+        """Return the list that will receive a quick-added task.
 
         Args:
             preferred_list_id: List chosen for the quick add (``""`` for none).
 
         Returns:
-            Its name, or ``""`` when an Inbox will be created.
+            The list, or ``None`` when an Inbox will be created.
         """
-        found = self._quick_add_list.find(preferred_list_id)
-        return "" if found is None else found.name
+        return self._quick_add_list.find(preferred_list_id)
 
     def _all_tasks(self) -> TasksCollection:
         """Return every task.

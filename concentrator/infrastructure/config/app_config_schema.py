@@ -20,7 +20,7 @@ _PRESET_DUPLICATE: Final = "default_presets_minutes values must be unique"
 _PRESETS_ABOVE_MAX: Final = "default_presets_minutes must not have more values than max_presets"
 _CHIME_HOURS_REVERSED: Final = "default_start_hour must not exceed default_end_hour"
 _COLUMN_WIDTH_COUNT: Final = 4
-_TODO_COLUMN_WIDTH_COUNT: Final = 8
+_TODO_COLUMN_WIDTH_COUNT: Final = 9
 _COLUMN_WIDTH_MIN_PX: Final = 20
 _COLUMN_WIDTH_MAX_PX: Final = 2_000
 _COLUMN_WIDTHS: Final = (
@@ -28,8 +28,8 @@ _COLUMN_WIDTHS: Final = (
     f"between {_COLUMN_WIDTH_MIN_PX} and {_COLUMN_WIDTH_MAX_PX} px"
 )
 _TODO_COLUMN_WIDTHS: Final = (
-    f"default_column_widths_px needs {_TODO_COLUMN_WIDTH_COUNT} values (state, list, due, repeat, times, links, "
-    "created, updated) "
+    f"default_column_widths_px needs {_TODO_COLUMN_WIDTH_COUNT} values (state, focus, list, due, repeat, times, "
+    "links, created, updated) "
     f"between {_COLUMN_WIDTH_MIN_PX} and {_COLUMN_WIDTH_MAX_PX} px"
 )
 _LIST_SEPARATOR: Final = ","

@@ -195,14 +195,14 @@ class FocusCommands:
             preferred_list_id: List chosen for the quick add (``""`` for the Inbox).
 
         Returns:
-            The created task; ``FOCUS_QUEUE_FULL`` (no task created), ``TASK_TEXT_EMPTY`` or the other
+            The created task; ``TASK_TEXT_EMPTY``, ``FOCUS_QUEUE_FULL`` (no task created) or the other
             creation failures.
         """
+        if not text.strip():
+            return DataResult.fail(ValidationResult.failure(ErrorCodeEnum.TASK_TEXT_EMPTY, field=TEXT_FIELD))
         room = FocusRules.validate_room(self._stores.queue(), 1, self._limits)
         if room.is_failure:
             return DataResult.fail(room)
-        if not text.strip():
-            return DataResult.fail(ValidationResult.failure(ErrorCodeEnum.TASK_TEXT_EMPTY, field=TEXT_FIELD))
         target = self._todo.quick_add_list.resolve(preferred_list_id)
         if target.data is None:
             return DataResult.fail(target.validation)

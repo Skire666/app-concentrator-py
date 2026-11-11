@@ -3,11 +3,16 @@ from concentrator.application.focus.focus_defaults import FocusDefaults
 from concentrator.domain.focus.focus_items_collection import FocusItemsCollection
 from concentrator.domain.focus.focus_limits import FocusLimits
 from concentrator.domain.focus.focus_removal_reason_enum import FocusRemovalReasonEnum
-from concentrator.domain.todo.task_list import TaskListId
+from concentrator.domain.todo.task_list import TaskList, TaskListId
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from tests.fakes.focus_factory import make_item, make_queue
 from tests.fakes.focus_stack import FocusStack
 from tests.fakes.todo_factory import HOME_LIST_ID, make_task
+
+
+def _name(task_list: TaskList | None) -> str:
+    assert task_list is not None
+    return task_list.name
 
 
 def test_entries_join_the_items_with_their_task_and_list_in_queue_order() -> None:
@@ -40,8 +45,8 @@ def test_candidates_are_the_open_tasks_not_queued() -> None:
 def test_quick_add_list_name_prefers_the_chosen_list() -> None:
     stack = FocusStack()
 
-    assert stack.focus_queries.quick_add_list_name(HOME_LIST_ID) == "Home"
-    assert not stack.focus_queries.quick_add_list_name(TaskListId("list-gone"))
+    assert _name(stack.focus_queries.quick_add_list(HOME_LIST_ID)) == "Home"
+    assert stack.focus_queries.quick_add_list(TaskListId("list-gone")) is None
 
 
 def test_history_records_nothing_for_missing_tasks() -> None:

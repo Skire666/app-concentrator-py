@@ -41,14 +41,14 @@ def _formatter(language: LanguageEnum) -> TaskRowFormatter:
     [
         (
             LanguageEnum.ENGLISH,
-            ("Done", "Task", "List", "Due", "Repeat", "Times", "Links", "Created", "Updated"),
+            ("Done", "Focus", "Task", "List", "Due", "Repeat", "Times", "Links", "Created", "Updated"),
             "2026-11-09 08:05",
             "Report  ·  sources",
             "2026-11-06 17:41",
         ),
         (
             LanguageEnum.FRENCH,
-            ("Faite", "Tâche", "Liste", "Échéance", "Répétition", "Fois", "Liens", "Créée", "Modifiée"),
+            ("Faite", "Focus", "Tâche", "Liste", "Échéance", "Répétition", "Fois", "Liens", "Créée", "Modifiée"),
             "09/11/2026 08:05",
             "Report  ·  sources",
             "06/11/2026 17:41",
@@ -61,10 +61,10 @@ def test_rows_are_formatted_in_each_language(
     formatter = _formatter(language)
     task = make_task(1, text="Report\nsources", due_date=date(2026, 11, 9), due_time=time(8, 5))
 
-    row = formatter.row(task, FakeClock(NOW).now_local())
+    row = formatter.row(task, FakeClock(NOW).now_local(), queued=True)
 
     assert formatter.columns() == columns
-    assert (row.cells[1], row.cells[3], row.cells[7]) == (title, due, created)
+    assert (row.cells[1], row.cells[2], row.cells[4], row.cells[8]) == ("★", title, due, created)
 
 
 @pytest.mark.parametrize(
@@ -77,7 +77,8 @@ def test_state_and_plural_texts_exist_in_each_language(language: LanguageEnum, a
     row = formatter.row(make_task(1, text="a\nb\nc", state=TaskStateEnum.ARCHIVED), FakeClock(NOW).now_local())
 
     assert row.cells[0] == archived
-    assert row.cells[1] == "a  ·  b  ·  c"
+    assert not row.cells[1]
+    assert row.cells[2] == "a  ·  b  ·  c"
     assert row.overflow == plural
 
 
@@ -156,7 +157,8 @@ def test_new_columns_and_counter_in_each_language(language: LanguageEnum, repeat
 
     row = _formatter(language).row(task, FakeClock(NOW).now_local(), "Work")
 
-    assert row.cells[2:7] == ("Work", row.cells[3], repeat, "3 / 10", "2")
+    assert row.cells[1] == "☆"
+    assert row.cells[3:8] == ("Work", row.cells[4], repeat, "3 / 10", "2")
     assert _translator(language).tr_plural("todo.filter.counter", 87, shown=12) == counter
 
 

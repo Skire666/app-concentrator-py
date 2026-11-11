@@ -110,6 +110,15 @@ class TaskActions:
             ActionIdEnum.TASK_CLEAR_DUE_DATE: lambda: self._schedule.clear_due_date(self._selected_ids()),
         }
 
+    def register(self, action: ActionIdEnum, operation: Callable[[], ValidationResult]) -> None:
+        """Add an action of another feature that works on the selection ("Add to focus").
+
+        Args:
+            action: Toolbar or context menu action.
+            operation: Its work, run through the gate by ``run``.
+        """
+        self._operations[action] = operation
+
     def attach(self, dialogs: DialogPort) -> None:
         """Set the dialog service (built with the main window).
 

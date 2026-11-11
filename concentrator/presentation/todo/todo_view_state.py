@@ -276,6 +276,21 @@ class TodoViewState:
         self._selected = selected
         return True
 
+    def reveal(self, list_id: str, task_id: str) -> None:
+        """Show a task in the table: its list, no filter, no search, the task selected ("Show in list").
+
+        Args:
+            list_id: List of the task.
+            task_id: Task to select.
+        """
+        self.select_list(list_id)
+        if self._task_filter != DEFAULT_TASK_FILTER:
+            self._task_filter = DEFAULT_TASK_FILTER
+            self._layout.save(LAYOUT_TODO_DUE_FILTER, str(int(DEFAULT_TASK_FILTER.due)))
+            self._layout.save(LAYOUT_TODO_RECURRING_ONLY, _flag(DEFAULT_TASK_FILTER.recurring_only))
+        self.set_search("")
+        self._selected = (task_id,)
+
     def keep_visible(self, visible_ids: Iterable[str]) -> None:
         """Drop from the selection the tasks the table no longer shows (deleted, moved or filtered out).
 

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QLabel, QMenu, QSt
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.table_snapshot import TableSnapshot
 from concentrator.presentation.todo.task_menu_snapshot import TaskMenuSnapshot
+from concentrator.presentation.todo.task_row_formatter import TASK_COLUMN
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
 from concentrator.ui.panels.task_context_menu import TaskMenuIntents, build_task_menu
 from concentrator.ui.widgets.link_text_delegate import LinkTextDelegate
@@ -40,6 +41,7 @@ class TaskTablePanel(QWidget):
         move_requested(str): "Move to list" item of the context menu.
         link_activated(str, int): A link of a cell was clicked (task id, number of the link).
         link_requested(int): An item of the "Open link" menu (number of the link of the selected task).
+        focus_toggled(str): The star of a row was clicked (task id).
     """
 
     selection_changed = Signal(object)
@@ -51,6 +53,7 @@ class TaskTablePanel(QWidget):
     move_requested = Signal(str)
     link_activated = Signal(str, int)
     link_requested = Signal(int)
+    focus_toggled = Signal(str)
 
     def __init__(
         self, column_widths_px: tuple[int, ...], text_width_percent: int, parent: QWidget | None = None
@@ -71,6 +74,7 @@ class TaskTablePanel(QWidget):
         self._menu = TaskMenuSnapshot(buttons=(), move_targets=())
         self._popup: QMenu | None = None
         self._sort_indicator = (-1, Qt.SortOrder.AscendingOrder)
+        self._toggle_column = -1
         self._configure_table()
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._empty.setWordWrap(True)
@@ -111,9 +115,12 @@ class TaskTablePanel(QWidget):
         self._model.set_columns(table.columns)
         reset = self._model.set_rows(table.rows)
         blocker.unblock()
-        self._apply_selection(table.selection)
+        selection_changed = self._apply_selection(table.selection)
         if reset:
             self._table.verticalScrollBar().setValue(scroll)
+        if selection_changed and table.selection:
+            self._table.scrollTo(self._model.index(min(table.selection), TASK_COLUMN))
+        self._toggle_column = table.toggle_column
         self._apply_header(table)
         self._links.set_overflow_column(table.overflow_column)
         self._empty.setText(table.empty_text)
@@ -157,7 +164,7 @@ class TaskTablePanel(QWidget):
         header = self._table.horizontalHeader()
         for logical in range(header.count()):
             header.moveSection(header.visualIndex(logical), logical)
-        widths = (self._column_widths[0], 0, *self._column_widths[1:])
+        widths = (*self._column_widths[:TASK_COLUMN], 0, *self._column_widths[TASK_COLUMN:])
         for column, width in enumerate(widths):
             if width:
                 header.resizeSection(column, width)
@@ -208,6 +215,7 @@ class TaskTablePanel(QWidget):
         self._model.check_toggled.connect(self._emit_check)
         self._table.horizontalHeader().sectionClicked.connect(self._emit_sort)
         self._table.doubleClicked.connect(self._emit_activated)
+        self._table.clicked.connect(self._emit_toggle)
         self._table.customContextMenuRequested.connect(self._open_menu_at)
         self._model.modelReset.connect(self._stretch_task_column)
         self._links.link_clicked.connect(self._emit_link)
@@ -283,18 +291,21 @@ class TaskTablePanel(QWidget):
     def _stretch_task_column(self) -> None:
         """Let the task column take the free width."""
         header = self._table.horizontalHeader()
-        if header.count() > 1:
-            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        if header.count() > TASK_COLUMN:
+            header.setSectionResizeMode(TASK_COLUMN, QHeaderView.ResizeMode.Stretch)
 
-    def _apply_selection(self, rows: tuple[int, ...]) -> None:
+    def _apply_selection(self, rows: tuple[int, ...]) -> bool:
         """Select the rows of the snapshot when the table shows another selection.
 
         Args:
             rows: Indices of the rows to select.
+
+        Returns:
+            Whether the selection changed (a task selected from elsewhere is then scrolled into view).
         """
         model = self._table.selectionModel()
         if tuple(sorted(index.row() for index in model.selectedRows())) == tuple(sorted(rows)):
-            return
+            return False
         selection = QItemSelection()
         last_column = max(0, self._model.columnCount() - 1)
         for row in rows:
@@ -302,6 +313,7 @@ class TaskTablePanel(QWidget):
         blocker = QSignalBlocker(model)
         model.select(selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
         blocker.unblock()
+        return True
 
     def _emit_selection(self, *_args: object) -> None:
         """Send the ids of the selected rows, in table order."""
@@ -316,8 +328,22 @@ class TaskTablePanel(QWidget):
             index: Cell clicked.
         """
         rows = self._model.rows
-        if index.isValid() and 0 <= index.row() < len(rows) and index.column() != self._model.check_column:
+        on_control = index.column() in {self._model.check_column, self._toggle_column}
+        if index.isValid() and 0 <= index.row() < len(rows) and not on_control:
             self.activated.emit(str(rows[index.row()].key))
+
+    def _emit_toggle(self, index: QModelIndex) -> None:
+        """Send the id of the row whose star was clicked.
+
+        Args:
+            index: Cell clicked.
+        """
+        rows = self._model.rows
+        if not index.isValid() or index.column() != self._toggle_column or not 0 <= index.row() < len(rows):
+            return
+        row = rows[index.row()]
+        if row.toggle_enabled:
+            self.focus_toggled.emit(str(row.key))
 
     def _activate_current(self) -> None:
         """Enter: open the current row."""

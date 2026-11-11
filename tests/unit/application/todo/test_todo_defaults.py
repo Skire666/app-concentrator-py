@@ -25,7 +25,7 @@ def test_defaults_gather_the_todo_section() -> None:
         sort_key=TaskSortKeyEnum.DUE,
         sort_descending=True,
         table_ratio_percent=75,
-        column_widths_px=(60, 120, 140, 130, 50, 50, 140, 140),
+        column_widths_px=(60, 40, 120, 140, 130, 50, 50, 140, 140),
         recurrence_preview_count=4,
         search_debounce_ms=150,
     )

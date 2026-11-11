@@ -123,12 +123,12 @@ def test_table_rows_mark_the_links_of_every_line() -> None:
     separator = len("en:todo.table.line_separator")
     third_line = 25 + separator + len("Weekly backup") + separator
     assert rows["task-001"].links[:2] == (
-        CellLinkSnapshot(column=1, start=0, end=25, index=0),
-        CellLinkSnapshot(column=1, start=third_line + 4, end=third_line + 15, index=1),
+        CellLinkSnapshot(column=2, start=0, end=25, index=0),
+        CellLinkSnapshot(column=2, start=third_line + 4, end=third_line + 15, index=1),
     )
     assert len(rows["task-001"].links) == 6
     assert rows["task-001"].overflow == "en:todo.table.overflow.other(count=7)"
-    assert rows["task-001"].cells[6] == "6"
+    assert rows["task-001"].cells[7] == "6"
     assert rows["task-002"].links == ()
 
 

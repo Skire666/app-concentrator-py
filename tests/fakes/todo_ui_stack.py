@@ -31,7 +31,7 @@ from concentrator.presentation.todo.task_table_presenter import TaskTablePresent
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
 from concentrator.presentation.todo.todo_presenters import TodoPresenters
 from concentrator.presentation.todo.todo_refresher import TodoRefresher
-from concentrator.presentation.todo.todo_tabs_presenter import TodoTabsPresenter
+from concentrator.presentation.todo.todo_tabs_presenter import QuickAddListTarget, TodoTabsPresenter
 from concentrator.presentation.todo.todo_tabs_snapshot import TodoTabsSnapshot
 from concentrator.presentation.todo.todo_toolbar_presenter import TodoToolbarPresenter
 from concentrator.presentation.todo.todo_toolbar_snapshot import TodoToolbarSnapshot
@@ -79,6 +79,7 @@ class TodoUiStack(TodoStack):
         register_editors: bool = True,
     ) -> None:
         super().__init__(lists, tasks)
+        self._before_presenters()
         self.scheduler = ManualScheduler() if shared is None else shared.scheduler
         self.renderer = RenderCoordinator(self.scheduler) if shared is None else shared.renderer
         self.translator: TranslatorPort = FakeTranslator() if shared is None else shared.translator
@@ -97,6 +98,17 @@ class TodoUiStack(TodoStack):
         self._build_presenters()
         if shared is None:
             self._register(register_editors=register_editors)
+
+    def _before_presenters(self) -> None:
+        """Hook for a stack that adds use cases the presenters need (the focus queue)."""
+
+    def _queued_task_ids(self) -> frozenset[str]:
+        """Tasks in the focus queue (none without a focus queue)."""
+        return frozenset()
+
+    def _quick_add_target(self) -> QuickAddListTarget | None:
+        """List of the focus quick add (none without a focus queue)."""
+        return None
 
     def _build_presenters(self) -> None:
         tr, gate, renderer = self.translator, self.gate, self.renderer
@@ -128,11 +140,24 @@ class TodoUiStack(TodoStack):
         )
         self.actions.attach(self.dialogs)
         self.tabs = TodoTabsPresenter(
-            tr, gate, renderer, view=self.view, commands=self.list_commands, editor=self.list_editor
+            tr,
+            gate,
+            renderer,
+            view=self.view,
+            commands=self.list_commands,
+            editor=self.list_editor,
+            quick_add_list=self._quick_add_target(),
         )
         self.tabs.attach(self.dialogs)
         self.toolbar = TodoToolbarPresenter(
-            tr, gate, renderer, view=self.view, actions=self.actions, links=LINKS, max_links=MAX_LINKS
+            tr,
+            gate,
+            renderer,
+            view=self.view,
+            actions=self.actions,
+            links=LINKS,
+            max_links=MAX_LINKS,
+            queued=self._queued_task_ids,
         )
         self.table = TaskTablePresenter(
             tr,

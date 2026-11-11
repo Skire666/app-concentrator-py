@@ -100,7 +100,7 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
         default_sort=TaskSortKeyEnum.CREATED,
         default_sort_descending=True,
         default_table_ratio_percent=75,
-        default_column_widths_px=(60, 120, 140, 130, 50, 50, 140, 140),
+        default_column_widths_px=(60, 40, 120, 140, 130, 50, 50, 140, 140),
     )
     assert config.focus == FocusSection(max_items=20, picker_max_results=20)
 
@@ -230,13 +230,13 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("default_sort = CREATED", "default_sort = NAME", "todo.default_sort"),
         ("default_sort_descending = true", "default_sort_descending = 2", "todo.default_sort_descending"),
         (
-            "default_column_widths_px = 60, 120, 140, 130, 50, 50, 140, 140",
+            "default_column_widths_px = 60, 40, 120, 140, 130, 50, 50, 140, 140",
             "default_column_widths_px = 60, 140, 140, 140",
             "todo",
         ),
         (
-            "default_column_widths_px = 60, 120, 140, 130, 50, 50, 140, 140",
-            "default_column_widths_px = 60, 120, 140, 130, 50, 50, 140, 9",
+            "default_column_widths_px = 60, 40, 120, 140, 130, 50, 50, 140, 140",
+            "default_column_widths_px = 60, 40, 120, 140, 130, 50, 50, 140, 9",
             "todo",
         ),
         (
