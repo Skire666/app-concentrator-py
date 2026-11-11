@@ -114,6 +114,7 @@ class TodoSection:
     max_recurrence_count: int
     recurrence_preview_count: int
     search_debounce_ms: int
+    text_width_percent: int
     default_list_priority: PriorityEnum
     default_sort: TaskSortKeyEnum
     default_sort_descending: bool

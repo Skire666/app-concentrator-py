@@ -121,11 +121,31 @@ class TaskRowFormatter:
             tone=_tone(task, due_marks(task, now)),
             checked=task.state is not TaskStateEnum.OPEN,
             check_enabled=task.state in CHECKABLE_STATES,
-            links=tuple(
-                CellLinkSnapshot(column=TASK_COLUMN, start=link.start, end=link.end, index=number)
-                for number, link in enumerate(links)
-                if link.line == 0
-            ),
+            links=self._cell_links(task.text, links),
+            overflow=self._translator.tr_plural("todo.table.overflow", task.text.line_count),
+        )
+
+    def _cell_links(self, text: MultilineText, links: tuple[DetectedLink, ...]) -> tuple[CellLinkSnapshot, ...]:
+        """Place the links of a text in the task column, where its lines follow one another.
+
+        Args:
+            text: Text of the task.
+            links: Its links.
+
+        Returns:
+            The links with their position in the cell text.
+        """
+        separator = len(self._translator.tr("todo.table.line_separator"))
+        starts: list[int] = []
+        position = 0
+        for line in text.lines:
+            starts.append(position)
+            position += len(line) + separator
+        return tuple(
+            CellLinkSnapshot(
+                column=TASK_COLUMN, start=starts[link.line] + link.start, end=starts[link.line] + link.end, index=number
+            )
+            for number, link in enumerate(links)
         )
 
     def _cells(self, task: Task, list_name: str, link_count: int) -> tuple[str, ...]:
@@ -169,18 +189,15 @@ class TaskRowFormatter:
         return found
 
     def title(self, task: Task) -> str:
-        """First line of a task, with a mark when the text has more lines.
+        """Every line of a task, one after the other (owner request at the phase 6 review).
 
         Args:
             task: Task.
 
         Returns:
-            The text of the Task column.
+            The text of the Task column: ``Report  ·  with sources``.
         """
-        more = task.text.line_count - 1
-        if more <= 0:
-            return task.text.first_line
-        return task.text.first_line + SEPARATOR + self._translator.tr_plural("todo.table.more_lines", more)
+        return self._translator.tr("todo.table.line_separator").join(task.text.lines)
 
     def due_text(self, task: Task) -> str:
         """Due date and time.

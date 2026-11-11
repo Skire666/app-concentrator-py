@@ -113,6 +113,7 @@ def make_todo_section(**changes: object) -> TodoSection:
         max_recurrence_count=9999,
         recurrence_preview_count=4,
         search_debounce_ms=150,
+        text_width_percent=80,
         default_list_priority=PriorityEnum.NORMAL,
         default_sort=TaskSortKeyEnum.CREATED,
         default_sort_descending=True,

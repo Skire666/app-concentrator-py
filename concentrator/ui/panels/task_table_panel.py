@@ -52,11 +52,14 @@ class TaskTablePanel(QWidget):
     link_activated = Signal(str, int)
     link_requested = Signal(int)
 
-    def __init__(self, column_widths_px: tuple[int, ...], parent: QWidget | None = None) -> None:
+    def __init__(
+        self, column_widths_px: tuple[int, ...], text_width_percent: int, parent: QWidget | None = None
+    ) -> None:
         """Build the table.
 
         Args:
             column_widths_px: Default widths of every column but the task column.
+            text_width_percent: Share of the task column its text may fill before it is cut.
             parent: Parent widget.
         """
         super().__init__(parent)
@@ -64,7 +67,7 @@ class TaskTablePanel(QWidget):
         self._model = SnapshotTableModel(self)
         self._table = QTableView(self)
         self._empty = QLabel(self)
-        self._links = LinkTextDelegate(self._model, self._table)
+        self._links = LinkTextDelegate(self._model, self._table, text_width_percent)
         self._menu = TaskMenuSnapshot(buttons=(), move_targets=())
         self._popup: QMenu | None = None
         self._sort_indicator = (-1, Qt.SortOrder.AscendingOrder)
@@ -112,6 +115,7 @@ class TaskTablePanel(QWidget):
         if reset:
             self._table.verticalScrollBar().setValue(scroll)
         self._apply_header(table)
+        self._links.set_overflow_column(table.overflow_column)
         self._empty.setText(table.empty_text)
         self._empty.setVisible(not table.rows)
         self._menu = snapshot.menu

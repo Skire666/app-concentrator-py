@@ -115,12 +115,19 @@ def test_details_show_the_repetition_of_a_recurring_task() -> None:
     assert rows["en:todo.details.occurrences"] == "en:todo.table.occurrences_of(done=2,count=5)"
 
 
-def test_table_rows_mark_the_link_of_the_first_line() -> None:
+def test_table_rows_mark_the_links_of_every_line() -> None:
     stack = TodoUiStack(tasks=[replace(make_task(1), text=LINK_TEXT), make_task(2, created_offset_minutes=1)])
 
     rows = {row.key: row for row in stack.table.build_snapshot().table.rows}
 
-    assert rows["task-001"].links == (CellLinkSnapshot(column=1, start=0, end=25, index=0),)
+    separator = len("en:todo.table.line_separator")
+    third_line = 25 + separator + len("Weekly backup") + separator
+    assert rows["task-001"].links[:2] == (
+        CellLinkSnapshot(column=1, start=0, end=25, index=0),
+        CellLinkSnapshot(column=1, start=third_line + 4, end=third_line + 15, index=1),
+    )
+    assert len(rows["task-001"].links) == 6
+    assert rows["task-001"].overflow == "en:todo.table.overflow.other(count=7)"
     assert rows["task-001"].cells[6] == "6"
     assert rows["task-002"].links == ()
 

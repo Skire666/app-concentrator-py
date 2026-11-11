@@ -43,14 +43,14 @@ def _formatter(language: LanguageEnum) -> TaskRowFormatter:
             LanguageEnum.ENGLISH,
             ("Done", "Task", "List", "Due", "Repeat", "Times", "Links", "Created", "Updated"),
             "2026-11-09 08:05",
-            "Report (+1 line)",
+            "Report  ·  sources",
             "2026-11-06 17:41",
         ),
         (
             LanguageEnum.FRENCH,
             ("Faite", "Tâche", "Liste", "Échéance", "Répétition", "Fois", "Liens", "Créée", "Modifiée"),
             "09/11/2026 08:05",
-            "Report (+1 ligne)",
+            "Report  ·  sources",
             "06/11/2026 17:41",
         ),
     ],
@@ -69,7 +69,7 @@ def test_rows_are_formatted_in_each_language(
 
 @pytest.mark.parametrize(
     ("language", "archived", "plural"),
-    [(LanguageEnum.ENGLISH, "Archived", "(+2 lines)"), (LanguageEnum.FRENCH, "Archivée", "(+2 lignes)")],
+    [(LanguageEnum.ENGLISH, "Archived", "... (3 lines)"), (LanguageEnum.FRENCH, "Archivée", "... (3 lignes)")],
 )
 def test_state_and_plural_texts_exist_in_each_language(language: LanguageEnum, archived: str, plural: str) -> None:
     formatter = _formatter(language)
@@ -77,7 +77,8 @@ def test_state_and_plural_texts_exist_in_each_language(language: LanguageEnum, a
     row = formatter.row(make_task(1, text="a\nb\nc", state=TaskStateEnum.ARCHIVED), FakeClock(NOW).now_local())
 
     assert row.cells[0] == archived
-    assert row.cells[1] == "a " + plural
+    assert row.cells[1] == "a  ·  b  ·  c"
+    assert row.overflow == plural
 
 
 def _weekly(end_kind: RecurrenceEndEnum, **ends: int) -> Recurrence:

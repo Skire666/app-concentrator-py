@@ -21,6 +21,7 @@ from concentrator.presentation.todo.task_row_formatter import (
     COLUMN_SORT_KEYS,
     LIST_COLUMN,
     STATE_COLUMN,
+    TASK_COLUMN,
     TaskRowFormatter,
 )
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
@@ -98,6 +99,7 @@ class TaskTablePresenter:
             sort_column=COLUMN_SORT_KEYS.index(state.sort_key) if state.sort_key in COLUMN_SORT_KEYS else -1,
             sort_descending=state.descending,
             hidden_columns=() if state.query().all_lists else (LIST_COLUMN,),
+            overflow_column=TASK_COLUMN,
         )
         menu = self._menu.build(self._view.selected(), self._view.lists(), state.list_id)
         return TaskTableSnapshot(table=table, menu=menu)

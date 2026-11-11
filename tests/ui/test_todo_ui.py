@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 from PySide6.QtCore import QPoint, Qt, QTimer, QUrl
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QDialog, QMenu
+from PySide6.QtWidgets import QDialog, QMenu, QWidget
 from pytestqt.qtbot import QtBot
 
 from concentrator.application.todo.task_list_commands import ListValues
@@ -15,10 +15,12 @@ from concentrator.domain.todo.task_draft import TaskDraft
 from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
+from concentrator.presentation.common.table_snapshot import CellLinkSnapshot
 from concentrator.presentation.todo.task_details_snapshot import TextLineSnapshot
 from concentrator.presentation.todo.todo_layout import TodoLayout
 from concentrator.ui.support.modal_host import ScreenDialogRunner
 from concentrator.ui.widgets.link_text_browser import LinkTextBrowser, lines_html
+from concentrator.ui.widgets.link_text_delegate import shown_length, visible_links
 from concentrator.ui.windows.todo_edit_dialogs import ListEditWindow, TaskEditWindow
 from tests.fakes.todo_factory import HOME_LIST_ID, WORK_LIST_ID, make_task
 from tests.fakes.todo_ui_stack import TodoUiStack
@@ -26,7 +28,9 @@ from tests.ui.shell_harness import ShellHarness
 
 pytestmark = pytest.mark.ui
 
-LAYOUT = TodoLayout(table_ratio_percent=75, column_widths_px=(60, 120, 140, 130, 50, 50, 140, 140), spacing_px=10)
+LAYOUT = TodoLayout(
+    table_ratio_percent=75, column_widths_px=(60, 120, 140, 130, 50, 50, 140, 140), text_width_percent=80, spacing_px=10
+)
 
 
 @pytest.fixture
@@ -518,3 +522,44 @@ def test_details_and_history_tabs_follow_the_selection(harness: ShellHarness) ->
     page.details_panel.browser.anchorClicked.emit(QUrl("link:0"))
     _settle(harness)
     assert [target.value for target in harness.todo.opener.links] == ["C:/Reports"]
+
+
+def test_shown_length_cuts_a_text_wider_than_the_limit(qtbot: QtBot) -> None:
+    widget = QWidget()
+    qtbot.addWidget(widget)
+    metrics = widget.fontMetrics()
+    text = "word " * 40
+
+    cut = shown_length(text, metrics, metrics.horizontalAdvance(text[:30]))
+
+    assert shown_length("short", metrics, 1000) == len("short")
+    assert cut == 30
+    assert shown_length(text, metrics, 0) == 0
+
+
+def test_visible_links_end_at_the_cut() -> None:
+    links = (
+        CellLinkSnapshot(column=1, start=0, end=10, index=0),
+        CellLinkSnapshot(column=1, start=20, end=30, index=1),
+    )
+
+    assert visible_links(links, 5) == (CellLinkSnapshot(column=1, start=0, end=5, index=0),)
+    assert visible_links(links, 40) == links
+
+
+def test_long_task_text_is_cut_and_a_link_after_the_cut_is_not_clickable(harness: ShellHarness) -> None:
+    long_line = "a rather long first line " * 8
+    harness.todo.task_commands.quick_add(WORK_LIST_ID, f"{long_line}\nhttps://example.org")
+    harness.turn()
+    table = harness.window.focus_page.table_panel
+    table.table.resize(900, 300)
+    table.table.setColumnWidth(1, 300)
+    harness.window.show()
+    table.table.viewport().grab()
+    rect = table.table.visualRect(table.model.index(0, 1))
+
+    QTest.mouseClick(table.table.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(rect.right() - 5, rect.center().y()))
+    _settle(harness)
+
+    assert harness.todo.opener.links == []
+    assert table.model.rows[0].overflow == "en:todo.table.overflow.other(count=2)"

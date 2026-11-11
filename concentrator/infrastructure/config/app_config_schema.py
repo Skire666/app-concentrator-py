@@ -240,6 +240,7 @@ class TodoSectionSchema(BaseModel):
     max_recurrence_count: Annotated[int, Field(ge=1, le=99_999)]
     recurrence_preview_count: Annotated[int, Field(ge=1, le=20)]
     search_debounce_ms: Annotated[int, Field(ge=0, le=2_000)]
+    text_width_percent: Annotated[int, Field(ge=10, le=100)]
     default_list_priority: PriorityName
     default_sort: SortKeyName
     default_sort_descending: bool

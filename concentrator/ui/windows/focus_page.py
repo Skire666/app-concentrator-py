@@ -100,7 +100,7 @@ class FocusPage(QWidget):
         self._new_task = QShortcut(zone1)
         self._tabs, self._toolbar, self._quick_add, self._filters = _zone1_bars(zone1)
         self._todo_splitter = QSplitter(Qt.Orientation.Vertical, zone1)
-        self._table = TaskTablePanel(todo_layout.column_widths_px, self._todo_splitter)
+        self._table = TaskTablePanel(todo_layout.column_widths_px, todo_layout.text_width_percent, self._todo_splitter)
         self._info, self._details, self._history = _info_tabs(self._todo_splitter)
         zone2 = QWidget(self._splitter)
         self._timer, self._presets, self._options = _zone2_panels(timer_layout, zone2)

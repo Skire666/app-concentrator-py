@@ -33,6 +33,8 @@ class TableRowSnapshot:
         checked: State of the check box of the ``check_column`` of the table, ``None`` without one.
         check_enabled: Whether a click on that check box is sent back.
         links: Clickable parts of the cells.
+        overflow: Drawn after the part of the cell of ``TableSnapshot.overflow_column`` that fits when its
+            text is too wide (``... (5 lines)``), ``""`` for none.
     """
 
     key: int | str
@@ -41,6 +43,7 @@ class TableRowSnapshot:
     checked: bool | None = None
     check_enabled: bool = True
     links: tuple[CellLinkSnapshot, ...] = ()
+    overflow: str = ""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -57,6 +60,7 @@ class TableSnapshot:
         sort_column: Column of the sort indicator, ``-1`` for none.
         sort_descending: Direction of the sort indicator.
         hidden_columns: Columns not shown.
+        overflow_column: Column whose long texts are cut and followed by the ``overflow`` of their row.
     """
 
     columns: tuple[str, ...]
@@ -68,3 +72,4 @@ class TableSnapshot:
     sort_column: int = -1
     sort_descending: bool = False
     hidden_columns: tuple[int, ...] = ()
+    overflow_column: int = -1

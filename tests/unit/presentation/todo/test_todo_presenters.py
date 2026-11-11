@@ -133,7 +133,9 @@ def test_table_rows_show_state_text_due_and_marks() -> None:
     rows = {row.key: row for row in table.rows}
 
     assert table.columns[1] == "en:todo.column.task"
-    assert rows["task-001"].cells[1] == "Report en:todo.table.more_lines.other(count=2)"
+    separator = "en:todo.table.line_separator"
+    assert rows["task-001"].cells[1] == separator.join(("Report", "with sources", "and charts"))
+    assert table.overflow_column == 1
     assert rows["task-001"].cells[3] == "en:format.date(day=05,month=11,year=2026)"
     assert rows["task-002"].cells[3] == "en:format.date(day=06,month=11,year=2026) en:format.time(hour=18,minute=00)"
     assert [rows[key].tone for key in ("task-001", "task-002", "task-003", "task-004", "task-005")] == [
