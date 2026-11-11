@@ -150,6 +150,14 @@ class SettingsSection:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class LinksSection:
+    """``[links]``: links detected in the text of the tasks (ADR-014)."""
+
+    url_schemes: tuple[str, ...]
+    max_links_in_menu: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class I18nSection:
     """``[i18n]``: UI languages."""
 
@@ -171,4 +179,5 @@ class AppConfig:
     logging: LoggingSection
     journal: JournalSection
     settings: SettingsSection
+    links: LinksSection
     i18n: I18nSection

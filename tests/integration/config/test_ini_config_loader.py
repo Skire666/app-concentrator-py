@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from concentrator.application.common.app_config import ChimeSection, JournalSection, SettingsSection, TodoSection
+from concentrator.application.common.app_config import (
+    ChimeSection,
+    JournalSection,
+    LinksSection,
+    SettingsSection,
+    TodoSection,
+)
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.log_level_enum import LogLevelEnum
@@ -69,6 +75,7 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
     assert config.storage.daily_backup_retention_days == 7
     assert config.logging.level == logging.INFO
     assert config.i18n.default_language is LanguageEnum.ENGLISH
+    assert config.links == LinksSection(url_schemes=("http", "https"), max_links_in_menu=10)
     assert config.paths.ui_state_file == tmp_path / "roaming" / "Concentrator" / "ui-state.ini"
     assert config.paths.log_dir == tmp_path / "local" / "Concentrator" / "logs"
     assert config.journal == JournalSection(
@@ -154,6 +161,8 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("min_window_height_px = 640", "min_window_height_px = 900", "ui"),
         ("\nlevel = INFO", "\nlevel = VERBOSE", "logging.level"),
         ("default_language = en", "default_language = de", "i18n.default_language"),
+        ("url_schemes = http, https", "url_schemes = http, 1ftp", "links.url_schemes"),
+        ("max_links_in_menu = 10", "max_links_in_menu = 0", "links.max_links_in_menu"),
         ("file_name = concentrator.log", "file_name = logs/concentrator.log", "logging.file_name"),
         ("save_max_delay_ms = 1500", "save_max_delay_ms = 499", "storage.save_max_delay_ms"),
         ("save_debounce_ms = 500", "save_debounce_ms = 2000", "storage"),

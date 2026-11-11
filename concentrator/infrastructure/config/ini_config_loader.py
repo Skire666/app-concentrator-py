@@ -14,6 +14,7 @@ from concentrator.application.common.app_config import (
     ChimeSection,
     I18nSection,
     JournalSection,
+    LinksSection,
     LoggingSection,
     PathsSection,
     SettingsSection,
@@ -228,6 +229,9 @@ class IniConfigLoader:
                 logging=_logging_section(schema.logging),
                 journal=_journal_section(schema.journal),
                 settings=_settings_section(schema.settings),
+                links=LinksSection(
+                    url_schemes=schema.links.schemes(), max_links_in_menu=schema.links.max_links_in_menu
+                ),
                 i18n=I18nSection(
                     default_language=LanguageEnum.from_iso_code(schema.i18n.default_language),
                     fallback_language=LanguageEnum.from_iso_code(schema.i18n.fallback_language),

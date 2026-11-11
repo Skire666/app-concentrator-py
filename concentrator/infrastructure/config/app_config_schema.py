@@ -47,6 +47,9 @@ type Volume = Annotated[int, Field(ge=0, le=100)]
 type Hour = Annotated[int, Field(ge=0, le=23)]
 type PriorityName = Literal["LOW", "NORMAL", "HIGH", "URGENT"]
 type SortKeyName = Literal["STATE", "TEXT", "DUE", "CREATED", "UPDATED"]
+type SchemeList = Annotated[
+    str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Za-z][A-Za-z0-9+.-]*(\s*,\s*[A-Za-z][A-Za-z0-9+.-]*)*$")
+]
 
 
 def number_list(text: str) -> tuple[int, ...]:
@@ -294,6 +297,23 @@ class SettingsSectionSchema(BaseModel):
     default_notify_when_inactive: bool
 
 
+class LinksSectionSchema(BaseModel):
+    """``[links]``."""
+
+    model_config = _STRICT
+
+    url_schemes: SchemeList
+    max_links_in_menu: Annotated[int, Field(ge=1, le=50)]
+
+    def schemes(self) -> tuple[str, ...]:
+        """Return the schemes of ``url_schemes``, lower case.
+
+        Returns:
+            The schemes, in order.
+        """
+        return tuple(part.strip().lower() for part in self.url_schemes.split(_LIST_SEPARATOR))
+
+
 class I18nSectionSchema(BaseModel):
     """``[i18n]``."""
 
@@ -318,4 +338,5 @@ class AppConfigSchema(BaseModel):
     logging: LoggingSectionSchema
     journal: JournalSectionSchema
     settings: SettingsSectionSchema
+    links: LinksSectionSchema
     i18n: I18nSectionSchema

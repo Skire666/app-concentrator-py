@@ -10,6 +10,7 @@ from concentrator.application.common.app_config import (
     ChimeSection,
     I18nSection,
     JournalSection,
+    LinksSection,
     LoggingSection,
     PathsSection,
     SettingsSection,
@@ -162,5 +163,6 @@ def make_app_config(
         ),
         journal=journal or make_journal_section(),
         settings=make_settings_section(),
+        links=LinksSection(url_schemes=("http", "https"), max_links_in_menu=10),
         i18n=I18nSection(default_language=LanguageEnum.ENGLISH, fallback_language=LanguageEnum.ENGLISH),
     )
