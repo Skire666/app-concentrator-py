@@ -5,6 +5,9 @@ from collections.abc import Sequence
 
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.common.multiline_text import MultilineText
+from concentrator.domain.todo.recurrence import Recurrence
+from concentrator.domain.todo.recurrence_end_enum import RecurrenceEndEnum
+from concentrator.domain.todo.recurrence_frequency_enum import RecurrenceFrequencyEnum
 from concentrator.domain.todo.task import Task, TaskId, due_minutes
 from concentrator.domain.todo.task_event import TaskEvent
 from concentrator.domain.todo.task_event_kind_enum import TaskEventKindEnum
@@ -15,7 +18,8 @@ from concentrator.domain.todo.task_rules import TaskRules
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.domain.todo.tasks_collection import TasksCollection
 from concentrator.domain.todo.todo_limits import TodoLimits
-from concentrator.infrastructure.persistence.schemas.task_schema import TaskEventSchema, TaskSchema
+from concentrator.domain.todo.weekday_enum import WeekdayEnum
+from concentrator.infrastructure.persistence.schemas.task_schema import RecurrenceSchema, TaskEventSchema, TaskSchema
 
 _logger = logging.getLogger(__name__)
 
@@ -30,6 +34,50 @@ def _event(schema: TaskEventSchema) -> TaskEvent:
         The event.
     """
     return TaskEvent(at=schema.at, kind=TaskEventKindEnum.parse(schema.kind), details=tuple(schema.details.items()))
+
+
+def _recurrence(schema: RecurrenceSchema | None) -> Recurrence | None:
+    """Build a recurrence; unknown integers become ``UNKNOWN`` and values that do not apply are dropped.
+
+    Args:
+        schema: Validated DTO, ``None`` for a one-off task.
+
+    Returns:
+        The recurrence, not validated yet.
+    """
+    if schema is None:
+        return None
+    return Recurrence.create(
+        frequency=RecurrenceFrequencyEnum.parse(schema.frequency),
+        interval=schema.interval,
+        weekdays=(WeekdayEnum.parse(day) for day in schema.weekdays),
+        anchor_date=schema.anchor_date,
+        end_kind=RecurrenceEndEnum.parse(schema.end_kind),
+        end_date=schema.end_date,
+        end_count=schema.end_count,
+    )
+
+
+def _recurrence_schema(recurrence: Recurrence | None) -> RecurrenceSchema | None:
+    """Build the DTO of a recurrence.
+
+    Args:
+        recurrence: Recurrence, ``None`` for a one-off task.
+
+    Returns:
+        The DTO, ``None`` when there is none.
+    """
+    if recurrence is None:
+        return None
+    return RecurrenceSchema(
+        frequency=recurrence.frequency.value,
+        interval=recurrence.interval,
+        weekdays=tuple(day.value for day in recurrence.weekdays),
+        anchor_date=recurrence.anchor_date,
+        end_kind=recurrence.end_kind.value,
+        end_date=recurrence.end_date,
+        end_count=recurrence.end_count,
+    )
 
 
 def _task(schema: TaskSchema, max_events: int) -> Task:
@@ -53,6 +101,8 @@ def _task(schema: TaskSchema, max_events: int) -> Task:
         state=TaskStateEnum.parse(schema.state),
         completed_at=schema.completed_at,
         history=TaskHistory.capped((_event(event) for event in schema.history), max_events),
+        recurrence=_recurrence(schema.recurrence),
+        occurrences_done=schema.occurrences_done or 0,
     )
 
 
@@ -117,6 +167,8 @@ class TasksMapper:
                 text=task.text.lines,
                 due_date=task.due_date,
                 due_time=task.due_time,
+                recurrence=_recurrence_schema(task.recurrence),
+                occurrences_done=task.occurrences_done if task.recurrence or task.occurrences_done else None,
                 state=task.state.value,
                 completed_at=task.completed_at,
                 history=tuple(_event_schema(event) for event in task.history),
