@@ -1,8 +1,10 @@
 # Phase 7 review report
 
 First issue (2026-11-11). Branch `phase-7-focus-queue`, 7 commits on top of `main` (`c683127`). The branch
-is not pushed. The owner decisions of the plan review are in ADR-043; the items "decided during the build"
-there are to be approved.
+is not pushed. The owner decisions of the plan review are in ADR-043.
+
+Owner answer (2026-11-11): "Suit tes recommandations". The items "decided during the build" are approved and
+the open questions below take their defaults (ADR-043 amendment).
 
 ## Summary
 

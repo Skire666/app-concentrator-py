@@ -1206,3 +1206,8 @@ superseded.
   12. **Self-check:** the round trip also holds one queued task.
 - Consequences: phase 8 measures the queue with a full queue and a large task list; the "Clear completed"
   behaviour can come back only with a new decision.
+- Amendment (phase 7 review, owner decision 2026-11-11: "Suit tes recommandations"): the items "decided
+  during the build" are approved and the open questions of the review report take their defaults: the
+  history keeps 10 events, the search field proposes nothing until something is typed, "Show in list" keeps
+  the scope, the star column stays right after the check box, and the due badge of a row uses the format of
+  the table.
