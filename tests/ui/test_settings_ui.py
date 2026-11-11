@@ -1,4 +1,9 @@
+from typing import Final
+
 import pytest
+from PySide6.QtCore import QCoreApplication, QPoint, QPointF, Qt
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtWidgets import QScrollArea, QScrollBar, QWidget
 from pytestqt.qtbot import QtBot
 
 from concentrator.domain.settings.log_level_enum import LogLevelEnum
@@ -9,6 +14,8 @@ from tests.fakes.settings_stack import ABOUT
 from tests.ui.shell_harness import ShellHarness
 
 pytestmark = pytest.mark.ui
+
+WHEEL_STEP: Final = 120
 
 
 @pytest.fixture
@@ -106,3 +113,52 @@ def test_chime_fields_of_the_page_edit_the_draft(harness: ShellHarness) -> None:
 
     assert fields.end_hour_error.text() == "en:error.chime_hours_reversed"
     assert not harness.window.settings_page.footer.save_button.isEnabled()
+
+
+def _wheel_down(target: QWidget) -> None:
+    centre = QPointF(target.rect().center())
+    event = QWheelEvent(
+        centre,
+        QPointF(target.mapToGlobal(centre.toPoint())),
+        QPoint(0, 0),
+        QPoint(0, -WHEEL_STEP),
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+        Qt.ScrollPhase.NoScrollPhase,
+        False,
+    )
+    QCoreApplication.sendEvent(target, event)
+
+
+def _scrolled_page(harness: ShellHarness) -> QScrollBar:
+    window = harness.window
+    window.show()
+    window.resize(window.minimumSize())
+    harness.turn()
+    area = window.settings_page.findChild(QScrollArea)
+    assert area is not None
+    bar = area.verticalScrollBar()
+    assert bar.maximum() > 0
+    bar.setValue(0)
+    return bar
+
+
+def test_the_wheel_over_a_list_scrolls_the_page_and_keeps_the_value(harness: ShellHarness) -> None:
+    bar = _scrolled_page(harness)
+    level = harness.window.settings_page.form.log_level
+
+    _wheel_down(level)
+
+    assert level.currentIndex() == 1
+    assert bar.value() > 0
+
+
+def test_the_wheel_over_the_volume_scrolls_the_page_and_keeps_the_value(harness: ShellHarness) -> None:
+    bar = _scrolled_page(harness)
+    slider = harness.window.settings_page.form.chime_fields.volume_slider.slider
+    volume = slider.value()
+
+    _wheel_down(slider)
+
+    assert slider.value() == volume
+    assert bar.value() > 0

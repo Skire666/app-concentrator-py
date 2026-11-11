@@ -1033,3 +1033,9 @@ superseded.
      and tab tooltips are escaped (`plain_tooltip`, `ui/support/plain_text.py`).
   4. **No discard question after the Windows session end**: `ShutdownPresenter.is_session_ending()` is given
      to the task and list dialogs (ADR-038).
+- Amendment 3 (owner bug report, 2026-11-11): **the mouse wheel always scrolls the Settings page.** Over a
+  list, a spin box or a slider it changed the value and the page stopped scrolling. `WheelScrollRedirect`
+  (`ui/support/wheel_scroll_redirect.py`) filters the wheel events of the value controls of the page and
+  sends them to the viewport of its scroll area; those controls get the `StrongFocus` policy, so the wheel
+  no longer gives them the focus. The keyboard and the mouse buttons still change the values. The dialogs
+  do not scroll and keep the default wheel behavior.

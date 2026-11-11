@@ -290,7 +290,8 @@ earlier sessions, are in the log files: **Open log folder**.
 The **Settings** page has five sections. **General** and **Hourly chime** are stored in your data
 file: change them, then **Save** (or **Revert** to show the stored values again). Both buttons stay at
 the bottom of the page and are enabled only when something changed; **Unsaved changes** shows next to
-them meanwhile. Errors show under the field as you type.
+them meanwhile. Errors show under the field as you type. The mouse wheel always scrolls the page,
+even over a list or a slider: click the field, then use the keyboard or the mouse to change it.
 
 - **General**: **Language** (the same as the status bar button), **Journal detail level** (Debug,
   Info, Warning, Error or Critical: entries below that level are neither written to the log files nor

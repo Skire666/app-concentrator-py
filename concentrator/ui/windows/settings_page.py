@@ -1,4 +1,7 @@
-"""Menu C page: the settings form and the file commands in a scroll area, Save and Revert below."""
+"""Menu C page: the settings form and the file commands in a scroll area, Save and Revert below.
+
+The mouse wheel always scrolls the page, even over a list, a spin box or a slider (ADR-041).
+"""
 
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
@@ -10,6 +13,7 @@ from concentrator.presentation.settings.settings_snapshot import SettingsSnapsho
 from concentrator.ui.panels.settings_files_panel import SettingsFilesPanel
 from concentrator.ui.panels.settings_footer_panel import SettingsFooterPanel
 from concentrator.ui.panels.settings_form_panel import SettingsFormPanel
+from concentrator.ui.support.wheel_scroll_redirect import WheelScrollRedirect
 
 
 class SettingsPage(QWidget):
@@ -35,6 +39,7 @@ class SettingsPage(QWidget):
         sections.addWidget(self._files)
         sections.addStretch(1)
         scroll.setWidget(content)
+        WheelScrollRedirect(scroll).watch(content)
         self._footer = SettingsFooterPanel(self)
         page = QVBoxLayout(self)
         page.addWidget(scroll, 1)
