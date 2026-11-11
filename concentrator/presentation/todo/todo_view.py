@@ -5,10 +5,12 @@ from datetime import datetime
 from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.todo.task_query import TaskQuery
 from concentrator.application.todo.todo_queries import ListOverview, TodoQueries
+from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_list import TaskList
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
 from concentrator.domain.todo.tasks_collection import TasksCollection
+from concentrator.presentation.common.text_search import TextSearch, fold
 from concentrator.presentation.todo.todo_view_state import TodoViewState
 
 
@@ -18,7 +20,8 @@ class TodoView:
     The stored tasks are immutable: a new collection means new data, so the visible tasks are rebuilt
     only when the stored collection or the query changes (the tabs, toolbar, table and details panes all
     read them in the same render), or, with a due date filter that depends on the clock, when the local
-    minute changes.
+    minute changes. The search runs on every line of the text, folded once per text (case and accents
+    ignored).
 
     After a change of the data, ``mark_stale`` defers the follow-up (show an existing list, drop vanished
     tasks from the selection) to the next read: a bulk change publishes one event per task, and following
@@ -39,6 +42,8 @@ class TodoView:
         self._source: TasksCollection | None = None
         self._query: TaskQuery | None = None
         self._minute: datetime | None = None
+        self._search = TextSearch()
+        self._folded: dict[MultilineText, str] = {}
         self._visible = TasksCollection()
         self._stale = True
 
@@ -88,6 +93,15 @@ class TodoView:
         self._follow_data()
         return self._current_tasks()
 
+    def scope_total(self) -> int:
+        """Count every task of the scope (the current list, or every list), whatever its state and filters.
+
+        Returns:
+            The total of the counter "12 of 87 tasks".
+        """
+        self._follow_data()
+        return len(self._queries.in_scope(self._state.query()))
+
     def selected(self) -> tuple[Task, ...]:
         """Return the selected tasks that the table shows, in table order.
 
@@ -125,9 +139,42 @@ class TodoView:
         query = self._state.query()
         now = self._clock.now_local()
         minute = now.replace(second=0, microsecond=0) if query.task_filter.depends_on_time else None
-        if source is not self._source or query != self._query or minute != self._minute:
+        search = self._state.search
+        if source is not self._source or query != self._query or minute != self._minute or search != self._search:
             self._source = source
             self._query = query
             self._minute = minute
-            self._visible = self._queries.tasks(query, now)
+            self._search = search
+            self._visible = self._searched(self._queries.tasks(query, now), search)
         return self._visible
+
+    def _searched(self, tasks: TasksCollection, search: TextSearch) -> TasksCollection:
+        """Keep the tasks whose text holds every word of the search.
+
+        Args:
+            tasks: Filtered and sorted tasks.
+            search: Search typed.
+
+        Returns:
+            The matching tasks, in the same order.
+        """
+        if search.is_empty:
+            return tasks
+        if len(self._folded) > 2 * len(tasks) + 1:
+            self._folded.clear()
+        return tasks.filtered(lambda task: search.matches(self._fold(task.text)))
+
+    def _fold(self, text: MultilineText) -> str:
+        """Folded form of a text, computed once per text.
+
+        Args:
+            text: Text of a task.
+
+        Returns:
+            The text without case and accents, its lines joined.
+        """
+        folded = self._folded.get(text)
+        if folded is None:
+            folded = fold(text.as_text())
+            self._folded[text] = folded
+        return folded

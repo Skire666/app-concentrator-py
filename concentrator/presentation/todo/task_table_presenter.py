@@ -6,16 +6,23 @@ from typing import Final
 from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.todo.link_detector import LinkDetector
 from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
+from concentrator.domain.todo.tasks_collection import TasksCollection
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
-from concentrator.presentation.common.table_snapshot import TableSnapshot
+from concentrator.presentation.common.table_snapshot import TableRowSnapshot, TableSnapshot
 from concentrator.presentation.todo.task_actions import TaskActions
 from concentrator.presentation.todo.task_menu_builder import TaskMenuBuilder
-from concentrator.presentation.todo.task_row_formatter import COLUMN_SORT_KEYS, STATE_COLUMN, TaskRowFormatter
+from concentrator.presentation.todo.task_row_formatter import (
+    COLUMN_SORT_KEYS,
+    LIST_COLUMN,
+    STATE_COLUMN,
+    TaskRowFormatter,
+)
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
 from concentrator.presentation.todo.todo_tabs_presenter import TODO_SECTIONS
 from concentrator.presentation.todo.todo_view import TodoView
@@ -47,6 +54,7 @@ class TaskTablePresenter:
         actions: TaskActions,
         clock: ClockPort,
         menu: TaskMenuBuilder,
+        links: LinkDetector,
     ) -> None:
         """Create the presenter.
 
@@ -58,6 +66,7 @@ class TaskTablePresenter:
             actions: Task actions (check boxes, keyboard, context menu).
             clock: Current local time (due marks).
             menu: Builds the context menu (same actions as the toolbar).
+            links: Finds the links of the texts.
         """
         self._translator = translator
         self._gate = gate
@@ -66,7 +75,7 @@ class TaskTablePresenter:
         self._actions = actions
         self._clock = clock
         self._menu = menu
-        self._rows = TaskRowFormatter(translator, DateTimeFormatter(translator, clock))
+        self._rows = TaskRowFormatter(translator, DateTimeFormatter(translator, clock), links)
         self._minute = self._current_minute()
 
     def build_snapshot(self) -> TaskTableSnapshot:
@@ -77,21 +86,34 @@ class TaskTablePresenter:
         """
         state = self._view.state
         tasks = self._view.visible()
-        now = self._clock.now_local()
-        rows = tuple(self._rows.row(task, now) for task in tasks)
         selected = set(state.selected_ids)
         selection = tuple(index for index, task in enumerate(tasks) if task.id in selected)
         table = TableSnapshot(
             columns=self._rows.columns(),
-            rows=rows,
+            rows=self._table_rows(tasks, all_lists=state.query().all_lists),
             selection=selection,
             empty_text=self._translator.tr("todo.table.empty"),
             check_column=STATE_COLUMN,
             sort_column=COLUMN_SORT_KEYS.index(state.sort_key) if state.sort_key in COLUMN_SORT_KEYS else -1,
             sort_descending=state.descending,
+            hidden_columns=() if state.query().all_lists else (LIST_COLUMN,),
         )
         menu = self._menu.build(self._view.selected(), self._view.lists(), state.list_id)
         return TaskTableSnapshot(table=table, menu=menu)
+
+    def _table_rows(self, tasks: TasksCollection, *, all_lists: bool) -> tuple[TableRowSnapshot, ...]:
+        """Describe the rows.
+
+        Args:
+            tasks: Tasks shown, in display order.
+            all_lists: Whether the List column is shown.
+
+        Returns:
+            One row per task.
+        """
+        now = self._clock.now_local()
+        names = {item.id: item.name for item in self._view.lists()} if all_lists else {}
+        return tuple(self._rows.row(task, now, names.get(task.list_id, "")) for task in tasks)
 
     def on_selection_changed(self, task_ids: tuple[str, ...]) -> None:
         """Remember the selected tasks; the toolbar and the details follow.
@@ -103,7 +125,7 @@ class TaskTablePresenter:
             self._renderer.request(*SELECTION_SECTIONS)
 
     def on_sort_requested(self, column: int) -> None:
-        """Sort by a column (a second click reverses the order; ``TODO_SORT``).
+        """Sort by a column (a second click reverses the order; ``TODO_SORT``); some columns do not sort.
 
         Args:
             column: Header clicked.
@@ -112,7 +134,8 @@ class TaskTablePresenter:
             _logger.warning("Sort column %d is not handled", column)
             return
         key = COLUMN_SORT_KEYS[column]
-        self._gate.run(ActionIdEnum.TODO_SORT, lambda: self._sorted(key))
+        if key is not None:
+            self._gate.run(ActionIdEnum.TODO_SORT, lambda: self._sorted(key))
         self._renderer.request(RenderSectionEnum.TODO_TABLE)
 
     def on_check_toggled(self, task_id: str) -> None:

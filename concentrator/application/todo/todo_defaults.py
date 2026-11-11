@@ -19,8 +19,9 @@ class TodoDefaults:
         sort_key: Task table order until the user clicks a column.
         sort_descending: Direction of that order.
         table_ratio_percent: Initial height share of the task table above the details pane.
-        column_widths_px: Initial widths of the state, due, created and updated columns.
+        column_widths_px: Initial widths of the columns other than the task column.
         recurrence_preview_count: Dates shown after the due date in the preview of the task editor.
+        search_debounce_ms: Delay after the last key press before the task search applies.
     """
 
     limits: TodoLimits
@@ -30,6 +31,7 @@ class TodoDefaults:
     table_ratio_percent: int
     column_widths_px: tuple[int, ...]
     recurrence_preview_count: int
+    search_debounce_ms: int
 
     @classmethod
     def from_section(cls, section: TodoSection) -> Self:
@@ -57,4 +59,5 @@ class TodoDefaults:
             table_ratio_percent=section.default_table_ratio_percent,
             column_widths_px=section.default_column_widths_px,
             recurrence_preview_count=section.recurrence_preview_count,
+            search_debounce_ms=section.search_debounce_ms,
         )

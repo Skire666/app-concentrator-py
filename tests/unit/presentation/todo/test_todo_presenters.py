@@ -134,8 +134,8 @@ def test_table_rows_show_state_text_due_and_marks() -> None:
 
     assert table.columns[1] == "en:todo.column.task"
     assert rows["task-001"].cells[1] == "Report en:todo.table.more_lines.other(count=2)"
-    assert rows["task-001"].cells[2] == "en:format.date(day=05,month=11,year=2026)"
-    assert rows["task-002"].cells[2] == "en:format.date(day=06,month=11,year=2026) en:format.time(hour=18,minute=00)"
+    assert rows["task-001"].cells[3] == "en:format.date(day=05,month=11,year=2026)"
+    assert rows["task-002"].cells[3] == "en:format.date(day=06,month=11,year=2026) en:format.time(hour=18,minute=00)"
     assert [rows[key].tone for key in ("task-001", "task-002", "task-003", "task-004", "task-005")] == [
         RowToneEnum.ERROR,
         RowToneEnum.WARNING,
@@ -144,7 +144,8 @@ def test_table_rows_show_state_text_due_and_marks() -> None:
         RowToneEnum.NORMAL,
     ]
     assert (rows["task-004"].checked, rows["task-005"].checked) == (True, False)
-    assert (table.check_column, table.sort_column, table.sort_descending) == (0, 3, True)
+    assert (table.check_column, table.sort_column, table.sort_descending) == (0, 7, True)
+    assert table.hidden_columns == (2,)
     assert [row.key for row in table.rows] == ["task-005", "task-004", "task-003", "task-002", "task-001"]
 
 
@@ -164,7 +165,7 @@ def test_selection_is_kept_after_a_render_and_after_sorting() -> None:
 
     assert stack.rendered_table[-1].table.selection == (1,)
 
-    stack.table.on_sort_requested(3)
+    stack.table.on_sort_requested(7)
     stack.settle()
 
     table = stack.rendered_table[-1].table
@@ -173,12 +174,14 @@ def test_selection_is_kept_after_a_render_and_after_sorting() -> None:
     assert stack.preferences.values["layout/todo/sort_descending"] == "0"
 
 
-def test_sorting_a_new_column_is_ascending_and_a_bad_column_is_ignored() -> None:
+def test_sorting_a_new_column_is_ascending_and_other_columns_are_ignored() -> None:
     stack = _stack(make_task(1, text="b"), make_task(2, text="a"))
 
     stack.table.on_sort_requested(1)
     stack.settle()
     stack.table.on_sort_requested(9)
+    stack.table.on_sort_requested(4)
+    stack.settle()
 
     assert [row.key for row in stack.rendered_table[-1].table.rows] == ["task-002", "task-001"]
     assert stack.preferences.values["layout/todo/sort"] == "2"

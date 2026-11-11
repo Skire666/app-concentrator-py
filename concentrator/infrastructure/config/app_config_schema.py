@@ -20,6 +20,7 @@ _PRESET_DUPLICATE: Final = "default_presets_minutes values must be unique"
 _PRESETS_ABOVE_MAX: Final = "default_presets_minutes must not have more values than max_presets"
 _CHIME_HOURS_REVERSED: Final = "default_start_hour must not exceed default_end_hour"
 _COLUMN_WIDTH_COUNT: Final = 4
+_TODO_COLUMN_WIDTH_COUNT: Final = 8
 _COLUMN_WIDTH_MIN_PX: Final = 20
 _COLUMN_WIDTH_MAX_PX: Final = 2_000
 _COLUMN_WIDTHS: Final = (
@@ -27,7 +28,8 @@ _COLUMN_WIDTHS: Final = (
     f"between {_COLUMN_WIDTH_MIN_PX} and {_COLUMN_WIDTH_MAX_PX} px"
 )
 _TODO_COLUMN_WIDTHS: Final = (
-    f"default_column_widths_px needs {_COLUMN_WIDTH_COUNT} values (state, due, created, updated) "
+    f"default_column_widths_px needs {_TODO_COLUMN_WIDTH_COUNT} values (state, list, due, repeat, times, links, "
+    "created, updated) "
     f"between {_COLUMN_WIDTH_MIN_PX} and {_COLUMN_WIDTH_MAX_PX} px"
 )
 _LIST_SEPARATOR: Final = ","
@@ -64,18 +66,17 @@ def number_list(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in text.split(_LIST_SEPARATOR) if part.strip())
 
 
-def _valid_column_widths(widths: tuple[int, ...]) -> bool:
-    """Tell whether a list of column widths has four values within the allowed range.
+def _valid_column_widths(widths: tuple[int, ...], count: int = _COLUMN_WIDTH_COUNT) -> bool:
+    """Tell whether a list of column widths has the expected number of values within the allowed range.
 
     Args:
         widths: Widths in pixels.
+        count: Number of values expected.
 
     Returns:
         Whether they are valid.
     """
-    return len(widths) == _COLUMN_WIDTH_COUNT and all(
-        _COLUMN_WIDTH_MIN_PX <= width <= _COLUMN_WIDTH_MAX_PX for width in widths
-    )
+    return len(widths) == count and all(_COLUMN_WIDTH_MIN_PX <= width <= _COLUMN_WIDTH_MAX_PX for width in widths)
 
 
 class AppSectionSchema(BaseModel):
@@ -238,6 +239,7 @@ class TodoSectionSchema(BaseModel):
     max_recurrence_interval: Annotated[int, Field(ge=1, le=9_999)]
     max_recurrence_count: Annotated[int, Field(ge=1, le=99_999)]
     recurrence_preview_count: Annotated[int, Field(ge=1, le=20)]
+    search_debounce_ms: Annotated[int, Field(ge=0, le=2_000)]
     default_list_priority: PriorityName
     default_sort: SortKeyName
     default_sort_descending: bool
@@ -246,7 +248,7 @@ class TodoSectionSchema(BaseModel):
 
     @model_validator(mode="after")
     def _check_column_widths(self) -> Self:
-        if not _valid_column_widths(number_list(self.default_column_widths_px)):
+        if not _valid_column_widths(number_list(self.default_column_widths_px), _TODO_COLUMN_WIDTH_COUNT):
             raise ValueError(_TODO_COLUMN_WIDTHS)
         return self
 

@@ -30,3 +30,5 @@ class RenderSectionEnum(BaseIntEnum):
     TASK_EDIT = 18
     LIST_EDIT = 19
     QUICK_ADD = 20
+    TODO_FILTERS = 21
+    TODO_HISTORY = 22

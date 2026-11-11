@@ -5,30 +5,45 @@ from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.domain.todo.due_marks import DueMarks, due_marks
+from concentrator.domain.todo.link_detector import LinkDetector
+from concentrator.domain.todo.recurrence_end_enum import RecurrenceEndEnum
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.row_tone_enum import RowToneEnum
 from concentrator.presentation.common.table_snapshot import TableRowSnapshot
+from concentrator.presentation.todo.recurrence_summary_formatter import RecurrenceSummaryFormatter
 from concentrator.presentation.todo.todo_texts import STATE_KEYS, UNKNOWN_KEY
 
 STATE_COLUMN: Final = 0
 """Index of the check box column."""
+TASK_COLUMN: Final = 1
+"""Index of the column of the first line of the text."""
+LIST_COLUMN: Final = 2
+"""Index of the List column, shown only when the table shows every list."""
 
-COLUMN_SORT_KEYS: Final = (
+COLUMN_SORT_KEYS: Final[tuple[TaskSortKeyEnum | None, ...]] = (
     TaskSortKeyEnum.STATE,
     TaskSortKeyEnum.TEXT,
+    None,
     TaskSortKeyEnum.DUE,
+    None,
+    None,
+    None,
     TaskSortKeyEnum.CREATED,
     TaskSortKeyEnum.UPDATED,
 )
-"""Sort key of each column, in column order."""
+"""Sort key of each column, in column order (``None``: the column does not sort)."""
 
 COLUMN_KEYS: Final = (
     "todo.column.state",
     "todo.column.task",
+    "todo.column.list",
     "todo.column.due",
+    "todo.column.repeat",
+    "todo.column.occurrences",
+    "todo.column.links",
     "todo.column.created",
     "todo.column.updated",
 )
@@ -58,15 +73,23 @@ def _tone(task: Task, marks: DueMarks) -> RowToneEnum:
 class TaskRowFormatter:
     """Builds the rows of the task table and the texts of the details pane in the current language."""
 
-    def __init__(self, translator: TranslatorPort, dates: DateTimeFormatter) -> None:
+    def __init__(self, translator: TranslatorPort, dates: DateTimeFormatter, links: LinkDetector) -> None:
         """Create the formatter.
 
         Args:
             translator: Current-language translator.
             dates: Date and time templates.
+            links: Counts the links of a text.
         """
         self._translator = translator
         self._dates = dates
+        self._links = links
+        self._summaries = RecurrenceSummaryFormatter(translator, dates)
+
+    @property
+    def summaries(self) -> RecurrenceSummaryFormatter:
+        """Texts of the recurrences."""
+        return self._summaries
 
     def columns(self) -> tuple[str, ...]:
         """Headers of the table.
@@ -76,21 +99,27 @@ class TaskRowFormatter:
         """
         return tuple(self._translator.tr(key) for key in COLUMN_KEYS)
 
-    def row(self, task: Task, now: datetime) -> TableRowSnapshot:
+    def row(self, task: Task, now: datetime, list_name: str = "") -> TableRowSnapshot:
         """Describe one task.
 
         Args:
             task: Task.
             now: Current local time (due marks).
+            list_name: Name of its list (List column).
 
         Returns:
             The row keyed by the task id.
         """
         marks = due_marks(task, now)
+        link_count = len(self._links.find(task.text))
         cells = (
             self._translator.tr(STATE_KEYS[TaskStateEnum.ARCHIVED]) if task.state is TaskStateEnum.ARCHIVED else "",
             self.title(task),
+            list_name,
             self.due_text(task),
+            "" if task.recurrence is None else self._summaries.short(task.recurrence),
+            self.occurrences_text(task),
+            str(link_count) if link_count else "",
             self._dates.date_time_minutes(task.created_at),
             self._dates.date_time_minutes(task.updated_at),
         )
@@ -131,6 +160,24 @@ class TaskRowFormatter:
         if task.due_time is None:
             return text
         return text + SEPARATOR + self._dates.clock_time(task.due_time)
+
+    def occurrences_text(self, task: Task) -> str:
+        """Occurrences completed, out of the count of a series that ends after a count.
+
+        Args:
+            task: Task.
+
+        Returns:
+            ``3 / 10``, ``3``, or ``""`` for a one-off task.
+        """
+        recurrence = task.recurrence
+        if recurrence is None:
+            return ""
+        if recurrence.end_kind is RecurrenceEndEnum.AFTER_COUNT and recurrence.end_count is not None:
+            return self._translator.tr(
+                "todo.table.occurrences_of", done=task.occurrences_done, count=recurrence.end_count
+            )
+        return str(task.occurrences_done)
 
     def state_text(self, state: TaskStateEnum) -> str:
         """Name of a state.

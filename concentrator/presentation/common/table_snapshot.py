@@ -37,6 +37,7 @@ class TableSnapshot:
         check_column: Column whose cells carry the check box of the rows, ``-1`` for none.
         sort_column: Column of the sort indicator, ``-1`` for none.
         sort_descending: Direction of the sort indicator.
+        hidden_columns: Columns not shown.
     """
 
     columns: tuple[str, ...]
@@ -47,3 +48,4 @@ class TableSnapshot:
     check_column: int = -1
     sort_column: int = -1
     sort_descending: bool = False
+    hidden_columns: tuple[int, ...] = ()

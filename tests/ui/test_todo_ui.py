@@ -24,7 +24,7 @@ from tests.ui.shell_harness import ShellHarness
 
 pytestmark = pytest.mark.ui
 
-LAYOUT = TodoLayout(table_ratio_percent=75, column_widths_px=(60, 140, 140, 140), spacing_px=10)
+LAYOUT = TodoLayout(table_ratio_percent=75, column_widths_px=(60, 120, 140, 130, 50, 50, 140, 140), spacing_px=10)
 
 
 @pytest.fixture
@@ -169,7 +169,7 @@ def test_reset_columns_keeps_the_task_column_stretching(harness: ShellHarness) -
 
     table.reset_columns()
 
-    assert [header.logicalIndex(visual) for visual in range(header.count())] == [0, 1, 2, 3, 4]
+    assert [header.logicalIndex(visual) for visual in range(header.count())] == list(range(9))
     assert header.sectionSize(0) == LAYOUT.column_widths_px[0]
 
 
@@ -371,3 +371,43 @@ def test_a_tab_tooltip_shows_html_of_a_description_as_typed(harness: ShellHarnes
 
     assert "&lt;b&gt;bold&lt;/b&gt;" in tooltip
     assert "<b>" not in tooltip
+
+
+def test_filter_bar_narrows_the_table_and_shows_the_counter(harness: ShellHarness) -> None:
+    harness.todo.task_commands.quick_add(WORK_LIST_ID, "État des lieux")
+    _add(harness, "Groceries")
+    filters = harness.window.focus_page.filter_panel
+    table = harness.window.focus_page.table_panel
+
+    QTest.keyClicks(filters.search_box, "etat")
+    harness.scheduler.advance(150)
+    _settle(harness)
+
+    assert table.model.rowCount() == 1
+    assert filters.counter_label.text() == "en:todo.filter.counter.other(count=2,shown=1)"
+    assert table.table.isColumnHidden(2)
+
+    filters.scope_box.setCurrentIndex(1)
+    _settle(harness)
+
+    assert not table.table.isColumnHidden(2)
+    assert filters.scope_box.currentIndex() == 1
+
+
+def test_filter_bar_due_filter_and_recurring_toggle(harness: ShellHarness) -> None:
+    _add(harness, "No date")
+    filters = harness.window.focus_page.filter_panel
+    table = harness.window.focus_page.table_panel
+
+    filters.due_box.setCurrentIndex(5)
+    _settle(harness)
+    assert table.model.rowCount() == 0
+
+    filters.due_box.setCurrentIndex(6)
+    _settle(harness)
+    assert table.model.rowCount() == 1
+
+    filters.recurring_box.click()
+    _settle(harness)
+    assert table.model.rowCount() == 0
+    assert filters.recurring_box.isChecked()

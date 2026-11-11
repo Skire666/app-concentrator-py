@@ -22,6 +22,8 @@ from concentrator.presentation.todo.task_details_presenter import TaskDetailsPre
 from concentrator.presentation.todo.task_details_snapshot import TaskDetailsSnapshot
 from concentrator.presentation.todo.task_edit_presenter import TaskEditPresenter
 from concentrator.presentation.todo.task_edit_snapshot import TaskEditSnapshot
+from concentrator.presentation.todo.task_filter_presenter import TaskFilterPresenter
+from concentrator.presentation.todo.task_filter_snapshot import TaskFilterSnapshot
 from concentrator.presentation.todo.task_table_presenter import TaskTablePresenter
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
 from concentrator.presentation.todo.todo_presenters import TodoPresenters
@@ -38,7 +40,7 @@ from tests.fakes.fake_translator import FakeTranslator
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.manual_scheduler import ManualScheduler
 from tests.fakes.timer_ui_stack import FakeEditorDialog
-from tests.fakes.todo_stack import TODO_EVENT_TYPES, TodoStack
+from tests.fakes.todo_stack import LINKS, TODO_EVENT_TYPES, TodoStack
 
 COOLDOWN_MS: Final = 100
 DEFAULTS: Final = TodoDefaults.from_section(make_todo_section())
@@ -119,10 +121,20 @@ class TodoUiStack(TodoStack):
         self.tabs.attach(self.dialogs)
         self.toolbar = TodoToolbarPresenter(tr, gate, renderer, view=self.view, actions=self.actions)
         self.table = TaskTablePresenter(
-            tr, gate, renderer, view=self.view, actions=self.actions, clock=self.clock, menu=self.toolbar.menu_builder
+            tr,
+            gate,
+            renderer,
+            view=self.view,
+            actions=self.actions,
+            clock=self.clock,
+            menu=self.toolbar.menu_builder,
+            links=LINKS,
+        )
+        self.filters = TaskFilterPresenter(
+            tr, gate, renderer, view=self.view, scheduler=self.scheduler, search_debounce_ms=DEFAULTS.search_debounce_ms
         )
         self.quick_add = QuickAddPresenter(tr, gate, renderer, view=self.view, commands=self.task_commands)
-        self.details = TaskDetailsPresenter(tr, self.clock, self.view)
+        self.details = TaskDetailsPresenter(tr, self.clock, self.view, LINKS)
         self.refresher = TodoRefresher(self.view, renderer)
         for event_type in TODO_EVENT_TYPES:
             self.bus.subscribe(event_type, self.refresher.on_todo_changed)
@@ -131,6 +143,7 @@ class TodoUiStack(TodoStack):
     def _register(self, *, register_editors: bool) -> None:
         self.rendered_tabs: list[TodoTabsSnapshot] = []
         self.rendered_toolbar: list[TodoToolbarSnapshot] = []
+        self.rendered_filters: list[TaskFilterSnapshot] = []
         self.rendered_table: list[TaskTableSnapshot] = []
         self.rendered_quick_add: list[QuickAddSnapshot] = []
         self.rendered_details: list[TaskDetailsSnapshot] = []
@@ -139,6 +152,7 @@ class TodoUiStack(TodoStack):
         renderer = self.renderer
         renderer.register(RenderSectionEnum.TODO_TABS, self.tabs.build_snapshot, self.rendered_tabs.append)
         renderer.register(RenderSectionEnum.TODO_TOOLBAR, self.toolbar.build_snapshot, self.rendered_toolbar.append)
+        renderer.register(RenderSectionEnum.TODO_FILTERS, self.filters.build_snapshot, self.rendered_filters.append)
         renderer.register(RenderSectionEnum.TODO_TABLE, self.table.build_snapshot, self.rendered_table.append)
         renderer.register(RenderSectionEnum.QUICK_ADD, self.quick_add.build_snapshot, self.rendered_quick_add.append)
         renderer.register(RenderSectionEnum.TODO_DETAILS, self.details.build_snapshot, self.rendered_details.append)
@@ -155,6 +169,7 @@ class TodoUiStack(TodoStack):
         return TodoPresenters(
             tabs=self.tabs,
             toolbar=self.toolbar,
+            filters=self.filters,
             quick_add=self.quick_add,
             table=self.table,
             details=self.details,

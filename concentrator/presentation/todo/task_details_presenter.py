@@ -2,6 +2,7 @@
 
 from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.translator_port import TranslatorPort
+from concentrator.domain.todo.link_detector import LinkDetector
 from concentrator.domain.todo.task import Task
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.todo.task_details_snapshot import DetailRowSnapshot, TaskDetailsSnapshot
@@ -12,17 +13,18 @@ from concentrator.presentation.todo.todo_view import TodoView
 class TaskDetailsPresenter:
     """Shows the full text, list, due date, state and dates of the only selected task."""
 
-    def __init__(self, translator: TranslatorPort, clock: ClockPort, view: TodoView) -> None:
+    def __init__(self, translator: TranslatorPort, clock: ClockPort, view: TodoView, links: LinkDetector) -> None:
         """Create the presenter.
 
         Args:
             translator: Current-language translator.
             clock: Local time of the dates.
             view: Selected tasks and lists.
+            links: Finds the links of the text.
         """
         self._translator = translator
         self._dates = DateTimeFormatter(translator, clock)
-        self._rows = TaskRowFormatter(translator, self._dates)
+        self._rows = TaskRowFormatter(translator, self._dates, links)
         self._view = view
 
     def build_snapshot(self) -> TaskDetailsSnapshot:

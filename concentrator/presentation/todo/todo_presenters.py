@@ -7,6 +7,7 @@ from concentrator.presentation.todo.quick_add_presenter import QuickAddPresenter
 from concentrator.presentation.todo.task_actions import TaskActions
 from concentrator.presentation.todo.task_details_presenter import TaskDetailsPresenter
 from concentrator.presentation.todo.task_edit_presenter import TaskEditPresenter
+from concentrator.presentation.todo.task_filter_presenter import TaskFilterPresenter
 from concentrator.presentation.todo.task_table_presenter import TaskTablePresenter
 from concentrator.presentation.todo.todo_refresher import TodoRefresher
 from concentrator.presentation.todo.todo_tabs_presenter import TodoTabsPresenter
@@ -20,6 +21,7 @@ class TodoPresenters:
     Attributes:
         tabs: List tabs and list actions.
         toolbar: Task toolbar and toggles.
+        filters: Filter bar (due date, recurring only, search, scope).
         quick_add: Quick add field.
         table: Task table.
         details: Details pane.
@@ -31,6 +33,7 @@ class TodoPresenters:
 
     tabs: TodoTabsPresenter
     toolbar: TodoToolbarPresenter
+    filters: TaskFilterPresenter
     quick_add: QuickAddPresenter
     table: TaskTablePresenter
     details: TaskDetailsPresenter

@@ -93,11 +93,12 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
         max_recurrence_interval=999,
         max_recurrence_count=9999,
         recurrence_preview_count=4,
+        search_debounce_ms=150,
         default_list_priority=PriorityEnum.NORMAL,
         default_sort=TaskSortKeyEnum.CREATED,
         default_sort_descending=True,
         default_table_ratio_percent=75,
-        default_column_widths_px=(60, 140, 140, 140),
+        default_column_widths_px=(60, 120, 140, 130, 50, 50, 140, 140),
     )
 
 
@@ -194,7 +195,18 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("default_start_hour = 8", "default_start_hour = 24", "chime.default_start_hour"),
         ("default_end_hour = 20", "default_end_hour = 7", "chime"),
         ("trigger_window_seconds = 59", "trigger_window_seconds = 3600", "chime.trigger_window_seconds"),
-        ("search_debounce_ms = 150", "search_debounce_ms = 2001", "journal.search_debounce_ms"),
+        (
+            "last key press [0..2000 ms].\nsearch_debounce_ms = 150",
+            "last key press [0..2000 ms].\nsearch_debounce_ms = 2001",
+            "journal.search_debounce_ms",
+        ),
+        (
+            "task search applies [0..2000 ms].\nsearch_debounce_ms = 150",
+            "task search applies [0..2000 ms].\nsearch_debounce_ms = 2001",
+            "todo.search_debounce_ms",
+        ),
+        ("max_recurrence_interval = 999", "max_recurrence_interval = 0", "todo.max_recurrence_interval"),
+        ("recurrence_preview_count = 4", "recurrence_preview_count = 21", "todo.recurrence_preview_count"),
         ("copy_max_rows = 2000", "copy_max_rows = 0", "journal.copy_max_rows"),
         ("default_table_ratio_percent = 70", "default_table_ratio_percent = 96", "journal.default_table_ratio_percent"),
         ("default_column_widths_px = 110, 90, 240, 120", "default_column_widths_px = 110, 90", "journal"),
@@ -211,8 +223,16 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("default_list_priority = NORMAL", "default_list_priority = MEDIUM", "todo.default_list_priority"),
         ("default_sort = CREATED", "default_sort = NAME", "todo.default_sort"),
         ("default_sort_descending = true", "default_sort_descending = 2", "todo.default_sort_descending"),
-        ("default_column_widths_px = 60, 140, 140, 140", "default_column_widths_px = 60, 140", "todo"),
-        ("default_column_widths_px = 60, 140, 140, 140", "default_column_widths_px = 60, 140, 140, 9", "todo"),
+        (
+            "default_column_widths_px = 60, 120, 140, 130, 50, 50, 140, 140",
+            "default_column_widths_px = 60, 140, 140, 140",
+            "todo",
+        ),
+        (
+            "default_column_widths_px = 60, 120, 140, 130, 50, 50, 140, 140",
+            "default_column_widths_px = 60, 120, 140, 130, 50, 50, 140, 9",
+            "todo",
+        ),
         (
             "default_notify_when_inactive = true",
             "default_notify_when_inactive = 2",

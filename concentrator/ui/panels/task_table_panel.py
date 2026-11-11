@@ -20,6 +20,7 @@ from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QLabel, QMenu, QStackedLayout, QTableView, QWidget
 
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
+from concentrator.presentation.common.table_snapshot import TableSnapshot
 from concentrator.presentation.todo.task_menu_snapshot import TaskMenuSnapshot
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
 from concentrator.ui.support.plain_text import without_mnemonic
@@ -51,7 +52,7 @@ class TaskTablePanel(QWidget):
         """Build the table.
 
         Args:
-            column_widths_px: Default widths of the state, due, created and updated columns.
+            column_widths_px: Default widths of every column but the task column.
             parent: Parent widget.
         """
         super().__init__(parent)
@@ -105,11 +106,7 @@ class TaskTablePanel(QWidget):
         self._apply_selection(table.selection)
         if reset:
             self._table.verticalScrollBar().setValue(scroll)
-        header_blocker = QSignalBlocker(self._table.horizontalHeader())
-        order = Qt.SortOrder.DescendingOrder if table.sort_descending else Qt.SortOrder.AscendingOrder
-        self._sort_indicator = (table.sort_column, order)
-        self._table.horizontalHeader().setSortIndicator(table.sort_column, order)
-        header_blocker.unblock()
+        self._apply_header(table)
         self._empty.setText(table.empty_text)
         self._empty.setVisible(not table.rows)
         self._menu = snapshot.menu
@@ -163,6 +160,23 @@ class TaskTablePanel(QWidget):
         for column, width in enumerate(widths):
             if width:
                 header.resizeSection(column, width)
+
+    def _apply_header(self, table: TableSnapshot) -> None:
+        """Show the sort indicator and the hidden columns of a snapshot.
+
+        Args:
+            table: Table state.
+        """
+        header = self._table.horizontalHeader()
+        blocker = QSignalBlocker(header)
+        order = Qt.SortOrder.DescendingOrder if table.sort_descending else Qt.SortOrder.AscendingOrder
+        self._sort_indicator = (table.sort_column, order)
+        header.setSortIndicator(table.sort_column, order)
+        blocker.unblock()
+        for column in range(self._model.columnCount()):
+            hidden = column in table.hidden_columns
+            if self._table.isColumnHidden(column) != hidden:
+                self._table.setColumnHidden(column, hidden)
 
     def _add_move_menu(self, menu: QMenu, text: str, *, enabled: bool) -> None:
         """Add the "Move to list" submenu.
