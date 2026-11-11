@@ -1,6 +1,7 @@
 """``CONCENTRATOR_SELF_CHECK=1``: validates a (frozen) installation without showing a window."""
 
 import logging
+from dataclasses import replace
 from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Final
@@ -21,12 +22,16 @@ from concentrator.domain.timer.hourly_chime import HourlyChime, HourlyChimeId
 from concentrator.domain.timer.timer_config import TimerConfig, TimerConfigId
 from concentrator.domain.timer.timer_preset import TimerPreset, TimerPresetId
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
+from concentrator.domain.todo.recurrence import Recurrence
+from concentrator.domain.todo.recurrence_end_enum import RecurrenceEndEnum
+from concentrator.domain.todo.recurrence_frequency_enum import RecurrenceFrequencyEnum
 from concentrator.domain.todo.task import Task, TaskId
 from concentrator.domain.todo.task_draft import TaskDraft
 from concentrator.domain.todo.task_event_kind_enum import TaskEventKindEnum
 from concentrator.domain.todo.task_list import TaskList, TaskListId
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
 from concentrator.domain.todo.tasks_collection import TasksCollection
+from concentrator.domain.todo.weekday_enum import WeekdayEnum
 from concentrator.infrastructure.i18n.json_catalog_translator import CATALOG_SUFFIX, load_catalogs
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
 from concentrator.infrastructure.qt.qt_sound_player import MP3_MIME_TYPE, decodable_mime_types
@@ -45,6 +50,7 @@ ROUND_TRIP_PRESET_ID: Final = "00000000-0000-7000-8001-{index:012d}"
 ROUND_TRIP_TIME: Final = datetime(2026, 1, 1, tzinfo=UTC)
 ROUND_TRIP_LIST_ID: Final = TaskListId("00000000-0000-7000-8000-000000000003")
 ROUND_TRIP_TASK_ID: Final = TaskId("00000000-0000-7000-8000-000000000004")
+ROUND_TRIP_RECURRING_ID: Final = TaskId("00000000-0000-7000-8000-000000000005")
 ROUND_TRIP_TEXT: Final = ("Self-check task", "l'arborescence D:/Projets et https://example.org/?q='x'")
 ROUND_TRIP_DUE: Final = (date(2026, 1, 2), time(14, 30))
 
@@ -151,7 +157,7 @@ def _round_trip_lists(todo: TodoDefaults) -> TaskListsCollection:
 
 
 def _round_trip_tasks(todo: TodoDefaults) -> TasksCollection:
-    """One completed task with a due date and time, apostrophes and a history of two events.
+    """A completed task (due date and time, apostrophes, two events) and a weekly task with one occurrence done.
 
     Args:
         todo: ``[todo]`` values.
@@ -165,7 +171,17 @@ def _round_trip_tasks(todo: TodoDefaults) -> TasksCollection:
     )
     task = Task.create(ROUND_TRIP_TASK_ID, ROUND_TRIP_TIME, draft)
     done = task.transitioned(TaskEventKindEnum.COMPLETED, ROUND_TRIP_TIME, todo.limits.max_history_events)
-    return TasksCollection((done.value_or(task),))
+    recurrence = Recurrence.create(
+        frequency=RecurrenceFrequencyEnum.WEEKLY,
+        interval=2,
+        weekdays=(WeekdayEnum.MONDAY, WeekdayEnum.FRIDAY),
+        anchor_date=due_date,
+        end_kind=RecurrenceEndEnum.AFTER_COUNT,
+        end_count=4,
+    )
+    weekly = Task.create(ROUND_TRIP_RECURRING_ID, ROUND_TRIP_TIME, replace(draft, recurrence=recurrence))
+    occurrence = weekly.completed(ROUND_TRIP_TIME, due_date, todo.limits.max_history_events)
+    return TasksCollection((done.value_or(task), occurrence.value_or(weekly)))
 
 
 def storage_failures(app_version: str, config: AppConfig) -> list[str]:
