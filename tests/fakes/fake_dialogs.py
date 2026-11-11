@@ -1,9 +1,10 @@
 """Scripted dialogs recording what was asked."""
 
 from collections.abc import Callable
+from datetime import date
 from typing import override
 
-from concentrator.presentation.ports.dialog_port import DialogPort
+from concentrator.presentation.ports.dialog_port import DatePrompt, DialogPort
 
 
 class FakeDialogs(DialogPort):
@@ -19,6 +20,8 @@ class FakeDialogs(DialogPort):
         self.chosen_paths: list[str | None] = []
         self.calls: list[tuple[str, tuple[str, ...]]] = []
         self.on_error: Callable[[], None] = lambda: None
+        self.date_answer: date | None = None
+        self.prompts: list[DatePrompt] = []
 
     def kinds(self) -> list[str]:
         return [kind for kind, _texts in self.calls]
@@ -35,6 +38,12 @@ class FakeDialogs(DialogPort):
     def choose(self, title: str, message: str, options: tuple[str, ...], cancel_index: int) -> int:
         self.calls.append(("choose", (title, message, *options)))
         return self.choices.pop(0) if self.choices else self.choice
+
+    @override
+    def ask_date(self, prompt: DatePrompt) -> date | None:
+        self.calls.append(("ask_date", (prompt.title, prompt.label, prompt.accept_text, prompt.reject_text)))
+        self.prompts.append(prompt)
+        return self.date_answer
 
     @override
     def inform(self, title: str, message: str, button_text: str) -> None:

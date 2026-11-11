@@ -8,6 +8,7 @@ from concentrator.application.storage.storage_events import UserDataReplacedEven
 from concentrator.application.todo.link_commands import LinkCommands
 from concentrator.application.todo.task_commands import TaskCommands
 from concentrator.application.todo.task_list_commands import TaskListCommands, TodoStores
+from concentrator.application.todo.task_schedule_commands import TaskScheduleCommands
 from concentrator.application.todo.todo_defaults import TodoDefaults
 from concentrator.application.todo.todo_events import (
     TaskChangedEvent,
@@ -173,7 +174,9 @@ def build_todo(config: AppConfig, translator: TranslatorPort, core: Core, store:
     view = _view(core, queries, defaults)
     editors = _editors(translator, core, (queries, lists, tasks), view, defaults)
     link_commands = LinkCommands(tasks=stores.tasks, links=links, opener=QtLinkOpener())
-    presenters = _assemble(translator, core, (view, config, links), (lists, tasks, link_commands), editors)
+    schedule = TaskScheduleCommands(stores=stores, clock=core.clock, event_bus=core.event_bus, limits=defaults.limits)
+    use_cases = (lists, tasks, link_commands, schedule)
+    presenters = _assemble(translator, core, (view, config, links), use_cases, editors)
     _subscribe(core, presenters.refresher)
     return presenters
 
@@ -182,7 +185,7 @@ def _assemble(
     translator: TranslatorPort,
     core: Core,
     shown: tuple[TodoView, AppConfig, LinkDetector],
-    commands: tuple[TaskListCommands, TaskCommands, LinkCommands],
+    commands: tuple[TaskListCommands, TaskCommands, LinkCommands, TaskScheduleCommands],
     editors: tuple[TaskEditPresenter, ListEditPresenter],
 ) -> TodoPresenters:
     """Create the presenters of zone 1 around the dialogs.
@@ -191,7 +194,7 @@ def _assemble(
         translator: Current-language translator.
         core: Main-thread services.
         shown: Current list, filters and selection; configuration; links of the texts.
-        commands: List, task and link use cases.
+        commands: List, task, link and due date use cases.
         editors: Task and list dialog presenters.
 
     Returns:
@@ -199,7 +202,7 @@ def _assemble(
     """
     view = shown[0]
     task_editor, list_editor = editors
-    actions = TaskActions(translator, core.gate, view=view, commands=commands[1], editor=task_editor)
+    actions = _actions(translator, core, view, (commands[1], commands[3]), task_editor)
     toolbar, table, filters = _table_presenters(translator, core, shown, actions)
     details, history, links = _info_presenters(translator, core, shown, commands[2])
     return TodoPresenters(
@@ -217,6 +220,31 @@ def _assemble(
         list_editor=list_editor,
         actions=actions,
         refresher=TodoRefresher(view, core.renderer),
+    )
+
+
+def _actions(
+    translator: TranslatorPort,
+    core: Core,
+    view: TodoView,
+    commands: tuple[TaskCommands, TaskScheduleCommands],
+    editor: TaskEditPresenter,
+) -> TaskActions:
+    """Create the task actions of the toolbar, the context menu and the keyboard.
+
+    Args:
+        translator: Current-language translator.
+        core: Main-thread services.
+        view: Current list and selection.
+        commands: Task and due date use cases.
+        editor: Task dialog.
+
+    Returns:
+        The actions.
+    """
+    tasks, schedule = commands
+    return TaskActions(
+        translator, core.gate, view=view, commands=tasks, editor=editor, schedule=schedule, clock=core.clock
     )
 
 

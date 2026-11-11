@@ -201,6 +201,7 @@ def test_toolbar_states_follow_a_mixed_selection() -> None:
         ActionIdEnum.TASK_REOPEN,
         ActionIdEnum.TASK_ARCHIVE,
         ActionIdEnum.TASK_MOVE,
+        ActionIdEnum.TASK_SET_DUE_DATE,
         ActionIdEnum.TASK_DELETE,
     }
     assert [(target.list_id, target.enabled) for target in menu.move_targets] == [(HOME_LIST_ID, True)]

@@ -1,8 +1,12 @@
 """Task actions enabled from the selection, for the toolbar and the context menu of the table."""
 
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Final
 
+from concentrator.domain.common.error_code_enum import ErrorCodeEnum
+from concentrator.domain.common.severity_enum import SeverityEnum
+from concentrator.domain.common.validation_issue import ValidationIssue
 from concentrator.domain.todo.link_detector import LinkDetector
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
@@ -10,6 +14,7 @@ from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.presentation.common.action_button import action_button
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
+from concentrator.presentation.common.button_snapshot import ButtonSnapshot
 from concentrator.presentation.common.ui_texts import UiTexts
 from concentrator.presentation.todo.task_menu_snapshot import LinkMenuItemSnapshot, MoveTargetSnapshot, TaskMenuSnapshot
 
@@ -22,6 +27,8 @@ TASK_MENU_ACTIONS: Final = (
     ActionIdEnum.TASK_UNARCHIVE,
     ActionIdEnum.TASK_DUPLICATE,
     ActionIdEnum.TASK_MOVE,
+    ActionIdEnum.TASK_SET_DUE_DATE,
+    ActionIdEnum.TASK_CLEAR_DUE_DATE,
     ActionIdEnum.TASK_DELETE,
 )
 """Buttons of the toolbar and items of the context menu, in order."""
@@ -35,7 +42,9 @@ ACTION_STATES: Final = {
 """States a selected task must have for a state action to apply to it."""
 
 SINGLE_TASK_ACTIONS: Final = frozenset({ActionIdEnum.TASK_EDIT, ActionIdEnum.TASK_DUPLICATE})
-ANY_TASK_ACTIONS: Final = frozenset({ActionIdEnum.TASK_DELETE})
+ANY_TASK_ACTIONS: Final = frozenset({ActionIdEnum.TASK_DELETE, ActionIdEnum.TASK_SET_DUE_DATE})
+NEEDS_DUE_DATE: Final = ValidationIssue(code=ErrorCodeEnum.RECURRENCE_REQUIRES_DUE_DATE, severity=SeverityEnum.ERROR)
+"""Why "Clear due date" is off for a selection holding a repeating task (its tooltip)."""
 
 
 def applicable(tasks: Sequence[Task], action: ActionIdEnum) -> tuple[Task, ...]:
@@ -82,12 +91,7 @@ class TaskMenuBuilder:
         """
         others = tuple(item for item in lists if item.id != current_list_id)
         buttons = tuple(
-            action_button(
-                self._texts,
-                self._gate,
-                action,
-                enabled=self._enabled(action, selected, has_list=lists.contains(current_list_id), others=bool(others)),
-            )
+            self._button(action, selected, has_list=lists.contains(current_list_id), others=bool(others))
             for action in TASK_MENU_ACTIONS
         )
         move_enabled = bool(selected) and not self._gate.is_busy(ActionIdEnum.TASK_MOVE)
@@ -110,6 +114,26 @@ class TaskMenuBuilder:
         found = self._links.find(selected[0].text)[: self._max_links]
         return tuple(LinkMenuItemSnapshot(index=index, text=link.target.value) for index, link in enumerate(found))
 
+    def _button(
+        self, action: ActionIdEnum, selected: Sequence[Task], *, has_list: bool, others: bool
+    ) -> ButtonSnapshot:
+        """Describe one task action.
+
+        Args:
+            action: Task action.
+            selected: Selected tasks.
+            has_list: Whether a list is shown.
+            others: Whether another list exists.
+
+        Returns:
+            The button; "Clear due date" explains in its tooltip why a repeating task blocks it.
+        """
+        enabled = self._enabled(action, selected, has_list=has_list, others=others)
+        button = action_button(self._texts, self._gate, action, enabled=enabled)
+        if action is ActionIdEnum.TASK_CLEAR_DUE_DATE and any(task.recurrence for task in selected):
+            return replace(button, tooltip=self._texts.issue_message(NEEDS_DUE_DATE))
+        return button
+
     @staticmethod
     def _enabled(action: ActionIdEnum, selected: Sequence[Task], *, has_list: bool, others: bool) -> bool:
         """Tell whether an action applies to the selection.
@@ -131,4 +155,7 @@ class TaskMenuBuilder:
             return bool(selected) and others
         if action in ANY_TASK_ACTIONS:
             return bool(selected)
+        if action is ActionIdEnum.TASK_CLEAR_DUE_DATE:
+            dated = any(task.due_date is not None for task in selected)
+            return dated and not any(task.recurrence is not None for task in selected)
         return bool(applicable(selected, action))

@@ -2,22 +2,27 @@
 
 import logging
 from collections.abc import Callable
+from datetime import date
 from typing import Final, Protocol
 
+from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.todo.task_commands import TaskCommands
+from concentrator.application.todo.task_schedule_commands import TaskScheduleCommands
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
-from concentrator.presentation.ports.dialog_port import DialogPort
+from concentrator.presentation.ports.dialog_port import DatePrompt, DialogPort
 from concentrator.presentation.todo.task_menu_builder import applicable
 from concentrator.presentation.todo.todo_view import TodoView
 
 _logger = logging.getLogger(__name__)
 
 _NOT_ATTACHED: Final = "TaskActions.attach() was not called"
-INTERACTIVE_ACTIONS: Final = frozenset({ActionIdEnum.TASK_NEW, ActionIdEnum.TASK_EDIT, ActionIdEnum.TASK_DELETE})
+INTERACTIVE_ACTIONS: Final = frozenset(
+    {ActionIdEnum.TASK_NEW, ActionIdEnum.TASK_EDIT, ActionIdEnum.TASK_DELETE, ActionIdEnum.TASK_SET_DUE_DATE}
+)
 
 
 class TaskEditorOpener(Protocol):
@@ -61,6 +66,8 @@ class TaskActions:
         view: TodoView,
         commands: TaskCommands,
         editor: TaskEditorOpener,
+        schedule: TaskScheduleCommands,
+        clock: ClockPort,
     ) -> None:
         """Create the actions; the dialog service comes with ``attach``.
 
@@ -70,15 +77,28 @@ class TaskActions:
             view: Current list and selected tasks.
             commands: Task use cases.
             editor: Opens the task dialog.
+            schedule: Sets and clears the due date of the selected tasks.
+            clock: Today's date, proposed by "Set due date..." for tasks without a date.
         """
         self._translator = translator
         self._gate = gate
         self._view = view
         self._commands = commands
         self._editor = editor
+        self._schedule = schedule
+        self._clock = clock
         self._dialogs: DialogPort | None = None
-        self._operations: dict[ActionIdEnum, Callable[[], ValidationResult]] = {
-            ActionIdEnum.TASK_NEW: lambda: editor.open_new(view.list_id),
+        self._operations = self._build_operations()
+
+    def _build_operations(self) -> dict[ActionIdEnum, Callable[[], ValidationResult]]:
+        """Map every task action to its operation on the selection.
+
+        Returns:
+            The operations.
+        """
+        commands = self._commands
+        return {
+            ActionIdEnum.TASK_NEW: lambda: self._editor.open_new(self._view.list_id),
             ActionIdEnum.TASK_EDIT: self._edit,
             ActionIdEnum.TASK_COMPLETE: lambda: commands.complete(self._ids(ActionIdEnum.TASK_COMPLETE)),
             ActionIdEnum.TASK_REOPEN: lambda: commands.reopen(self._ids(ActionIdEnum.TASK_REOPEN)),
@@ -86,6 +106,8 @@ class TaskActions:
             ActionIdEnum.TASK_UNARCHIVE: lambda: commands.unarchive(self._ids(ActionIdEnum.TASK_UNARCHIVE)),
             ActionIdEnum.TASK_DUPLICATE: self._duplicate,
             ActionIdEnum.TASK_DELETE: self._delete,
+            ActionIdEnum.TASK_SET_DUE_DATE: self._set_due_date,
+            ActionIdEnum.TASK_CLEAR_DUE_DATE: lambda: self._schedule.clear_due_date(self._selected_ids()),
         }
 
     def attach(self, dialogs: DialogPort) -> None:
@@ -214,6 +236,38 @@ class TaskActions:
         if copy.data is not None:
             self._view.state.select_tasks((copy.data.id,))
         return copy.validation
+
+    def _selected_ids(self) -> tuple[str, ...]:
+        """Ids of the selected tasks.
+
+        Returns:
+            The ids, in table order.
+        """
+        return tuple(task.id for task in self._view.selected())
+
+    def _set_due_date(self) -> ValidationResult:
+        """Ask for a date, then give it to every selected task (each keeps its due time).
+
+        Returns:
+            Success, skipped without selection or when the user cancelled, or the failure (nothing changed).
+        """
+        selected = self._view.selected()
+        if not selected:
+            return ValidationResult.skipped()
+        tr = self._translator.tr
+        first: date = next((task.due_date for task in selected if task.due_date), self._clock.now_local().date())
+        prompt = DatePrompt(
+            title=tr("todo.set_due.title"),
+            label=self._translator.tr_plural("todo.set_due.label", len(selected)),
+            initial=first,
+            date_format=tr("todo.task_edit.date_format"),
+            accept_text=tr("todo.set_due.accept"),
+            reject_text=tr("dialog.button.cancel"),
+        )
+        chosen = self._attached_dialogs().ask_date(prompt)
+        if chosen is None:
+            return ValidationResult.skipped()
+        return self._schedule.set_due_date(tuple(task.id for task in selected), chosen)
 
     def _delete(self) -> ValidationResult:
         """Ask how many tasks will be deleted, then delete them.

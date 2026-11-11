@@ -1,14 +1,16 @@
-"""``DialogPort`` on ``QMessageBox`` and ``QFileDialog``; button texts come from the catalogs.
+"""``DialogPort`` on ``QMessageBox``, ``QFileDialog`` and a date prompt; button texts come from the catalogs.
 
 Every dialog runs through a ``DialogRunner``: ``ModalHost`` once the main window exists (dimmed,
 centered, kept inside; ADR-036), ``ScreenDialogRunner`` before.
 """
 
+from datetime import date
 from typing import override
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
 
-from concentrator.presentation.ports.dialog_port import DialogPort
+from concentrator.presentation.ports.dialog_port import DatePrompt, DialogPort
+from concentrator.ui.support.date_prompt_dialog import DatePromptDialog
 from concentrator.ui.support.modal_host import DialogRunner
 
 
@@ -63,6 +65,13 @@ class QtDialogService(DialogPort):
         self._runner.run(box)
         clicked = box.clickedButton()
         return next((index for index, button in enumerate(buttons) if button is clicked), cancel_index)
+
+    @override
+    def ask_date(self, prompt: DatePrompt) -> date | None:
+        dialog = DatePromptDialog(prompt, self._runner.parent)
+        self._runner.run(dialog)
+        accepted = dialog.result() == QDialog.DialogCode.Accepted.value
+        return dialog.chosen() if accepted else None
 
     @override
     def inform(self, title: str, message: str, button_text: str) -> None:

@@ -1,14 +1,17 @@
+from datetime import date
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QByteArray, QTimer
+from PySide6.QtCore import QByteArray, QDate, QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
+from concentrator.presentation.ports.dialog_port import DatePrompt
 from concentrator.presentation.shell.shell_snapshot import StatusBarSnapshot
 from concentrator.ui.panels.status_bar_panel import StatusBarPanel
+from concentrator.ui.support.date_prompt_dialog import DatePromptDialog
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.support.layout_codec import decode_blob, encode_blob
 from concentrator.ui.support.modal_host import ModalHost
@@ -141,3 +144,28 @@ def test_status_bar_shows_the_save_tooltip_and_the_instance_warning(qtbot: QtBot
     assert shown == ("Data file: D:/x.toml", "Second launch not blocked", False)
     assert panel.instance_warning.isHidden()
     assert panel.instance_warning.property("warning") is True
+
+
+@pytest.mark.parametrize(("clicked", "expected"), [("Set", date(2026, 11, 20)), ("Cancel", None)])
+def test_ask_date_returns_the_chosen_date_or_none(qtbot: QtBot, clicked: str, expected: date | None) -> None:
+    parent = QWidget()
+    qtbot.addWidget(parent)
+    prompt = DatePrompt(
+        title="Set due date",
+        label="Due date",
+        initial=date(2026, 11, 6),
+        date_format="dd/MM/yyyy",
+        accept_text="Set",
+        reject_text="Cancel",
+    )
+
+    def answer() -> None:
+        dialog = QApplication.activeModalWidget()
+        assert isinstance(dialog, DatePromptDialog)
+        assert dialog.date_input.date() == QDate(2026, 11, 6)
+        dialog.date_input.setDate(QDate(2026, 11, 20))
+        next(button for button in dialog.findChildren(QPushButton) if button.text() == clicked).click()
+
+    QTimer.singleShot(0, answer)
+
+    assert QtDialogService(ModalHost.create(parent, 10)).ask_date(prompt) == expected

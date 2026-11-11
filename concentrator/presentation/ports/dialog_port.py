@@ -1,6 +1,29 @@
 """Modal dialogs requested by presenters, implemented by ``ui.support.QtDialogService``."""
 
+from dataclasses import dataclass
+from datetime import date
 from typing import Protocol
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DatePrompt:
+    """A question asking for one date (Set due date...).
+
+    Attributes:
+        title: Window title.
+        label: Caption of the date field.
+        initial: Date shown when the dialog opens.
+        date_format: Display format of the date field, from the catalog.
+        accept_text: Label of the accepting button.
+        reject_text: Label of the rejecting button.
+    """
+
+    title: str
+    label: str
+    initial: date
+    date_format: str
+    accept_text: str
+    reject_text: str
 
 
 class DialogPort(Protocol):
@@ -31,6 +54,17 @@ class DialogPort(Protocol):
 
         Returns:
             Index of the chosen answer.
+        """
+        ...
+
+    def ask_date(self, prompt: DatePrompt) -> date | None:
+        """Ask for a date.
+
+        Args:
+            prompt: Texts and initial date.
+
+        Returns:
+            The date chosen, ``None`` when the user cancelled (Cancel, Escape, close button).
         """
         ...
 

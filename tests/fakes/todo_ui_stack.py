@@ -117,7 +117,15 @@ class TodoUiStack(TodoStack):
             tr, gate, renderer, queries=self.queries, commands=self.list_commands, defaults=DEFAULTS, state=self.state
         )
         self.list_editor.attach(self.list_window, self.dialogs)
-        self.actions = TaskActions(tr, gate, view=self.view, commands=self.task_commands, editor=self.task_editor)
+        self.actions = TaskActions(
+            tr,
+            gate,
+            view=self.view,
+            commands=self.task_commands,
+            editor=self.task_editor,
+            schedule=self.schedule_commands,
+            clock=self.clock,
+        )
         self.actions.attach(self.dialogs)
         self.tabs = TodoTabsPresenter(
             tr, gate, renderer, view=self.view, commands=self.list_commands, editor=self.list_editor
