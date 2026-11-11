@@ -1022,3 +1022,14 @@ superseded.
   2. The tab priority marks (`‼`, `↑`, none, `↓`), the 09:00 proposed due time, the palette highlight
      colour for overdue tasks (until the themes phase) and the open copy of a duplicated done task stay
      as built.
+- Amendment 2 (phase 5 code review, owner decision 2026-11-11: "Suit tes recommandations"); details in
+  `docs/reviews/phase-5-code-review.md`.
+  1. **The view follows the data once per read, not once per event** (`TodoView.mark_stale`): a bulk
+     change of 1,000 tasks went from 142 ms to 9 ms.
+  2. **Widgets that change their own state on a click** (tab bar, sort indicator) show the rendered state
+     again at once and only send the intent; the next snapshot moves them. A click ignored during a
+     cooldown changes no snapshot, so it must not change the widget either. `AGENTS.md` section 8.2 says so.
+  3. **User text shown by Qt as typed**: `&` is doubled in tab labels and menu items (`without_mnemonic`),
+     and tab tooltips are escaped (`plain_tooltip`, `ui/support/plain_text.py`).
+  4. **No discard question after the Windows session end**: `ShutdownPresenter.is_session_ending()` is given
+     to the task and list dialogs (ADR-038).

@@ -164,3 +164,10 @@ recommandations"; ADR-041 amendment).
 
 Manual check to add: with the focus in **Add a task...**, press Ctrl+N: the task dialog opens on the
 current list. On the Journal or Settings page, Ctrl+N does nothing.
+
+## Code review (2026-11-11)
+
+A code review of the phase found 8 defects (two medium: a bulk change slowed down with the square of the
+number of tasks, and a tab click ignored during the cooldown left the tab bar out of step). All are fixed
+in `7560ab3`, each starting with a failing test; see `docs/reviews/phase-5-code-review.md` for the
+findings and the six manual checks to add.
