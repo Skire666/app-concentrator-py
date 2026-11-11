@@ -1,13 +1,20 @@
-"""Details pane under the table: full text, list, due date, state and dates of the selected task."""
+"""Details pane under the table: full text with its links, list, due date, repetition, state and dates."""
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFormLayout, QGroupBox, QLabel, QPlainTextEdit, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QFormLayout, QGroupBox, QLabel, QVBoxLayout, QWidget
 
 from concentrator.presentation.todo.task_details_snapshot import TaskDetailsSnapshot
+from concentrator.ui.widgets.link_text_browser import LinkTextBrowser
 
 
 class TaskDetailsPanel(QGroupBox):
-    """Read-only; the text is plain text (never HTML), so links and markup in tasks are shown as typed."""
+    """Read-only; the text is escaped before it becomes HTML, and its links are hyperlinks (ADR-014).
+
+    Signals:
+        link_activated(int): Number of the link clicked.
+    """
+
+    link_activated = Signal(int)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the pane.
@@ -16,8 +23,8 @@ class TaskDetailsPanel(QGroupBox):
             parent: Parent widget.
         """
         super().__init__(parent)
-        self._text = QPlainTextEdit(self)
-        self._text.setReadOnly(True)
+        self._text = LinkTextBrowser(self)
+        self._text.link_activated.connect(self.link_activated.emit)
         self._empty = QLabel(self)
         self._empty.setTextFormat(Qt.TextFormat.PlainText)
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -34,6 +41,11 @@ class TaskDetailsPanel(QGroupBox):
         return self._text.toPlainText()
 
     @property
+    def browser(self) -> LinkTextBrowser:
+        """The text with its links (for tests)."""
+        return self._text
+
+    @property
     def values(self) -> tuple[str, ...]:
         """Values of the rows shown (for tests)."""
         return tuple(value.text() for _label, value in self._labels if value.isVisibleTo(self))
@@ -46,8 +58,7 @@ class TaskDetailsPanel(QGroupBox):
         """
         self.setUpdatesEnabled(False)
         self.setTitle(snapshot.title)
-        if self._text.toPlainText() != snapshot.text:
-            self._text.setPlainText(snapshot.text)
+        self._text.set_lines(snapshot.lines)
         has_task = not snapshot.empty_text
         self._text.setVisible(has_task)
         self._empty.setText(snapshot.empty_text)

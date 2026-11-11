@@ -33,6 +33,7 @@ SELECTION_SECTIONS: Final = (
     RenderSectionEnum.TODO_TOOLBAR,
     RenderSectionEnum.TODO_TABLE,
     RenderSectionEnum.TODO_DETAILS,
+    RenderSectionEnum.TODO_HISTORY,
 )
 """Sections that depend on the selected tasks."""
 

@@ -325,7 +325,7 @@ def test_details_show_the_selected_task_or_a_hint() -> None:
 
     stack.select("task-001")
     details = stack.rendered_details[-1]
-    assert details.text == "Report\nsecond line"
+    assert [line.text for line in details.lines] == ["Report", "second line"]
     assert [row.value for row in details.rows][:3] == [
         "Work",
         "en:format.date(day=06,month=11,year=2026)",

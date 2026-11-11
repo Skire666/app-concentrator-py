@@ -40,6 +40,7 @@ TODO_SECTIONS: Final = (
     RenderSectionEnum.TODO_TOOLBAR,
     RenderSectionEnum.TODO_TABLE,
     RenderSectionEnum.TODO_DETAILS,
+    RenderSectionEnum.TODO_HISTORY,
 )
 """Sections that show the current list or its tasks."""
 

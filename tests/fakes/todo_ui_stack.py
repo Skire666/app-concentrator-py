@@ -13,6 +13,7 @@ from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
+from concentrator.presentation.todo.link_presenter import LinkPresenter
 from concentrator.presentation.todo.list_edit_presenter import ListEditPresenter
 from concentrator.presentation.todo.list_edit_snapshot import ListEditSnapshot
 from concentrator.presentation.todo.quick_add_presenter import QuickAddPresenter
@@ -24,6 +25,8 @@ from concentrator.presentation.todo.task_edit_presenter import TaskEditPresenter
 from concentrator.presentation.todo.task_edit_snapshot import TaskEditSnapshot
 from concentrator.presentation.todo.task_filter_presenter import TaskFilterPresenter
 from concentrator.presentation.todo.task_filter_snapshot import TaskFilterSnapshot
+from concentrator.presentation.todo.task_history_presenter import TaskHistoryPresenter
+from concentrator.presentation.todo.task_history_snapshot import TaskHistorySnapshot
 from concentrator.presentation.todo.task_table_presenter import TaskTablePresenter
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
 from concentrator.presentation.todo.todo_presenters import TodoPresenters
@@ -44,6 +47,7 @@ from tests.fakes.todo_stack import LINKS, TODO_EVENT_TYPES, TodoStack
 
 COOLDOWN_MS: Final = 100
 DEFAULTS: Final = TodoDefaults.from_section(make_todo_section())
+MAX_LINKS: Final = 3
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -119,7 +123,9 @@ class TodoUiStack(TodoStack):
             tr, gate, renderer, view=self.view, commands=self.list_commands, editor=self.list_editor
         )
         self.tabs.attach(self.dialogs)
-        self.toolbar = TodoToolbarPresenter(tr, gate, renderer, view=self.view, actions=self.actions)
+        self.toolbar = TodoToolbarPresenter(
+            tr, gate, renderer, view=self.view, actions=self.actions, links=LINKS, max_links=MAX_LINKS
+        )
         self.table = TaskTablePresenter(
             tr,
             gate,
@@ -135,6 +141,8 @@ class TodoUiStack(TodoStack):
         )
         self.quick_add = QuickAddPresenter(tr, gate, renderer, view=self.view, commands=self.task_commands)
         self.details = TaskDetailsPresenter(tr, self.clock, self.view, LINKS)
+        self.history = TaskHistoryPresenter(tr, self.clock, self.view)
+        self.links = LinkPresenter(gate, view=self.view, commands=self.link_commands)
         self.refresher = TodoRefresher(self.view, renderer)
         for event_type in TODO_EVENT_TYPES:
             self.bus.subscribe(event_type, self.refresher.on_todo_changed)
@@ -147,6 +155,7 @@ class TodoUiStack(TodoStack):
         self.rendered_table: list[TaskTableSnapshot] = []
         self.rendered_quick_add: list[QuickAddSnapshot] = []
         self.rendered_details: list[TaskDetailsSnapshot] = []
+        self.rendered_history: list[TaskHistorySnapshot] = []
         self.rendered_task_edit: list[TaskEditSnapshot] = []
         self.rendered_list_edit: list[ListEditSnapshot] = []
         renderer = self.renderer
@@ -156,6 +165,7 @@ class TodoUiStack(TodoStack):
         renderer.register(RenderSectionEnum.TODO_TABLE, self.table.build_snapshot, self.rendered_table.append)
         renderer.register(RenderSectionEnum.QUICK_ADD, self.quick_add.build_snapshot, self.rendered_quick_add.append)
         renderer.register(RenderSectionEnum.TODO_DETAILS, self.details.build_snapshot, self.rendered_details.append)
+        renderer.register(RenderSectionEnum.TODO_HISTORY, self.history.build_snapshot, self.rendered_history.append)
         if register_editors:
             renderer.register(
                 RenderSectionEnum.TASK_EDIT, self.task_editor.build_snapshot, self.rendered_task_edit.append
@@ -173,6 +183,8 @@ class TodoUiStack(TodoStack):
             quick_add=self.quick_add,
             table=self.table,
             details=self.details,
+            history=self.history,
+            links=self.links,
             task_editor=self.task_editor,
             list_editor=self.list_editor,
             actions=self.actions,

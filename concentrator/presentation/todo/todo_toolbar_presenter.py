@@ -5,6 +5,7 @@ from collections.abc import Callable
 
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.todo.link_detector import LinkDetector
 from concentrator.presentation.common.action_button import action_button
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
@@ -30,6 +31,8 @@ class TodoToolbarPresenter:
         *,
         view: TodoView,
         actions: TaskActions,
+        links: LinkDetector,
+        max_links: int,
     ) -> None:
         """Create the presenter.
 
@@ -39,13 +42,15 @@ class TodoToolbarPresenter:
             renderer: Receives the render requests.
             view: Lists, filters and selection.
             actions: Task actions.
+            links: Finds the links of a task (context menu of the table).
+            max_links: Most links listed by "Open link".
         """
         self._texts = UiTexts(translator)
         self._gate = gate
         self._renderer = renderer
         self._view = view
         self._actions = actions
-        self._menu = TaskMenuBuilder(self._texts, gate)
+        self._menu = TaskMenuBuilder(self._texts, gate, links=links, max_links=max_links)
         self._toggles: dict[ActionIdEnum, Callable[[], None]] = {
             ActionIdEnum.TODO_TOGGLE_SHOW_DONE: view.state.toggle_show_done,
             ActionIdEnum.TODO_TOGGLE_SHOW_ARCHIVED: view.state.toggle_show_archived,

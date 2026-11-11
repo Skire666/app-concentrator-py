@@ -5,6 +5,7 @@ from collections.abc import Callable
 from concentrator.application.common.app_config import AppConfig
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.storage.storage_events import UserDataReplacedEvent
+from concentrator.application.todo.link_commands import LinkCommands
 from concentrator.application.todo.task_commands import TaskCommands
 from concentrator.application.todo.task_list_commands import TaskListCommands, TodoStores
 from concentrator.application.todo.todo_defaults import TodoDefaults
@@ -26,13 +27,16 @@ from concentrator.infrastructure.persistence.store_todo import (
     StoreTaskWriter,
 )
 from concentrator.infrastructure.persistence.user_data_store import UserDataStore
+from concentrator.infrastructure.qt.qt_link_opener import QtLinkOpener
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
+from concentrator.presentation.todo.link_presenter import LinkPresenter
 from concentrator.presentation.todo.list_edit_presenter import ListEditPresenter
 from concentrator.presentation.todo.quick_add_presenter import QuickAddPresenter
 from concentrator.presentation.todo.task_actions import TaskActions
 from concentrator.presentation.todo.task_details_presenter import TaskDetailsPresenter
 from concentrator.presentation.todo.task_edit_presenter import TaskEditPresenter
 from concentrator.presentation.todo.task_filter_presenter import TaskFilterPresenter
+from concentrator.presentation.todo.task_history_presenter import TaskHistoryPresenter
 from concentrator.presentation.todo.task_table_presenter import TaskTablePresenter
 from concentrator.presentation.todo.todo_layout import TodoLayout
 from concentrator.presentation.todo.todo_presenters import TodoPresenters
@@ -168,7 +172,8 @@ def build_todo(config: AppConfig, translator: TranslatorPort, core: Core, store:
     queries = TodoQueries(stores.lists, stores.tasks)
     view = _view(core, queries, defaults)
     editors = _editors(translator, core, (queries, lists, tasks), view, defaults)
-    presenters = _assemble(translator, core, (view, defaults, links), (lists, tasks), editors)
+    link_commands = LinkCommands(tasks=stores.tasks, links=links, opener=QtLinkOpener())
+    presenters = _assemble(translator, core, (view, config, links), (lists, tasks, link_commands), editors)
     _subscribe(core, presenters.refresher)
     return presenters
 
@@ -176,8 +181,8 @@ def build_todo(config: AppConfig, translator: TranslatorPort, core: Core, store:
 def _assemble(
     translator: TranslatorPort,
     core: Core,
-    shown: tuple[TodoView, TodoDefaults, LinkDetector],
-    commands: tuple[TaskListCommands, TaskCommands],
+    shown: tuple[TodoView, AppConfig, LinkDetector],
+    commands: tuple[TaskListCommands, TaskCommands, LinkCommands],
     editors: tuple[TaskEditPresenter, ListEditPresenter],
 ) -> TodoPresenters:
     """Create the presenters of zone 1 around the dialogs.
@@ -185,26 +190,29 @@ def _assemble(
     Args:
         translator: Current-language translator.
         core: Main-thread services.
-        shown: Current list, filters and selection; ``[todo]`` values; links of the texts.
-        commands: List and task use cases.
+        shown: Current list, filters and selection; configuration; links of the texts.
+        commands: List, task and link use cases.
         editors: Task and list dialog presenters.
 
     Returns:
         The presenters.
     """
     view = shown[0]
-    lists, tasks = commands
     task_editor, list_editor = editors
-    actions = TaskActions(translator, core.gate, view=view, commands=tasks, editor=task_editor)
-    toolbar = TodoToolbarPresenter(translator, core.gate, core.renderer, view=view, actions=actions)
-    table, filters, details = _table_presenters(translator, core, shown, (actions, toolbar))
+    actions = TaskActions(translator, core.gate, view=view, commands=commands[1], editor=task_editor)
+    toolbar, table, filters = _table_presenters(translator, core, shown, actions)
+    details, history, links = _info_presenters(translator, core, shown, commands[2])
     return TodoPresenters(
-        tabs=TodoTabsPresenter(translator, core.gate, core.renderer, view=view, commands=lists, editor=list_editor),
+        tabs=TodoTabsPresenter(
+            translator, core.gate, core.renderer, view=view, commands=commands[0], editor=list_editor
+        ),
         toolbar=toolbar,
         filters=filters,
-        quick_add=QuickAddPresenter(translator, core.gate, core.renderer, view=view, commands=tasks),
+        quick_add=QuickAddPresenter(translator, core.gate, core.renderer, view=view, commands=commands[1]),
         table=table,
         details=details,
+        history=history,
+        links=links,
         task_editor=task_editor,
         list_editor=list_editor,
         actions=actions,
@@ -212,25 +220,52 @@ def _assemble(
     )
 
 
-def _table_presenters(
-    translator: TranslatorPort,
-    core: Core,
-    shown: tuple[TodoView, TodoDefaults, LinkDetector],
-    menus: tuple[TaskActions, TodoToolbarPresenter],
-) -> tuple[TaskTablePresenter, TaskFilterPresenter, TaskDetailsPresenter]:
-    """Create the presenters of the task table, of its filter bar and of the details pane.
+def _info_presenters(
+    translator: TranslatorPort, core: Core, shown: tuple[TodoView, AppConfig, LinkDetector], commands: LinkCommands
+) -> tuple[TaskDetailsPresenter, TaskHistoryPresenter, LinkPresenter]:
+    """Create the presenters of the Details and History tabs and of the link clicks.
 
     Args:
         translator: Current-language translator.
         core: Main-thread services.
-        shown: Current list, filters and selection; ``[todo]`` values; links of the texts.
-        menus: Task actions and the toolbar (whose menu the table shares).
+        shown: Current list and selection; configuration; links of the texts.
+        commands: Opens the links.
 
     Returns:
-        The table, filter bar and details presenters.
+        The details, history and link presenters.
     """
-    view, defaults, links = shown
-    actions, toolbar = menus
+    view, _config, links = shown
+    return (
+        TaskDetailsPresenter(translator, core.clock, view, links),
+        TaskHistoryPresenter(translator, core.clock, view),
+        LinkPresenter(core.gate, view=view, commands=commands),
+    )
+
+
+def _table_presenters(
+    translator: TranslatorPort, core: Core, shown: tuple[TodoView, AppConfig, LinkDetector], actions: TaskActions
+) -> tuple[TodoToolbarPresenter, TaskTablePresenter, TaskFilterPresenter]:
+    """Create the presenters of the toolbar, of the task table and of its filter bar.
+
+    Args:
+        translator: Current-language translator.
+        core: Main-thread services.
+        shown: Current list, filters and selection; configuration; links of the texts.
+        actions: Task actions (the toolbar and the context menu of the table share them).
+
+    Returns:
+        The toolbar, table and filter bar presenters.
+    """
+    view, config, links = shown
+    toolbar = TodoToolbarPresenter(
+        translator,
+        core.gate,
+        core.renderer,
+        view=view,
+        actions=actions,
+        links=links,
+        max_links=config.links.max_links_in_menu,
+    )
     table = TaskTablePresenter(
         translator,
         core.gate,
@@ -241,15 +276,29 @@ def _table_presenters(
         menu=toolbar.menu_builder,
         links=links,
     )
-    filters = TaskFilterPresenter(
+    return toolbar, table, _filters(translator, core, view, config)
+
+
+def _filters(translator: TranslatorPort, core: Core, view: TodoView, config: AppConfig) -> TaskFilterPresenter:
+    """Create the presenter of the filter bar.
+
+    Args:
+        translator: Current-language translator.
+        core: Main-thread services (gate, renderer, scheduler).
+        view: Filters of the table.
+        config: ``todo.search_debounce_ms``.
+
+    Returns:
+        The presenter.
+    """
+    return TaskFilterPresenter(
         translator,
         core.gate,
         core.renderer,
         view=view,
         scheduler=core.scheduler,
-        search_debounce_ms=defaults.search_debounce_ms,
+        search_debounce_ms=config.todo.search_debounce_ms,
     )
-    return table, filters, TaskDetailsPresenter(translator, core.clock, view, links)
 
 
 def _subscribe(core: Core, refresher: TodoRefresher) -> None:

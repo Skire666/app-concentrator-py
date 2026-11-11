@@ -4,12 +4,14 @@ from typing import Final
 
 from PySide6.QtCore import QByteArray, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QSplitter, QTabWidget, QVBoxLayout, QWidget
 
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
 from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.presentation.todo.task_details_snapshot import TaskDetailsSnapshot
+from concentrator.presentation.todo.task_history_snapshot import TaskHistorySnapshot
 from concentrator.presentation.todo.todo_layout import TodoLayout
 from concentrator.presentation.todo.todo_presenters import TodoPresenters
 from concentrator.ui.panels.presets_panel import PresetsPanel
@@ -17,12 +19,15 @@ from concentrator.ui.panels.quick_add_panel import QuickAddPanel
 from concentrator.ui.panels.special_options_panel import SpecialOptionsPanel
 from concentrator.ui.panels.task_details_panel import TaskDetailsPanel
 from concentrator.ui.panels.task_filter_panel import TaskFilterPanel
+from concentrator.ui.panels.task_history_panel import TaskHistoryPanel
 from concentrator.ui.panels.task_table_panel import TaskTablePanel
 from concentrator.ui.panels.timer_panel import TimerPanel
 from concentrator.ui.panels.todo_tabs_panel import TodoTabsPanel
 from concentrator.ui.panels.todo_toolbar_panel import TodoToolbarPanel
 
 _PERCENT: Final = 100
+_DETAILS_TAB: Final = 0
+_HISTORY_TAB: Final = 1
 
 
 def _zone1_bars(zone1: QWidget) -> tuple[TodoTabsPanel, TodoToolbarPanel, QuickAddPanel, TaskFilterPanel]:
@@ -35,6 +40,19 @@ def _zone1_bars(zone1: QWidget) -> tuple[TodoTabsPanel, TodoToolbarPanel, QuickA
         List tabs, toolbar, quick add field and filter bar.
     """
     return TodoTabsPanel(zone1), TodoToolbarPanel(zone1), QuickAddPanel(zone1), TaskFilterPanel(zone1)
+
+
+def _info_tabs(splitter: QSplitter) -> tuple[QTabWidget, TaskDetailsPanel, TaskHistoryPanel]:
+    """Create the Details and History tabs under the task table.
+
+    Args:
+        splitter: Table / details splitter.
+
+    Returns:
+        The tab widget and its two panels.
+    """
+    tabs = QTabWidget(splitter)
+    return tabs, TaskDetailsPanel(tabs), TaskHistoryPanel(tabs)
 
 
 def _zone2_panels(timer_layout: TimerLayout, zone2: QWidget) -> tuple[TimerPanel, PresetsPanel, SpecialOptionsPanel]:
@@ -83,7 +101,7 @@ class FocusPage(QWidget):
         self._tabs, self._toolbar, self._quick_add, self._filters = _zone1_bars(zone1)
         self._todo_splitter = QSplitter(Qt.Orientation.Vertical, zone1)
         self._table = TaskTablePanel(todo_layout.column_widths_px, self._todo_splitter)
-        self._details = TaskDetailsPanel(self._todo_splitter)
+        self._info, self._details, self._history = _info_tabs(self._todo_splitter)
         zone2 = QWidget(self._splitter)
         self._timer, self._presets, self._options = _zone2_panels(timer_layout, zone2)
         self._build_zone1(zone1, todo_layout.spacing_px)
@@ -139,8 +157,18 @@ class FocusPage(QWidget):
 
     @property
     def details_panel(self) -> TaskDetailsPanel:
-        """Details pane of zone 1."""
+        """Details tab of zone 1."""
         return self._details
+
+    @property
+    def history_panel(self) -> TaskHistoryPanel:
+        """History tab of zone 1."""
+        return self._history
+
+    @property
+    def info_tabs(self) -> QTabWidget:
+        """Details and History tabs under the table."""
+        return self._info
 
     def connect_todo(self, todo: TodoPresenters, renderer: RenderCoordinator) -> None:
         """Connect the zone 1 panels to their presenters and register their sections.
@@ -183,7 +211,26 @@ class FocusPage(QWidget):
         renderer.register(RenderSectionEnum.QUICK_ADD, todo.quick_add.build_snapshot, self._quick_add.render_snapshot)
         renderer.register(RenderSectionEnum.TODO_FILTERS, todo.filters.build_snapshot, self._filters.render_snapshot)
         renderer.register(RenderSectionEnum.TODO_TABLE, todo.table.build_snapshot, self._table.render_snapshot)
-        renderer.register(RenderSectionEnum.TODO_DETAILS, todo.details.build_snapshot, self._details.render_snapshot)
+        renderer.register(RenderSectionEnum.TODO_DETAILS, todo.details.build_snapshot, self._render_details)
+        renderer.register(RenderSectionEnum.TODO_HISTORY, todo.history.build_snapshot, self._render_history)
+
+    def _render_details(self, snapshot: TaskDetailsSnapshot) -> None:
+        """Show the Details tab and its caption.
+
+        Args:
+            snapshot: Details state.
+        """
+        self._details.render_snapshot(snapshot)
+        self._info.setTabText(_DETAILS_TAB, snapshot.title)
+
+    def _render_history(self, snapshot: TaskHistorySnapshot) -> None:
+        """Show the History tab and its caption.
+
+        Args:
+            snapshot: History state.
+        """
+        self._history.render_snapshot(snapshot)
+        self._info.setTabText(_HISTORY_TAB, snapshot.title)
 
     def splitter_state(self) -> QByteArray:
         """Return the zone 1 / zone 2 splitter blob to persist."""
@@ -246,6 +293,9 @@ class FocusPage(QWidget):
         table.toggle_requested.connect(todo.table.on_selection_toggled)
         table.action_requested.connect(todo.toolbar.on_action_requested)
         table.move_requested.connect(todo.toolbar.on_move_requested)
+        table.link_activated.connect(todo.links.on_table_link)
+        table.link_requested.connect(todo.links.on_selected_link)
+        self._details.link_activated.connect(todo.links.on_selected_link)
         self._new_task.activated.connect(lambda: todo.toolbar.on_action_requested(int(ActionIdEnum.TASK_NEW)))
 
     def _build_splitter(self, zone1: QWidget, zone2: QWidget) -> None:
@@ -273,7 +323,9 @@ class FocusPage(QWidget):
         self._new_task.setKey(QKeySequence(QKeySequence.StandardKey.New))
         self._new_task.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self._todo_splitter.addWidget(self._table)
-        self._todo_splitter.addWidget(self._details)
+        self._info.addTab(self._details, "")
+        self._info.addTab(self._history, "")
+        self._todo_splitter.addWidget(self._info)
         self._todo_splitter.setCollapsible(0, False)
         stack = QVBoxLayout(zone1)
         stack.setSpacing(spacing_px)

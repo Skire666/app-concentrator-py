@@ -1,7 +1,6 @@
 """Task table of the current list: check boxes, sortable headers, keyboard shortcuts and context menu."""
 
 from collections.abc import Callable
-from functools import partial
 from typing import override
 
 from PySide6.QtCore import (
@@ -23,7 +22,8 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.table_snapshot import TableSnapshot
 from concentrator.presentation.todo.task_menu_snapshot import TaskMenuSnapshot
 from concentrator.presentation.todo.task_table_snapshot import TaskTableSnapshot
-from concentrator.ui.support.plain_text import without_mnemonic
+from concentrator.ui.panels.task_context_menu import TaskMenuIntents, build_task_menu
+from concentrator.ui.widgets.link_text_delegate import LinkTextDelegate
 from concentrator.ui.widgets.snapshot_table_model import SnapshotTableModel
 
 
@@ -38,6 +38,8 @@ class TaskTablePanel(QWidget):
         toggle_requested(): Space.
         action_requested(int): Context menu item, Del (``TASK_DELETE``).
         move_requested(str): "Move to list" item of the context menu.
+        link_activated(str, int): A link of a cell was clicked (task id, number of the link).
+        link_requested(int): An item of the "Open link" menu (number of the link of the selected task).
     """
 
     selection_changed = Signal(object)
@@ -47,6 +49,8 @@ class TaskTablePanel(QWidget):
     toggle_requested = Signal()
     action_requested = Signal(int)
     move_requested = Signal(str)
+    link_activated = Signal(str, int)
+    link_requested = Signal(int)
 
     def __init__(self, column_widths_px: tuple[int, ...], parent: QWidget | None = None) -> None:
         """Build the table.
@@ -60,6 +64,7 @@ class TaskTablePanel(QWidget):
         self._model = SnapshotTableModel(self)
         self._table = QTableView(self)
         self._empty = QLabel(self)
+        self._links = LinkTextDelegate(self._model, self._table)
         self._menu = TaskMenuSnapshot(buttons=(), move_targets=())
         self._popup: QMenu | None = None
         self._sort_indicator = (-1, Qt.SortOrder.AscendingOrder)
@@ -120,17 +125,9 @@ class TaskTablePanel(QWidget):
         """
         if self._popup is not None:
             self._popup.deleteLater()
-        menu = QMenu(self)
-        for button in self._menu.buttons:
-            if button.action is ActionIdEnum.TASK_MOVE:
-                self._add_move_menu(menu, button.text, enabled=button.enabled)
-                continue
-            entry = menu.addAction(button.text)
-            entry.setToolTip(button.tooltip)
-            entry.setEnabled(button.enabled)
-            entry.triggered.connect(partial(self.action_requested.emit, int(button.action)))
-        self._popup = menu
-        menu.popup(global_pos)
+        intents = TaskMenuIntents(self.action_requested.emit, self.move_requested.emit, self.link_requested.emit)
+        self._popup = build_task_menu(self, self._menu, intents)
+        self._popup.popup(global_pos)
 
     def header_state(self) -> QByteArray:
         """Return the column widths and order blob to persist.
@@ -178,21 +175,6 @@ class TaskTablePanel(QWidget):
             if self._table.isColumnHidden(column) != hidden:
                 self._table.setColumnHidden(column, hidden)
 
-    def _add_move_menu(self, menu: QMenu, text: str, *, enabled: bool) -> None:
-        """Add the "Move to list" submenu.
-
-        Args:
-            menu: Context menu.
-            text: Submenu label.
-            enabled: Whether moving is possible.
-        """
-        submenu = menu.addMenu(text)
-        submenu.setEnabled(enabled)
-        for target in self._menu.move_targets:
-            entry = submenu.addAction(without_mnemonic(target.text))
-            entry.setEnabled(target.enabled)
-            entry.triggered.connect(partial(self.move_requested.emit, target.list_id))
-
     def _configure_table(self) -> None:
         """Whole rows, several at once; sortable and movable headers; the task column stretches."""
         table = self._table
@@ -203,6 +185,8 @@ class TaskTablePanel(QWidget):
         table.setWordWrap(False)
         table.setAlternatingRowColors(True)
         table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        table.setItemDelegate(self._links)
+        table.setMouseTracking(True)
         table.verticalHeader().setVisible(False)
         table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         header = table.horizontalHeader()
@@ -222,6 +206,7 @@ class TaskTablePanel(QWidget):
         self._table.doubleClicked.connect(self._emit_activated)
         self._table.customContextMenuRequested.connect(self._open_menu_at)
         self._model.modelReset.connect(self._stretch_task_column)
+        self._links.link_clicked.connect(self._emit_link)
 
     @override
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
@@ -265,6 +250,15 @@ class TaskTablePanel(QWidget):
         header.setSortIndicator(*self._sort_indicator)
         blocker.unblock()
         self.sort_requested.emit(column)
+
+    def _emit_link(self, key: object, index: int) -> None:
+        """Send the task and the number of a link clicked in a cell.
+
+        Args:
+            key: Row key from the model.
+            index: Number of the link in the task.
+        """
+        self.link_activated.emit(str(key), index)
 
     def _emit_check(self, key: object) -> None:
         """Send the id of the row whose check box was clicked.

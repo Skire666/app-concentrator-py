@@ -3,7 +3,7 @@
 from datetime import date
 
 import pytest
-from PySide6.QtCore import QPoint, Qt, QTimer
+from PySide6.QtCore import QPoint, Qt, QTimer, QUrl
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QDialog, QMenu
 from pytestqt.qtbot import QtBot
@@ -15,8 +15,10 @@ from concentrator.domain.todo.task_draft import TaskDraft
 from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
+from concentrator.presentation.todo.task_details_snapshot import TextLineSnapshot
 from concentrator.presentation.todo.todo_layout import TodoLayout
 from concentrator.ui.support.modal_host import ScreenDialogRunner
+from concentrator.ui.widgets.link_text_browser import LinkTextBrowser, lines_html
 from concentrator.ui.windows.todo_edit_dialogs import ListEditWindow, TaskEditWindow
 from tests.fakes.todo_factory import HOME_LIST_ID, WORK_LIST_ID, make_task
 from tests.fakes.todo_ui_stack import TodoUiStack
@@ -451,3 +453,68 @@ def test_task_dialog_saves_a_weekly_repetition(qtbot: QtBot) -> None:
     assert seen["checked"] == [False, False, False, False, True, False, False]
     assert seen["count_visible"] is True
     assert str(seen["summary"]).startswith("en:todo.recurrence.times.other(")
+
+
+def test_link_text_browser_escapes_text_and_sends_the_link_number(qtbot: QtBot) -> None:
+    browser = LinkTextBrowser()
+    qtbot.addWidget(browser)
+    lines = (
+        TextLineSnapshot(text="<b>not bold</b> & co"),
+        TextLineSnapshot(text="  - D:/My folder", link_start=4, link_end=16, link_index=2),
+    )
+    clicked: list[int] = []
+    browser.link_activated.connect(clicked.append)
+
+    browser.set_lines(lines)
+    browser.set_lines(lines)
+    browser.anchorClicked.emit(QUrl("link:2"))
+    browser.anchorClicked.emit(QUrl("https://example.org"))
+
+    assert browser.toPlainText() == "<b>not bold</b> & co\n  - D:/My folder"
+    assert '<a href="link:2">D:/My folder</a>' in lines_html(lines)
+    assert "&lt;b&gt;" in lines_html(lines)
+    assert clicked == [2]
+
+
+def test_table_link_click_and_open_link_menu_reach_the_opener(harness: ShellHarness) -> None:
+    harness.todo.task_commands.quick_add(WORK_LIST_ID, "https://example.org/a-rather-long-address\nC:/Windows")
+    harness.turn()
+    page = harness.window.focus_page
+    table = page.table_panel
+    table.table.resize(900, 300)
+    table.table.setColumnWidth(1, 600)
+    rect = table.table.visualRect(table.model.index(0, 1))
+
+    QTest.mouseClick(
+        table.table.viewport(), Qt.MouseButton.LeftButton, pos=rect.center() - QPoint(rect.width() // 2 - 12, 0)
+    )
+    _settle(harness)
+    table.show_menu(QPoint(0, 0))
+    menu = table.last_menu
+    assert menu is not None
+    submenu = next(action.menu() for action in menu.actions() if action.text() == "en:action.link_open")
+    assert isinstance(submenu, QMenu)
+    assert [action.text() for action in submenu.actions()] == [
+        "https://example.org/a-rather-long-address",
+        "C:/Windows",
+    ]
+    submenu.actions()[1].trigger()
+    _settle(harness)
+
+    targets = [target.value for target in harness.todo.opener.links]
+    assert targets == ["https://example.org/a-rather-long-address", "C:/Windows"]
+
+
+def test_details_and_history_tabs_follow_the_selection(harness: ShellHarness) -> None:
+    _add(harness, "Report\nC:/Reports")
+    page = harness.window.focus_page
+    page.table_panel.table.selectRow(0)
+    _settle(harness)
+
+    assert page.info_tabs.tabText(0) == "en:todo.details.title"
+    assert page.info_tabs.tabText(1) == "en:todo.history.title"
+    assert len(page.history_panel.lines) == 1
+    assert page.details_panel.text == "Report\nC:/Reports"
+    page.details_panel.browser.anchorClicked.emit(QUrl("link:0"))
+    _settle(harness)
+    assert [target.value for target in harness.todo.opener.links] == ["C:/Reports"]

@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from typing import Final
 
+from concentrator.domain.todo.link_detector import LinkDetector
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
@@ -10,7 +11,7 @@ from concentrator.presentation.common.action_button import action_button
 from concentrator.presentation.common.action_gate import ActionGate
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.ui_texts import UiTexts
-from concentrator.presentation.todo.task_menu_snapshot import MoveTargetSnapshot, TaskMenuSnapshot
+from concentrator.presentation.todo.task_menu_snapshot import LinkMenuItemSnapshot, MoveTargetSnapshot, TaskMenuSnapshot
 
 TASK_MENU_ACTIONS: Final = (
     ActionIdEnum.TASK_NEW,
@@ -54,15 +55,19 @@ def applicable(tasks: Sequence[Task], action: ActionIdEnum) -> tuple[Task, ...]:
 class TaskMenuBuilder:
     """Builds ``TaskMenuSnapshot`` from the selection, the lists and the busy actions."""
 
-    def __init__(self, texts: UiTexts, gate: ActionGate) -> None:
+    def __init__(self, texts: UiTexts, gate: ActionGate, *, links: LinkDetector, max_links: int) -> None:
         """Create the builder.
 
         Args:
             texts: Action labels.
             gate: Busy actions.
+            links: Finds the links of a task ("Open link").
+            max_links: Most links listed (``links.max_links_in_menu``).
         """
         self._texts = texts
         self._gate = gate
+        self._links = links
+        self._max_links = max_links
 
     def build(self, selected: Sequence[Task], lists: TaskListsCollection, current_list_id: str) -> TaskMenuSnapshot:
         """Describe the task actions.
@@ -87,7 +92,23 @@ class TaskMenuBuilder:
         )
         move_enabled = bool(selected) and not self._gate.is_busy(ActionIdEnum.TASK_MOVE)
         targets = tuple(MoveTargetSnapshot(list_id=item.id, text=item.name, enabled=move_enabled) for item in others)
-        return TaskMenuSnapshot(buttons=buttons, move_targets=targets)
+        links = self._link_items(selected)
+        open_link = action_button(self._texts, self._gate, ActionIdEnum.LINK_OPEN, enabled=bool(links))
+        return TaskMenuSnapshot(buttons=buttons, move_targets=targets, open_link=open_link, links=links)
+
+    def _link_items(self, selected: Sequence[Task]) -> tuple[LinkMenuItemSnapshot, ...]:
+        """Links of the only selected task.
+
+        Args:
+            selected: Selected tasks.
+
+        Returns:
+            Up to ``max_links`` entries, ``()`` unless exactly one task is selected.
+        """
+        if len(selected) != 1:
+            return ()
+        found = self._links.find(selected[0].text)[: self._max_links]
+        return tuple(LinkMenuItemSnapshot(index=index, text=link.target.value) for index, link in enumerate(found))
 
     @staticmethod
     def _enabled(action: ActionIdEnum, selected: Sequence[Task], *, has_list: bool, others: bool) -> bool:

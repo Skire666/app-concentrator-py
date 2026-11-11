@@ -12,7 +12,7 @@ from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.row_tone_enum import RowToneEnum
-from concentrator.presentation.common.table_snapshot import TableRowSnapshot
+from concentrator.presentation.common.table_snapshot import CellLinkSnapshot, TableRowSnapshot
 from concentrator.presentation.todo.recurrence_summary_formatter import RecurrenceSummaryFormatter
 from concentrator.presentation.todo.todo_texts import STATE_KEYS, UNKNOWN_KEY
 
@@ -110,9 +110,32 @@ class TaskRowFormatter:
         Returns:
             The row keyed by the task id.
         """
-        marks = due_marks(task, now)
-        link_count = len(self._links.find(task.text))
-        cells = (
+        links = self._links.find(task.text)
+        return TableRowSnapshot(
+            key=task.id,
+            cells=self._cells(task, list_name, len(links)),
+            tone=_tone(task, due_marks(task, now)),
+            checked=task.state is not TaskStateEnum.OPEN,
+            check_enabled=task.state in CHECKABLE_STATES,
+            links=tuple(
+                CellLinkSnapshot(column=TASK_COLUMN, start=link.start, end=link.end, index=number)
+                for number, link in enumerate(links)
+                if link.line == 0
+            ),
+        )
+
+    def _cells(self, task: Task, list_name: str, link_count: int) -> tuple[str, ...]:
+        """Texts of the columns of a task.
+
+        Args:
+            task: Task.
+            list_name: Name of its list.
+            link_count: Number of links in its text.
+
+        Returns:
+            One text per column, in column order.
+        """
+        return (
             self._translator.tr(STATE_KEYS[TaskStateEnum.ARCHIVED]) if task.state is TaskStateEnum.ARCHIVED else "",
             self.title(task),
             list_name,
@@ -122,13 +145,6 @@ class TaskRowFormatter:
             str(link_count) if link_count else "",
             self._dates.date_time_minutes(task.created_at),
             self._dates.date_time_minutes(task.updated_at),
-        )
-        return TableRowSnapshot(
-            key=task.id,
-            cells=cells,
-            tone=_tone(task, marks),
-            checked=task.state is not TaskStateEnum.OPEN,
-            check_enabled=task.state in CHECKABLE_STATES,
         )
 
     def title(self, task: Task) -> str:

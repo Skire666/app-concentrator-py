@@ -9,11 +9,14 @@ from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.todo.recurrence import Recurrence
 from concentrator.domain.todo.recurrence_end_enum import RecurrenceEndEnum
 from concentrator.domain.todo.recurrence_frequency_enum import RecurrenceFrequencyEnum
+from concentrator.domain.todo.task_event import TaskEvent
+from concentrator.domain.todo.task_event_kind_enum import TaskEventKindEnum
 from concentrator.domain.todo.task_state_enum import TaskStateEnum
 from concentrator.domain.todo.weekday_enum import WeekdayEnum
 from concentrator.infrastructure.i18n.json_catalog_translator import JsonCatalogTranslator, load_catalogs
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
+from concentrator.presentation.todo.task_history_formatter import TaskHistoryFormatter
 from concentrator.presentation.todo.task_row_formatter import TaskRowFormatter
 from tests.fakes.fake_clock import FakeClock
 from tests.fakes.todo_factory import make_task
@@ -154,3 +157,22 @@ def test_new_columns_and_counter_in_each_language(language: LanguageEnum, repeat
 
     assert row.cells[2:7] == ("Work", row.cells[3], repeat, "3 / 10", "2")
     assert _translator(language).tr_plural("todo.filter.counter", 87, shown=12) == counter
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        (LanguageEnum.ENGLISH, "2026-11-06 17:45 - Occurrence 3 completed (due 2026-11-10, next 2026-11-17)"),
+        (LanguageEnum.FRENCH, "06/11/2026 17:45 - Occurrence 3 réalisée (échéance 10/11/2026, suivante 17/11/2026)"),
+    ],
+)
+def test_history_lines_in_each_language(language: LanguageEnum, expected: str) -> None:
+    translator = _translator(language)
+    formatter = TaskHistoryFormatter(translator, DateTimeFormatter(translator, FakeClock(NOW)))
+    event = TaskEvent(
+        at=datetime(2026, 11, 6, 16, 45, tzinfo=UTC),
+        kind=TaskEventKindEnum.OCCURRENCE_COMPLETED,
+        details=(("occurrence", "3"), ("due", "2026-11-10"), ("next", "2026-11-17")),
+    )
+
+    assert formatter.line(event, {}) == expected

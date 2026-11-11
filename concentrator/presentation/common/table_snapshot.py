@@ -6,6 +6,23 @@ from concentrator.presentation.common.row_tone_enum import RowToneEnum
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class CellLinkSnapshot:
+    """A clickable part of a cell, shown as a hyperlink.
+
+    Attributes:
+        column: Column of the cell.
+        start: Index of the first character of the link in the cell text.
+        end: Index after its last character.
+        index: Number sent back when it is clicked.
+    """
+
+    column: int
+    start: int
+    end: int
+    index: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class TableRowSnapshot:
     """One row.
 
@@ -15,6 +32,7 @@ class TableRowSnapshot:
         tone: Emphasis of the row.
         checked: State of the check box of the ``check_column`` of the table, ``None`` without one.
         check_enabled: Whether a click on that check box is sent back.
+        links: Clickable parts of the cells.
     """
 
     key: int | str
@@ -22,6 +40,7 @@ class TableRowSnapshot:
     tone: RowToneEnum = RowToneEnum.NORMAL
     checked: bool | None = None
     check_enabled: bool = True
+    links: tuple[CellLinkSnapshot, ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
