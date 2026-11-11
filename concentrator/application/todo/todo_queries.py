@@ -2,6 +2,7 @@
 
 from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime
 
 from concentrator.application.ports.task_list_reader_port import TaskListReaderPort
 from concentrator.application.ports.task_reader_port import TaskReaderPort
@@ -82,17 +83,33 @@ class TodoQueries:
         """
         return self._tasks.all_items().value_or(TasksCollection())
 
-    def tasks(self, query: TaskQuery) -> TasksCollection:
-        """Return the tasks a table shows: one list, some states, sorted.
+    def tasks(self, query: TaskQuery, now: datetime) -> TasksCollection:
+        """Return the tasks a table shows: one list or all, some states, due date filter, sorted.
 
         Args:
-            query: List, states and order.
+            query: Scope, states, filters and order.
+            now: Current local time (due date filters).
 
         Returns:
             The tasks in display order.
         """
-        shown = self.all_tasks().in_list(query.list_id).with_states(query.states)
+        shown = self.in_scope(query).with_states(query.states)
+        task_filter = query.task_filter
+        if task_filter.is_active:
+            shown = shown.filtered(lambda task: task_filter.matches(task, now))
         return shown.ordered_by(query.sort_key, descending=query.descending)
+
+    def in_scope(self, query: TaskQuery) -> TasksCollection:
+        """Return every task of the scope of a query, whatever its state (the total of the counter).
+
+        Args:
+            query: List and scope.
+
+        Returns:
+            The tasks, in stored order.
+        """
+        tasks = self.all_tasks()
+        return tasks if query.all_lists else tasks.in_list(query.list_id)
 
     def task(self, task_id: str) -> DataResult[Task]:
         """Return one task.

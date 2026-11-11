@@ -6,6 +6,7 @@ from concentrator.application.todo.todo_events import (
     TaskCreatedEvent,
     TaskDeletedEvent,
     TaskListChangedEvent,
+    TaskOccurrenceCompletedEvent,
     TaskStateChangedEvent,
 )
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
@@ -13,7 +14,12 @@ from concentrator.presentation.todo.todo_tabs_presenter import TODO_SECTIONS
 from concentrator.presentation.todo.todo_view import TodoView
 
 type TodoDataEvent = (
-    TaskListChangedEvent | TaskCreatedEvent | TaskChangedEvent | TaskStateChangedEvent | TaskDeletedEvent
+    TaskListChangedEvent
+    | TaskCreatedEvent
+    | TaskChangedEvent
+    | TaskStateChangedEvent
+    | TaskOccurrenceCompletedEvent
+    | TaskDeletedEvent
 )
 
 

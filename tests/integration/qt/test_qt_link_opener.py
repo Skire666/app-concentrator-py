@@ -6,6 +6,8 @@ from PySide6.QtCore import QUrl
 
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.severity_enum import SeverityEnum
+from concentrator.domain.todo.link_kind_enum import LinkKindEnum
+from concentrator.domain.todo.link_target import LinkTarget
 from concentrator.infrastructure.qt.qt_link_opener import QtLinkOpener
 
 
@@ -56,6 +58,42 @@ def test_folder_that_cannot_be_created_is_not_opened(tmp_path: Path) -> None:
     shell = _Shell()
 
     result = QtLinkOpener(shell.open_url).open_folder(blocker / "logs", create_missing=True)
+
+    assert result.error_codes == (ErrorCodeEnum.LINK_OPEN_FAILED,)
+    assert shell.urls == []
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        (LinkTarget(LinkKindEnum.URL, "https://example.org/a?b=1"), "https://example.org/a?b=1"),
+        (LinkTarget(LinkKindEnum.LOCAL_PATH, "Z:/Does/Not/Exist/My folder"), "file:///Z:/Does/Not/Exist/My folder"),
+        (LinkTarget(LinkKindEnum.UNC_PATH, "//nas/share/projects"), "file://nas/share/projects"),
+    ],
+)
+def test_open_hands_the_target_to_the_shell_without_checking_it(target: LinkTarget, expected: str) -> None:
+    shell = _Shell()
+
+    result = QtLinkOpener(shell.open_url).open(target)
+
+    assert result.is_success
+    assert [url.toString() for url in shell.urls] == [expected]
+
+
+def test_a_refused_link_is_a_warning_logged_without_the_link(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.DEBUG):
+        result = QtLinkOpener(_Shell(accept=False).open_url).open(LinkTarget(LinkKindEnum.URL, "https://secret.org"))
+
+    assert result.error_codes == (ErrorCodeEnum.LINK_OPEN_FAILED,)
+    assert result.severity is SeverityEnum.WARNING
+    assert "refused to open a link (URL)" in caplog.text
+    assert "secret" not in caplog.text
+
+
+def test_an_invalid_url_is_not_handed_to_the_shell() -> None:
+    shell = _Shell()
+
+    result = QtLinkOpener(shell.open_url).open(LinkTarget(LinkKindEnum.URL, "http://exa mple.org:99999"))
 
     assert result.error_codes == (ErrorCodeEnum.LINK_OPEN_FAILED,)
     assert shell.urls == []

@@ -54,6 +54,19 @@ class TaskStateChangedEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class TaskOccurrenceCompletedEvent:
+    """An occurrence of a recurring task was completed (the task moved to its next date, or became done).
+
+    Attributes:
+        task_id: The task.
+        occurrence: Number of the occurrence completed (1 for the first).
+    """
+
+    task_id: str
+    occurrence: int
+
+
+@dataclass(frozen=True, slots=True)
 class TaskDeletedEvent:
     """Tasks were deleted (by the user, or with their list).
 

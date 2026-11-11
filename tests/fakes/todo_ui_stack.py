@@ -86,7 +86,7 @@ class TodoUiStack(TodoStack):
         self.layout = LayoutStateKeeper(self.preferences)
         self.state = TodoViewState(self.layout, DEFAULTS)
         self.state.load()
-        self.view = TodoView(self.queries, self.state)
+        self.view = TodoView(self.queries, self.state, self.clock)
         self.view.sync()
         self._build_presenters()
         if shared is None:

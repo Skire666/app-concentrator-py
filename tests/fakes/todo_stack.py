@@ -6,19 +6,23 @@ from typing import override
 
 from concentrator.application.common.event_bus import EventBus
 from concentrator.application.ports.task_writer_port import TaskWriterPort
+from concentrator.application.todo.link_commands import LinkCommands
 from concentrator.application.todo.task_commands import TaskCommands
 from concentrator.application.todo.task_list_commands import TaskListCommands, TodoStores
+from concentrator.application.todo.task_schedule_commands import TaskScheduleCommands
 from concentrator.application.todo.todo_events import (
     TaskChangedEvent,
     TaskCreatedEvent,
     TaskDeletedEvent,
     TaskListChangedEvent,
+    TaskOccurrenceCompletedEvent,
     TaskStateChangedEvent,
 )
 from concentrator.application.todo.todo_queries import TodoQueries
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.todo.link_detector import LinkDetector
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_list import TaskList
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
@@ -31,14 +35,30 @@ from concentrator.infrastructure.persistence.store_todo import (
 )
 from concentrator.infrastructure.persistence.user_data_store import UserDataStore
 from tests.fakes.fake_clock import FakeClock
+from tests.fakes.fake_desktop import FakeLinkOpener
 from tests.fakes.fake_id_generator import FakeIdGenerator
 from tests.fakes.recording_error_reporter import RecordingErrorReporter
 from tests.fakes.todo_factory import TODO_LIMITS, make_lists
 from tests.fakes.user_data_factory import make_user_data
 
-type TodoEvent = TaskListChangedEvent | TaskCreatedEvent | TaskChangedEvent | TaskStateChangedEvent | TaskDeletedEvent
+type TodoEvent = (
+    TaskListChangedEvent
+    | TaskCreatedEvent
+    | TaskChangedEvent
+    | TaskStateChangedEvent
+    | TaskOccurrenceCompletedEvent
+    | TaskDeletedEvent
+)
 
-TODO_EVENT_TYPES = (TaskListChangedEvent, TaskCreatedEvent, TaskChangedEvent, TaskStateChangedEvent, TaskDeletedEvent)
+TODO_EVENT_TYPES = (
+    TaskListChangedEvent,
+    TaskCreatedEvent,
+    TaskChangedEvent,
+    TaskStateChangedEvent,
+    TaskOccurrenceCompletedEvent,
+    TaskDeletedEvent,
+)
+LINKS = LinkDetector.of(("http", "https"))
 
 WRITE_FAILED = ValidationResult.failure(ErrorCodeEnum.STORAGE_WRITE_FAILED)
 
@@ -103,8 +123,13 @@ class TodoStack:
             stores=stores, ids=self.ids, clock=self.clock, event_bus=self.bus, limits=TODO_LIMITS
         )
         self.task_commands = TaskCommands(
-            stores=stores, ids=self.ids, clock=self.clock, event_bus=self.bus, limits=TODO_LIMITS
+            stores=stores, ids=self.ids, clock=self.clock, event_bus=self.bus, limits=TODO_LIMITS, links=LINKS
         )
+        self.schedule_commands = TaskScheduleCommands(
+            stores=stores, clock=self.clock, event_bus=self.bus, limits=TODO_LIMITS
+        )
+        self.opener = FakeLinkOpener()
+        self.link_commands = LinkCommands(tasks=stores.tasks, links=LINKS, opener=self.opener)
         self.queries = TodoQueries(stores.lists, stores.tasks)
 
     def tasks(self) -> TasksCollection:

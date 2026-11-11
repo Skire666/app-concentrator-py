@@ -5,6 +5,7 @@ from typing import override
 
 from concentrator.application.ports.link_opener_port import LinkOpenerPort
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.todo.link_target import LinkTarget
 from concentrator.presentation.ports.clipboard_port import ClipboardPort
 
 
@@ -22,9 +23,15 @@ class FakeLinkOpener(LinkOpenerPort):
 
     def __init__(self) -> None:
         self.opened: list[tuple[Path, bool]] = []
+        self.links: list[LinkTarget] = []
         self.result = ValidationResult.success()
 
     @override
     def open_folder(self, path: Path, *, create_missing: bool = False) -> ValidationResult:
         self.opened.append((path, create_missing))
+        return self.result
+
+    @override
+    def open(self, target: LinkTarget) -> ValidationResult:
+        self.links.append(target)
         return self.result

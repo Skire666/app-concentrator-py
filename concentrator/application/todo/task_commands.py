@@ -2,27 +2,30 @@
 
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 
 from concentrator.application.common.event_bus import EventBus
 from concentrator.application.ports.clock_port import ClockPort
 from concentrator.application.ports.id_generator_port import IdGeneratorPort
 from concentrator.application.todo.task_list_commands import TodoStores
+from concentrator.application.todo.task_lookup import find_tasks
 from concentrator.application.todo.todo_events import (
     TaskChangedEvent,
     TaskCreatedEvent,
     TaskDeletedEvent,
+    TaskOccurrenceCompletedEvent,
     TaskStateChangedEvent,
 )
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.todo.link_detector import LinkDetector
 from concentrator.domain.todo.task import Task, TaskId
 from concentrator.domain.todo.task_draft import TaskDraft
 from concentrator.domain.todo.task_event_kind_enum import TaskEventKindEnum
 from concentrator.domain.todo.task_list import TaskListId
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
 from concentrator.domain.todo.task_rules import TaskRules
-from concentrator.domain.todo.tasks_collection import TasksCollection
 from concentrator.domain.todo.todo_limits import TodoLimits
 
 _logger = logging.getLogger(__name__)
@@ -32,11 +35,18 @@ class TaskCommands:
     """Create, edit, delete, change the state of, move and duplicate tasks.
 
     Bulk commands check every task first and change all of them in one write, or none. Texts never reach
-    the log.
+    the log. The paths of a created or edited text are written with ``/`` (``LinkDetector.normalized``).
     """
 
     def __init__(
-        self, *, stores: TodoStores, ids: IdGeneratorPort, clock: ClockPort, event_bus: EventBus, limits: TodoLimits
+        self,
+        *,
+        stores: TodoStores,
+        ids: IdGeneratorPort,
+        clock: ClockPort,
+        event_bus: EventBus,
+        limits: TodoLimits,
+        links: LinkDetector,
     ) -> None:
         """Create the use cases.
 
@@ -46,12 +56,14 @@ class TaskCommands:
             clock: Change instants.
             event_bus: Receives the events.
             limits: Bounds from ``concentrator.ini``.
+            links: Finds the paths to normalize in a text.
         """
         self._stores = stores
         self._ids = ids
         self._clock = clock
         self._event_bus = event_bus
         self._limits = limits
+        self._links = links
 
     def quick_add(self, list_id: str, text: str) -> DataResult[Task]:
         """Create a task from the quick add field (no due date).
@@ -74,6 +86,7 @@ class TaskCommands:
         Returns:
             The stored task, or the rule failures.
         """
+        draft = self._normalized(draft)
         validation = self._validate_draft(draft)
         if validation.is_failure:
             return DataResult.fail(validation)
@@ -93,6 +106,7 @@ class TaskCommands:
         current = self._stores.tasks.read_item(task_id)
         if current.data is None:
             return current
+        draft = self._normalized(draft)
         changed = current.data.with_draft(draft, self._clock.now_utc(), self._limits.max_history_events)
         if changed is current.data:
             return current
@@ -124,7 +138,7 @@ class TaskCommands:
         return ValidationResult.success()
 
     def complete(self, task_ids: Sequence[str]) -> ValidationResult:
-        """Mark open tasks done.
+        """Mark open tasks done; a recurring task completes its current occurrence and moves to its next date.
 
         Args:
             task_ids: Tasks to complete (all must be open).
@@ -181,7 +195,7 @@ class TaskCommands:
         target = TaskRules.validate_list_exists(lists, list_id)
         if target.is_failure:
             return target
-        found = self._found(task_ids)
+        found = find_tasks(self._stores.tasks, task_ids)
         if found.data is None:
             return found.validation
         now = self._clock.now_utc()
@@ -215,25 +229,17 @@ class TaskCommands:
         lists = self._stores.lists.all_items().value_or(TaskListsCollection())
         return TaskRules.validate_draft(draft, self._limits).merge(TaskRules.validate_list_exists(lists, draft.list_id))
 
-    def _found(self, task_ids: Sequence[str]) -> DataResult[TasksCollection]:
-        """Read the tasks a bulk command works on.
+    def _normalized(self, draft: TaskDraft) -> TaskDraft:
+        """Write the paths of a text with ``/``.
 
         Args:
-            task_ids: Ids, in the order given.
+            draft: Values entered.
 
         Returns:
-            The tasks, skipped for no id, or ``ENTITY_NOT_FOUND`` when one is missing.
+            The draft to store.
         """
-        if not task_ids:
-            return DataResult.fail(ValidationResult.skipped())
-        tasks = self._stores.tasks.all_items().value_or(TasksCollection())
-        found: list[Task] = []
-        for task_id in dict.fromkeys(task_ids):
-            item = tasks.get(task_id)
-            if item.data is None:
-                return DataResult.fail(item.validation)
-            found.append(item.data)
-        return DataResult.ok(TasksCollection(found))
+        text = self._links.normalized(draft.text)
+        return draft if text is draft.text else replace(draft, text=text)
 
     def _transition(self, task_ids: Sequence[str], kind: TaskEventKindEnum) -> ValidationResult:
         """Change the state of every task, or of none.
@@ -245,13 +251,18 @@ class TaskCommands:
         Returns:
             Success, skipped, ``ENTITY_NOT_FOUND`` or ``TASK_STATE_TRANSITION_INVALID``.
         """
-        found = self._found(task_ids)
+        found = find_tasks(self._stores.tasks, task_ids)
         if found.data is None:
             return found.validation
         now = self._clock.now_utc()
+        today = self._clock.now_local().date()
         changed: list[Task] = []
         for task in found.data:
-            result = task.transitioned(kind, now, self._limits.max_history_events)
+            result = (
+                task.completed(now, today, self._limits.max_history_events)
+                if kind is TaskEventKindEnum.COMPLETED
+                else task.transitioned(kind, now, self._limits.max_history_events)
+            )
             if result.data is None:
                 return result.validation
             changed.append(result.data)
@@ -260,10 +271,22 @@ class TaskCommands:
             return written.validation
         _logger.info("%d tasks %s", len(changed), kind.name.lower())
         for before, after in zip(found.data, changed, strict=True):
+            self._publish_state(before, after)
+        return ValidationResult.success()
+
+    def _publish_state(self, before: Task, after: Task) -> None:
+        """Publish what a transition changed: the state, an occurrence, or both.
+
+        Args:
+            before: Task before the change.
+            after: Task after the change.
+        """
+        if after.occurrences_done != before.occurrences_done:
+            self._event_bus.publish(TaskOccurrenceCompletedEvent(task_id=after.id, occurrence=after.occurrences_done))
+        if after.state is not before.state:
             self._event_bus.publish(
                 TaskStateChangedEvent(task_id=after.id, old_state=before.state, new_state=after.state)
             )
-        return ValidationResult.success()
 
     def _changed(self, tasks: Sequence[Task]) -> ValidationResult:
         """Write changed tasks in one write and publish ``TaskChangedEvent``.

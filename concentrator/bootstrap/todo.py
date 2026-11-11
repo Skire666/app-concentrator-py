@@ -13,10 +13,12 @@ from concentrator.application.todo.todo_events import (
     TaskCreatedEvent,
     TaskDeletedEvent,
     TaskListChangedEvent,
+    TaskOccurrenceCompletedEvent,
     TaskStateChangedEvent,
 )
 from concentrator.application.todo.todo_queries import TodoQueries
 from concentrator.bootstrap.core import Core
+from concentrator.domain.todo.link_detector import LinkDetector
 from concentrator.infrastructure.persistence.store_todo import (
     StoreTaskListReader,
     StoreTaskListWriter,
@@ -42,7 +44,14 @@ from concentrator.ui.support.modal_host import DialogRunner
 from concentrator.ui.support.qt_dialog_service import QtDialogService
 from concentrator.ui.windows.todo_edit_dialogs import ListEditWindow, TaskEditWindow
 
-TODO_EVENTS = (TaskListChangedEvent, TaskCreatedEvent, TaskChangedEvent, TaskStateChangedEvent, TaskDeletedEvent)
+TODO_EVENTS = (
+    TaskListChangedEvent,
+    TaskCreatedEvent,
+    TaskChangedEvent,
+    TaskStateChangedEvent,
+    TaskOccurrenceCompletedEvent,
+    TaskDeletedEvent,
+)
 
 
 def _stores(store: UserDataStore) -> TodoStores:
@@ -75,18 +84,21 @@ def _view(core: Core, queries: TodoQueries, defaults: TodoDefaults) -> TodoView:
     """
     state = TodoViewState(LayoutStateKeeper(core.preferences), defaults)
     state.load()
-    view = TodoView(queries, state)
+    view = TodoView(queries, state, core.clock)
     view.sync()
     return view
 
 
-def _commands(stores: TodoStores, core: Core, defaults: TodoDefaults) -> tuple[TaskListCommands, TaskCommands]:
+def _commands(
+    stores: TodoStores, core: Core, defaults: TodoDefaults, links: LinkDetector
+) -> tuple[TaskListCommands, TaskCommands]:
     """Create the list and task use cases.
 
     Args:
         stores: Readers and writers.
         core: Main-thread services (ids, clock, event bus).
         defaults: Limits.
+        links: Finds the paths to normalize in a task text.
 
     Returns:
         The list commands and the task commands.
@@ -95,7 +107,7 @@ def _commands(stores: TodoStores, core: Core, defaults: TodoDefaults) -> tuple[T
         stores=stores, ids=core.ids, clock=core.clock, event_bus=core.event_bus, limits=defaults.limits
     )
     tasks = TaskCommands(
-        stores=stores, ids=core.ids, clock=core.clock, event_bus=core.event_bus, limits=defaults.limits
+        stores=stores, ids=core.ids, clock=core.clock, event_bus=core.event_bus, limits=defaults.limits, links=links
     )
     return lists, tasks
 
@@ -150,7 +162,8 @@ def build_todo(config: AppConfig, translator: TranslatorPort, core: Core, store:
     """
     defaults = TodoDefaults.from_section(config.todo)
     stores = _stores(store)
-    lists, tasks = _commands(stores, core, defaults)
+    links = LinkDetector.of(config.links.url_schemes)
+    lists, tasks = _commands(stores, core, defaults, links)
     queries = TodoQueries(stores.lists, stores.tasks)
     view = _view(core, queries, defaults)
     editors = _editors(translator, core, (queries, lists, tasks), view, defaults)

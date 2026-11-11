@@ -1,9 +1,10 @@
-"""Opens folders (and, from phase 6, links) with the Windows shell."""
+"""Opens folders and the links of the tasks with the Windows shell."""
 
 from pathlib import Path
 from typing import Protocol
 
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.todo.link_target import LinkTarget
 
 
 class LinkOpenerPort(Protocol):
@@ -19,5 +20,18 @@ class LinkOpenerPort(Protocol):
         Returns:
             Success, or a ``LINK_OPEN_FAILED`` warning (already logged) when the folder cannot be
             created or Windows refused to open it.
+        """
+        ...
+
+    def open(self, target: LinkTarget) -> ValidationResult:
+        """Open a link of a task as it is, like a double click in Explorer (ADR-014).
+
+        Nothing is checked first: no existence, reachability or file type test.
+
+        Args:
+            target: Normalized link.
+
+        Returns:
+            Success, or a ``LINK_OPEN_FAILED`` warning (logged without the link) when Windows refused it.
         """
         ...

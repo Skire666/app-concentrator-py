@@ -155,7 +155,7 @@ def test_queries_give_overviews_and_the_tasks_of_a_query() -> None:
     )
 
     overviews = stack.queries.overviews()
-    tasks = stack.queries.tasks(query)
+    tasks = stack.queries.tasks(query, stack.clock.now_local())
 
     assert [(item.task_list.name, item.open_count) for item in overviews] == [("Work", 2), ("Home", 1)]
     assert [task.id for task in tasks] == ["task-005", "task-002", "task-001"]

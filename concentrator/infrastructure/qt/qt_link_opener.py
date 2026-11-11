@@ -11,6 +11,8 @@ from PySide6.QtGui import QDesktopServices
 from concentrator.application.ports.link_opener_port import LinkOpenerPort
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.todo.link_kind_enum import LinkKindEnum
+from concentrator.domain.todo.link_target import LinkTarget
 
 _logger = logging.getLogger(__name__)
 
@@ -38,4 +40,12 @@ class QtLinkOpener(LinkOpenerPort):
             _logger.warning("Windows refused to open the folder %s", path)
             return ValidationResult.warning(ErrorCodeEnum.LINK_OPEN_FAILED, path=path.as_posix())
         _logger.info("Folder opened: %s", path)
+        return ValidationResult.success()
+
+    @override
+    def open(self, target: LinkTarget) -> ValidationResult:
+        url = QUrl(target.value) if target.kind is LinkKindEnum.URL else QUrl.fromLocalFile(target.value)
+        if not url.isValid() or not self._open_url(url):
+            _logger.warning("Windows refused to open a link (%s)", target.kind.name)
+            return ValidationResult.warning(ErrorCodeEnum.LINK_OPEN_FAILED, kind=target.kind.name)
         return ValidationResult.success()
