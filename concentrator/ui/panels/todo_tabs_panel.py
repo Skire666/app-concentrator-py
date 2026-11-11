@@ -106,6 +106,8 @@ class TodoTabsPanel(QWidget):
             entry = menu.addAction(without_mnemonic(item.text))
             entry.setToolTip(item.tooltip)
             entry.setEnabled(item.enabled)
+            entry.setCheckable(item.checked)
+            entry.setChecked(item.checked)
             entry.triggered.connect(partial(self.list_action_requested.emit, int(item.action), tab.list_id))
         self._menu = menu
         menu.popup(global_pos)

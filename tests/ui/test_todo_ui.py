@@ -98,7 +98,9 @@ def test_tab_bar_renders_names_badges_and_follows_a_click(harness: ShellHarness)
         "en:action.list_move_earlier",
         "en:action.list_move_later",
         "en:action.list_delete",
+        "en:action.focus_set_quick_add_list",
     ]
+    assert not menu.actions()[-1].isChecked()
 
 
 def test_quick_add_field_adds_the_task_on_enter_and_empties(harness: ShellHarness) -> None:

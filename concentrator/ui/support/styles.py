@@ -52,3 +52,8 @@ QToolButton:hover { background: palette(midlight); }
 QToolButton:checked { background: palette(highlight); color: palette(highlighted-text); }
 QToolButton[highlighted="true"] { border: 2px solid palette(highlight); }
 """
+
+FOCUS_ROW_STYLE: Final = """
+QLabel[warning="true"] { font-weight: bold; }
+QLabel[alert="true"] { font-weight: bold; color: palette(highlight); }
+"""

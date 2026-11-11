@@ -11,6 +11,7 @@ from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_list import TaskList
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
+from concentrator.presentation.focus.focus_presenters import FocusPresenters
 from concentrator.presentation.focus.focus_queue_presenter import FocusQueuePresenter, FocusServices
 from concentrator.presentation.focus.focus_queue_snapshot import FocusQueueSnapshot
 from concentrator.presentation.focus.focus_row_formatter import FocusRowFormatter
@@ -21,7 +22,7 @@ from concentrator.presentation.todo.todo_tabs_presenter import QuickAddListTarge
 from tests.fakes.focus_factory import FOCUS_LIMITS
 from tests.fakes.focus_stack import FocusParts
 from tests.fakes.todo_stack import LINKS, TODO_EVENT_TYPES
-from tests.fakes.todo_ui_stack import TodoUiStack
+from tests.fakes.todo_ui_stack import SharedUi, TodoUiStack
 
 PICKER_MAX_RESULTS: Final = 3
 
@@ -37,10 +38,11 @@ class FocusUiStack(TodoUiStack):
         queue: FocusItemsCollection | None = None,
         limits: FocusLimits = FOCUS_LIMITS,
         stored: dict[str, str] | None = None,
+        shared: SharedUi | None = None,
     ) -> None:
         self._queue = queue
         self._limits = limits
-        super().__init__(lists, tasks, stored=stored)
+        super().__init__(lists, tasks, stored=stored, shared=shared)
         self.bus.subscribe(FocusQueueChangedEvent, self.refresher.on_todo_changed)
         defaults = FocusDefaults(limits=limits, picker_max_results=PICKER_MAX_RESULTS)
         services = FocusServices(
@@ -66,7 +68,12 @@ class FocusUiStack(TodoUiStack):
         for event_type in (*TODO_EVENT_TYPES, FocusQueueChangedEvent):
             self.bus.subscribe(event_type, self.queue.on_data_changed)
         self.rendered_focus: list[FocusQueueSnapshot] = []
-        self.renderer.register(RenderSectionEnum.FOCUS_QUEUE, self.queue.build_snapshot, self.rendered_focus.append)
+        if shared is None:
+            self.renderer.register(RenderSectionEnum.FOCUS_QUEUE, self.queue.build_snapshot, self.rendered_focus.append)
+
+    def focus_presenters(self) -> FocusPresenters:
+        """The focus presenters as the main window takes them."""
+        return FocusPresenters(queue=self.queue, actions=self.focus_actions)
 
     @override
     def _before_presenters(self) -> None:

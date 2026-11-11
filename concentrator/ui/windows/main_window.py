@@ -222,6 +222,7 @@ class MainWindow(QWidget):
         renderer.register(RenderSectionEnum.TIMER, timer.build_snapshot, self.timer_panel.render_snapshot)
         self._wire_timer_extras(presenters, renderer)
         self._focus_page.connect_todo(presenters.todo, renderer)
+        self._focus_page.connect_focus(presenters.focus, renderer)
         self._journal_page.connect_presenter(presenters.journal, renderer)
         self._settings_page.connect_presenters(presenters.settings, presenters.settings_files, renderer)
 

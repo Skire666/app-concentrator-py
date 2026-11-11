@@ -1,6 +1,7 @@
 """Wiring of the window shell: presenters, window, ticker, on top of the core and storage services."""
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from PySide6.QtCore import QTimer
@@ -26,6 +27,7 @@ from concentrator.bootstrap.todo import attach_todo_dialogs, build_todo
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
+from concentrator.presentation.focus.focus_presenters import FocusPresenters
 from concentrator.presentation.journal.journal_layout import JournalLayout
 from concentrator.presentation.journal.journal_presenter import JournalPresenter
 from concentrator.presentation.settings.settings_files_presenter import SettingsFilesPresenter
@@ -57,12 +59,13 @@ _logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class _Pages:
-    """Presenters of the TODO manager and of the Journal and Settings pages."""
+    """Presenters of the TODO manager, of the focus queue and of the Journal and Settings pages."""
 
     journal: JournalPresenter
     settings: SettingsPresenter
     settings_files: SettingsFilesPresenter
     todo: TodoPresenters
+    focus: FocusPresenters
 
 
 class Shell:
@@ -207,9 +210,27 @@ def build_shell(
         timer=timer,
         extras=extras,
         alarm=connect_alarm(timer, window, core, storage.settings_queries.notify_when_inactive),
-        heartbeat=create_heartbeat(
-            app, config, (timer.engine.tick, extras.chime_service.tick, pages.journal.on_tick, pages.todo.table.on_tick)
-        ),
+        heartbeat=create_heartbeat(app, config, _tick_handlers(timer, extras, pages)),
+    )
+
+
+def _tick_handlers(timer: TimerServices, extras: TimerExtras, pages: _Pages) -> tuple[Callable[[], None], ...]:
+    """Handlers of the heartbeat, in order.
+
+    Args:
+        timer: Timer engine.
+        extras: Hourly chime.
+        pages: Journal, task table and focus queue (they re-render when the minute changes).
+
+    Returns:
+        The handlers.
+    """
+    return (
+        timer.engine.tick,
+        extras.chime_service.tick,
+        pages.journal.on_tick,
+        pages.todo.table.on_tick,
+        pages.focus.queue.on_tick,
     )
 
 
@@ -252,8 +273,8 @@ def _pages(
     """
     settings, settings_files = build_settings(config, paths, translator, services, timer)
     journal = build_journal(config, translator, services.core, services.feed)
-    todo = build_todo(config, translator, services.core, services.storage.store)
-    return _Pages(journal, settings, settings_files, todo)
+    todo, focus = build_todo(config, translator, services.core, services.storage.store)
+    return _Pages(journal, settings, settings_files, todo, focus)
 
 
 def _connect_settings(window: MainWindow, presenters: MainWindowPresenters, core: Core) -> None:
@@ -376,4 +397,5 @@ def _presenters(
         settings=settings,
         settings_files=pages.settings_files,
         todo=pages.todo,
+        focus=pages.focus,
     )

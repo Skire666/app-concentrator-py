@@ -31,6 +31,7 @@ from concentrator.presentation.todo.todo_layout import TodoLayout
 from concentrator.ui.support.icon_loader import IconLoader
 from concentrator.ui.windows.main_window import MainWindow
 from tests.fakes.app_config_factory import make_app_config
+from tests.fakes.focus_ui_stack import FocusUiStack
 from tests.fakes.in_memory_view_preferences import InMemoryViewPreferences
 from tests.fakes.journal_stack import JournalStack
 from tests.fakes.settings_stack import SettingsStack
@@ -38,7 +39,7 @@ from tests.fakes.storage_stack import StorageStack
 from tests.fakes.timer_factory import LIMITS
 from tests.fakes.timer_stack import BLINK_MS, TimerStack
 from tests.fakes.timer_ui_stack import FakeEditorDialog
-from tests.fakes.todo_ui_stack import SharedUi, TodoUiStack
+from tests.fakes.todo_ui_stack import SharedUi
 
 
 class ShellHarness:
@@ -119,7 +120,7 @@ class ShellHarness:
         self.timer.bus.subscribe(TimerConfigChangedEvent, self.timer_presenter.on_config_changed)
         self.timer.bus.subscribe(TimerChangedEvent, self.presenter.on_timer_changed)
         self._build_timer_extras()
-        self.todo = TodoUiStack(
+        self.todo = FocusUiStack(
             shared=SharedUi(
                 translator=self.translator,
                 scheduler=self.scheduler,
@@ -142,6 +143,7 @@ class ShellHarness:
                 settings=self.settings.presenter,
                 settings_files=self.settings.files,
                 todo=self.todo.presenters(),
+                focus=self.todo.focus_presenters(),
             ),
             renderer=self.stack.renderer,
             layout_keeper=LayoutStateKeeper(self.preferences),
