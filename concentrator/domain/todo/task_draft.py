@@ -5,6 +5,7 @@ from datetime import date, time
 from typing import Final
 
 from concentrator.domain.common.multiline_text import MultilineText
+from concentrator.domain.todo.recurrence import Recurrence
 from concentrator.domain.todo.task_list import TaskListId
 
 _DATE_TIME_SEPARATOR: Final = "T"
@@ -37,9 +38,12 @@ class TaskDraft:
         text: Text, first line shown in the table.
         due_date: Due date (local), ``None`` for no date.
         due_time: Due time (local, minutes), ``None`` for the whole day; requires a date.
+        recurrence: Repetition, ``None`` for a one-off task; requires a date. Its anchor follows a due date
+            changed by hand (``anchored``).
     """
 
     list_id: TaskListId
     text: MultilineText
     due_date: date | None = None
     due_time: time | None = None
+    recurrence: Recurrence | None = None

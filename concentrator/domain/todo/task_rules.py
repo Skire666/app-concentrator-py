@@ -9,6 +9,7 @@ from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.common.time_rules import TimeRules
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.todo.recurrence_rules import RecurrenceRules
 from concentrator.domain.todo.task import STATE_FIELD, Task
 from concentrator.domain.todo.task_draft import TaskDraft
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
@@ -28,7 +29,7 @@ class TaskRules:
 
     @staticmethod
     def validate(task: Task, limits: TodoLimits) -> ValidationResult:
-        """Check one task: identity, editable values, state and timestamps.
+        """Check one task: identity, editable values, state, recurrence and timestamps.
 
         Args:
             task: Task to check.
@@ -41,6 +42,7 @@ class TaskRules:
             TaskRules.validate_text(task.text, limits),
             TaskRules.validate_due(task.due_date, task.due_time),
             TaskRules.validate_state(task.state),
+            RecurrenceRules.validate(task.recurrence, task.due_date, limits),
         )
         if task.completed_at is not None:
             result = result.merge(TimeRules.validate_utc(task.completed_at, COMPLETED_AT_FIELD))
@@ -60,7 +62,10 @@ class TaskRules:
         Returns:
             The merged result, one issue per failing field.
         """
-        return TaskRules.validate_text(draft.text, limits).merge(TaskRules.validate_due(draft.due_date, draft.due_time))
+        return TaskRules.validate_text(draft.text, limits).merge(
+            TaskRules.validate_due(draft.due_date, draft.due_time),
+            RecurrenceRules.validate(draft.recurrence, draft.due_date, limits),
+        )
 
     @staticmethod
     def validate_text(text: MultilineText, limits: TodoLimits) -> ValidationResult:

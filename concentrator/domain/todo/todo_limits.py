@@ -12,9 +12,13 @@ class TodoLimits:
         max_list_name_length: Longest list name, in characters.
         max_list_description_length: Longest list description, in characters.
         max_history_events: Most events kept in the history of a task (the first one included).
+        max_recurrence_interval: Largest interval of a recurrence.
+        max_recurrence_count: Largest number of occurrences of a recurrence that ends after a count.
     """
 
     max_task_text_length: int
     max_list_name_length: int
     max_list_description_length: int
     max_history_events: int
+    max_recurrence_interval: int
+    max_recurrence_count: int

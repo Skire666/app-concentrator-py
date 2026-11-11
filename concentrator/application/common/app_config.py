@@ -110,6 +110,9 @@ class TodoSection:
     max_list_name_length: int
     max_list_description_length: int
     max_history_events: int
+    max_recurrence_interval: int
+    max_recurrence_count: int
+    recurrence_preview_count: int
     default_list_priority: PriorityEnum
     default_sort: TaskSortKeyEnum
     default_sort_descending: bool

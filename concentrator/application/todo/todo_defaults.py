@@ -20,6 +20,7 @@ class TodoDefaults:
         sort_descending: Direction of that order.
         table_ratio_percent: Initial height share of the task table above the details pane.
         column_widths_px: Initial widths of the state, due, created and updated columns.
+        recurrence_preview_count: Dates shown after the due date in the preview of the task editor.
     """
 
     limits: TodoLimits
@@ -28,6 +29,7 @@ class TodoDefaults:
     sort_descending: bool
     table_ratio_percent: int
     column_widths_px: tuple[int, ...]
+    recurrence_preview_count: int
 
     @classmethod
     def from_section(cls, section: TodoSection) -> Self:
@@ -44,6 +46,8 @@ class TodoDefaults:
             max_list_name_length=section.max_list_name_length,
             max_list_description_length=section.max_list_description_length,
             max_history_events=section.max_history_events,
+            max_recurrence_interval=section.max_recurrence_interval,
+            max_recurrence_count=section.max_recurrence_count,
         )
         return cls(
             limits=limits,
@@ -52,4 +56,5 @@ class TodoDefaults:
             sort_descending=section.default_sort_descending,
             table_ratio_percent=section.default_table_ratio_percent,
             column_widths_px=section.default_column_widths_px,
+            recurrence_preview_count=section.recurrence_preview_count,
         )

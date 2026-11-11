@@ -232,6 +232,9 @@ class TodoSectionSchema(BaseModel):
     max_list_name_length: Annotated[int, Field(ge=1, le=500)]
     max_list_description_length: Annotated[int, Field(ge=0, le=100_000)]
     max_history_events: Annotated[int, Field(ge=1, le=1_000)]
+    max_recurrence_interval: Annotated[int, Field(ge=1, le=9_999)]
+    max_recurrence_count: Annotated[int, Field(ge=1, le=99_999)]
+    recurrence_preview_count: Annotated[int, Field(ge=1, le=20)]
     default_list_priority: PriorityName
     default_sort: SortKeyName
     default_sort_descending: bool

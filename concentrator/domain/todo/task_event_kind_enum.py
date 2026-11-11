@@ -17,3 +17,5 @@ class TaskEventKindEnum(BaseIntEnum):
     UNARCHIVED = 7
     MOVED = 8
     COPIED_FROM = 9
+    OCCURRENCE_COMPLETED = 10
+    RECURRENCE_CHANGED = 11

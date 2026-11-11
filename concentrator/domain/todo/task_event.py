@@ -12,6 +12,14 @@ DETAIL_TO: Final = "to"
 """New value (list id, due date) of a ``MOVED`` or ``DUE_CHANGED`` event."""
 DETAIL_SOURCE: Final = "source"
 """Id of the task a ``COPIED_FROM`` event was copied from."""
+DETAIL_OCCURRENCE: Final = "occurrence"
+"""Number of the occurrence an ``OCCURRENCE_COMPLETED`` event completed (1 for the first)."""
+DETAIL_DUE: Final = "due"
+"""Due date (ISO) of the occurrence an ``OCCURRENCE_COMPLETED`` event completed."""
+DETAIL_NEXT: Final = "next"
+"""Next due date (ISO) of an ``OCCURRENCE_COMPLETED`` event; absent when the series ended."""
+DETAIL_SKIPPED: Final = "skipped"
+"""Past dates passed over by an ``OCCURRENCE_COMPLETED`` event; absent when none was."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -21,7 +29,7 @@ class TaskEvent:
     Attributes:
         at: Instant of the event, timezone-aware UTC.
         kind: What happened.
-        details: Key-value pairs describing the change, in order (ids, ISO dates).
+        details: Key-value pairs describing the change, in order (ids, ISO dates, numbers).
     """
 
     at: datetime

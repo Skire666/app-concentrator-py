@@ -22,7 +22,12 @@ WORK_LIST_ID: Final = TaskListId("list-work")
 HOME_LIST_ID: Final = TaskListId("list-home")
 
 TODO_LIMITS: Final = TodoLimits(
-    max_task_text_length=5000, max_list_name_length=80, max_list_description_length=2000, max_history_events=10
+    max_task_text_length=5000,
+    max_list_name_length=80,
+    max_list_description_length=2000,
+    max_history_events=10,
+    max_recurrence_interval=999,
+    max_recurrence_count=9999,
 )
 
 

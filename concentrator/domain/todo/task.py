@@ -8,8 +8,20 @@ from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.todo.recurrence import Recurrence, anchored
+from concentrator.domain.todo.recurrence_calculator import NextOccurrence, RecurrenceCalculator
+from concentrator.domain.todo.recurrence_end_enum import RecurrenceEndEnum
 from concentrator.domain.todo.task_draft import TaskDraft, due_text
-from concentrator.domain.todo.task_event import DETAIL_FROM, DETAIL_SOURCE, DETAIL_TO, TaskEvent
+from concentrator.domain.todo.task_event import (
+    DETAIL_DUE,
+    DETAIL_FROM,
+    DETAIL_NEXT,
+    DETAIL_OCCURRENCE,
+    DETAIL_SKIPPED,
+    DETAIL_SOURCE,
+    DETAIL_TO,
+    TaskEvent,
+)
 from concentrator.domain.todo.task_event_kind_enum import TaskEventKindEnum
 from concentrator.domain.todo.task_history import TaskHistory
 from concentrator.domain.todo.task_list import TaskListId
@@ -48,6 +60,61 @@ def _change(kind: TaskEventKindEnum, now: datetime, old: str, new: str) -> TaskE
     return TaskEvent(at=now, kind=kind, details=((DETAIL_FROM, old), (DETAIL_TO, new)))
 
 
+def _same_rule(old: Recurrence | None, new: Recurrence | None) -> bool:
+    """Tell whether two recurrences repeat the same way, whatever their anchor.
+
+    Args:
+        old: Stored recurrence.
+        new: Recurrence entered.
+
+    Returns:
+        Whether only the anchor (or nothing) differs.
+    """
+    if old is None or new is None:
+        return old is new
+    return new.with_anchor(old.anchor_date) == old
+
+
+def _series_ends(recurrence: Recurrence, occurrence: int, following: date | None) -> bool:
+    """Tell whether completing an occurrence ends the series.
+
+    Args:
+        recurrence: Recurrence of the task.
+        occurrence: Number of the occurrence just completed.
+        following: Next due date, ``None`` when there is none.
+
+    Returns:
+        Whether the task becomes done.
+    """
+    if following is None:
+        return True
+    if recurrence.end_kind is RecurrenceEndEnum.AFTER_COUNT:
+        return occurrence >= (recurrence.end_count or 0)
+    if recurrence.end_kind is RecurrenceEndEnum.ON_DATE:
+        return recurrence.end_date is None or following > recurrence.end_date
+    return False
+
+
+def _occurrence_event(now: datetime, occurrence: int, due: date, following: NextOccurrence | None) -> TaskEvent:
+    """Build the ``OCCURRENCE_COMPLETED`` event.
+
+    Args:
+        now: Completion instant.
+        occurrence: Number of the occurrence (1 for the first).
+        due: Its due date.
+        following: Where the task goes, ``None`` when the series ended.
+
+    Returns:
+        The event with ``occurrence``, ``due`` and, while the series goes on, ``next`` and ``skipped``.
+    """
+    details = [(DETAIL_OCCURRENCE, str(occurrence)), (DETAIL_DUE, due.isoformat())]
+    if following is not None and following.due_date is not None:
+        details.append((DETAIL_NEXT, following.due_date.isoformat()))
+        if following.skipped:
+            details.append((DETAIL_SKIPPED, str(following.skipped)))
+    return TaskEvent(at=now, kind=TaskEventKindEnum.OCCURRENCE_COMPLETED, details=tuple(details))
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Task:
     """One task (``[[tasks]]``); checked by ``TaskRules``. Every change of state adds a history event.
@@ -62,8 +129,10 @@ class Task:
         due_time: Due time (local, to the minute), ``None`` for the whole day; requires a date.
         state: Open, done or archived.
         completed_at: Instant of the last completion, ``None`` when the task was never completed or
-            was reopened.
+            was reopened (an occurrence completed while the series goes on does not set it).
         history: Events of the task, oldest first.
+        recurrence: Repetition, ``None`` for a one-off task.
+        occurrences_done: Occurrences completed so far.
     """
 
     id: TaskId
@@ -76,6 +145,8 @@ class Task:
     state: TaskStateEnum
     completed_at: datetime | None
     history: TaskHistory
+    recurrence: Recurrence | None = None
+    occurrences_done: int = 0
 
     @classmethod
     def create(cls, new_id: TaskId, now: datetime, draft: TaskDraft) -> Self:
@@ -100,12 +171,19 @@ class Task:
             state=TaskStateEnum.OPEN,
             completed_at=None,
             history=TaskHistory.started(TaskEvent.of(now, TaskEventKindEnum.CREATED)),
+            recurrence=anchored(draft.recurrence, draft.due_date, due_changed=True),
         )
 
     @property
     def draft(self) -> TaskDraft:
         """Editable values, as the task editor starts with them."""
-        return TaskDraft(list_id=self.list_id, text=self.text, due_date=self.due_date, due_time=self.due_time)
+        return TaskDraft(
+            list_id=self.list_id,
+            text=self.text,
+            due_date=self.due_date,
+            due_time=self.due_time,
+            recurrence=self.recurrence,
+        )
 
     @property
     def due_text(self) -> str:
@@ -113,7 +191,9 @@ class Task:
         return due_text(self.due_date, self.due_time)
 
     def with_draft(self, draft: TaskDraft, now: datetime, max_events: int) -> Self:
-        """Apply edited values; one event per changed part (text, due, list).
+        """Apply edited values; one event per changed part (text, due, list, recurrence).
+
+        A due date changed by hand starts the series of a recurring task again on that date.
 
         Args:
             draft: New values.
@@ -124,15 +204,11 @@ class Task:
             The changed task, or this task when nothing changed.
         """
         due_time = due_minutes(draft.due_time)
-        new_due = due_text(draft.due_date, due_time)
-        events: list[TaskEvent] = []
-        if draft.text != self.text:
-            events.append(TaskEvent.of(now, TaskEventKindEnum.TEXT_EDITED))
-        if new_due != self.due_text:
-            events.append(_change(TaskEventKindEnum.DUE_CHANGED, now, self.due_text, new_due))
-        if draft.list_id != self.list_id:
-            events.append(_change(TaskEventKindEnum.MOVED, now, self.list_id, draft.list_id))
-        if not events:
+        due_changed = draft.due_date != self.due_date or self.recurrence is None
+        recurrence = anchored(draft.recurrence, draft.due_date, due_changed=due_changed)
+        edited = replace(draft, due_time=due_time, recurrence=recurrence)
+        events = self._edit_events(edited, now)
+        if not events and recurrence == self.recurrence:
             return self
         history = self.history
         for event in events:
@@ -143,9 +219,49 @@ class Task:
             text=draft.text,
             due_date=draft.due_date,
             due_time=due_time,
+            recurrence=recurrence,
             history=history,
             updated_at=now,
         )
+
+    def _edit_events(self, draft: TaskDraft, now: datetime) -> list[TaskEvent]:
+        """List the events of an edit.
+
+        Args:
+            draft: New values (due time to the minute, recurrence anchored).
+            now: Change instant.
+
+        Returns:
+            One event per changed part, in the order text, due, list, recurrence.
+        """
+        events: list[TaskEvent] = []
+        new_due = due_text(draft.due_date, draft.due_time)
+        if draft.text != self.text:
+            events.append(TaskEvent.of(now, TaskEventKindEnum.TEXT_EDITED))
+        if new_due != self.due_text:
+            events.append(_change(TaskEventKindEnum.DUE_CHANGED, now, self.due_text, new_due))
+        if draft.list_id != self.list_id:
+            events.append(_change(TaskEventKindEnum.MOVED, now, self.list_id, draft.list_id))
+        if not _same_rule(self.recurrence, draft.recurrence):
+            events.append(TaskEvent.of(now, TaskEventKindEnum.RECURRENCE_CHANGED))
+        return events
+
+    def with_due_date(self, due_date: date | None, now: datetime, max_events: int) -> Self:
+        """Set or clear the due date (bulk action); the due time is kept with a date, cleared without one.
+
+        Args:
+            due_date: New due date, ``None`` to clear it.
+            now: Change instant (timezone-aware UTC).
+            max_events: Most history events kept.
+
+        Returns:
+            The changed task (``DUE_CHANGED`` event, series anchored on the new date), or this task when the
+            date is the same. Validate it: a recurring task needs a date.
+        """
+        if due_date == self.due_date:
+            return self
+        due_time = self.due_time if due_date is not None else None
+        return self.with_draft(replace(self.draft, due_date=due_date, due_time=due_time), now, max_events)
 
     def moved_to(self, list_id: TaskListId, now: datetime, max_events: int) -> Self:
         """Move the task to another list (``MOVED`` event).
@@ -187,6 +303,62 @@ class Task:
         history = self.history.with_event(TaskEvent.of(now, kind), max_events)
         return DataResult.ok(replace(self, state=target, completed_at=completed_at, history=history, updated_at=now))
 
+    def completed(self, now: datetime, today: date, max_events: int) -> DataResult[Self]:
+        """Complete the task: the current occurrence of an open recurring task, or the whole task.
+
+        Args:
+            now: Change instant (timezone-aware UTC).
+            today: Current local date.
+            max_events: Most history events kept.
+
+        Returns:
+            The changed task, or ``TASK_STATE_TRANSITION_INVALID`` on ``state``.
+        """
+        if self.recurrence is None or self.due_date is None or self.state is not TaskStateEnum.OPEN:
+            return self.transitioned(TaskEventKindEnum.COMPLETED, now, max_events)
+        return DataResult.ok(self.complete_occurrence(self.recurrence, self.due_date, now, today, max_events))
+
+    def complete_occurrence(
+        self, recurrence: Recurrence, due_date: date, now: datetime, today: date, max_events: int
+    ) -> Self:
+        """Complete the current occurrence of an open recurring task (phase 6 spec, owner decision).
+
+        The count grows by one. If the series ends (count reached, next date after the end date), the task
+        becomes done; otherwise it stays open and moves to the first date of the series after its due date
+        that is today or later. Past dates passed over are counted in the event, not completed.
+
+        Args:
+            recurrence: Recurrence of the task.
+            due_date: Due date of the task.
+            now: Change instant (timezone-aware UTC).
+            today: Current local date.
+            max_events: Most history events kept.
+
+        Returns:
+            The changed task.
+        """
+        occurrence = self.occurrences_done + 1
+        following = RecurrenceCalculator.next_from(recurrence, due_date, today)
+        if _series_ends(recurrence, occurrence, following.due_date):
+            history = self.history.with_event(_occurrence_event(now, occurrence, due_date, None), max_events)
+            history = history.with_event(TaskEvent.of(now, TaskEventKindEnum.COMPLETED), max_events)
+            return replace(
+                self,
+                state=TaskStateEnum.DONE,
+                completed_at=now,
+                occurrences_done=occurrence,
+                history=history,
+                updated_at=now,
+            )
+        event = _occurrence_event(now, occurrence, due_date, following)
+        return replace(
+            self,
+            due_date=following.due_date,
+            occurrences_done=occurrence,
+            history=self.history.with_event(event, max_events),
+            updated_at=now,
+        )
+
     def business_copy(self, new_id: str, now: datetime) -> Self:
         """Return an open duplicate with a new identity (``BusinessCopyable``, ADR-012).
 
@@ -195,7 +367,8 @@ class Task:
             now: Creation instant of the duplicate.
 
         Returns:
-            The duplicate: same list, text and due date; history restarted with ``COPIED_FROM``.
+            The duplicate: same list, text, due date and recurrence, no occurrence completed; history
+            restarted with ``COPIED_FROM``.
         """
         event = TaskEvent(at=now, kind=TaskEventKindEnum.COPIED_FROM, details=((DETAIL_SOURCE, self.id),))
         return replace(
@@ -205,5 +378,6 @@ class Task:
             updated_at=now,
             state=TaskStateEnum.OPEN,
             completed_at=None,
+            occurrences_done=0,
             history=TaskHistory.started(event),
         )

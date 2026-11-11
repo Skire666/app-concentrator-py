@@ -14,13 +14,19 @@ def test_defaults_gather_the_todo_section() -> None:
 
     assert defaults == TodoDefaults(
         limits=TodoLimits(
-            max_task_text_length=5000, max_list_name_length=80, max_list_description_length=2000, max_history_events=7
+            max_task_text_length=5000,
+            max_list_name_length=80,
+            max_list_description_length=2000,
+            max_history_events=7,
+            max_recurrence_interval=999,
+            max_recurrence_count=9999,
         ),
         list_priority=PriorityEnum.NORMAL,
         sort_key=TaskSortKeyEnum.DUE,
         sort_descending=True,
         table_ratio_percent=75,
         column_widths_px=(60, 140, 140, 140),
+        recurrence_preview_count=4,
     )
 
 
