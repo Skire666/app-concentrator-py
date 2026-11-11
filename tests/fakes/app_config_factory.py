@@ -8,6 +8,7 @@ from concentrator.application.common.app_config import (
     AppConfig,
     AppSection,
     ChimeSection,
+    FocusSection,
     I18nSection,
     JournalSection,
     LinksSection,
@@ -156,6 +157,7 @@ def make_app_config(
         timer=timer or make_timer_section(),
         chime=chime or make_chime_section(),
         todo=todo or make_todo_section(),
+        focus=FocusSection(max_items=20, picker_max_results=20),
         logging=LoggingSection(
             level=logging.INFO,
             file_name="concentrator.log",

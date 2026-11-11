@@ -10,6 +10,7 @@ from concentrator.domain.settings.log_level_enum import LogLevelEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
 from concentrator.domain.timer.timer_config import TimerConfig
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
+from tests.fakes.focus_factory import FOCUS_LIMITS
 from tests.fakes.timer_extras_factory import make_chime, make_spec_presets
 from tests.fakes.timer_factory import LIMITS, make_timer_config
 from tests.fakes.todo_factory import TODO_LIMITS, make_spec_list
@@ -19,7 +20,7 @@ CREATED_AT: Final = datetime(2026, 11, 6, 16, 40, tzinfo=UTC)
 UPDATED_AT: Final = datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)
 SAVED_AT: Final = datetime(2026, 11, 6, 16, 44, 3, tzinfo=UTC)
 SETTINGS_DEFAULTS: Final = SettingsDefaults(log_level=LogLevelEnum.INFO, notify_when_inactive=True)
-USER_DATA_LIMITS: Final = UserDataLimits(timer=LIMITS, settings=SETTINGS_DEFAULTS, todo=TODO_LIMITS)
+USER_DATA_LIMITS: Final = UserDataLimits(timer=LIMITS, settings=SETTINGS_DEFAULTS, todo=TODO_LIMITS, focus=FOCUS_LIMITS)
 
 SPEC_EXAMPLE_TEXT: Final = """\
 # Concentrator user data. Schema version 1.
@@ -28,6 +29,7 @@ schema_version = 1
 saved_at = '2026-11-06T16:44:03Z'
 app_version = '0.1.0'
 tasks = []
+focus_queue = []
 
 [settings]
 id = '019a5c1e-7a40-7c3e-9d5a-1f2b3c4d5e6f'

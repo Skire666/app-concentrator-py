@@ -33,14 +33,27 @@ def test_task_lookup_finds_the_item_of_a_task() -> None:
     assert queue.item_of_task("task-009") is None
 
 
-def test_without_tasks_removes_and_renumbers() -> None:
-    queue = make_queue(1, 2, 3)
+def test_items_of_tasks_keeps_the_queued_ones_in_order() -> None:
+    queue = make_queue(3, 1, 2)
 
-    changed = queue.without_tasks(["task-001", "task-404"], NOW)
+    found = queue.items_of_tasks(["task-002", "task-003", "task-404"])
 
-    assert _tasks(changed) == ["task-002", "task-003"]
-    assert [item.position for item in changed.ordered()] == [0, 1]
-    assert all(item.updated_at == NOW for item in changed)
+    assert [item.id for item in found] == ["item-003", "item-002"]
+
+
+def test_moved_renumbers_from_zero_after_a_gap() -> None:
+    queue = FocusItemsCollection((make_item(1, position=4), make_item(2, position=9)))
+
+    moved = queue.moved("item-002", -1, NOW)
+
+    assert [(item.task_id, item.position) for item in moved.ordered()] == [("task-002", 0), ("task-001", 1)]
+    assert all(item.updated_at == NOW for item in moved)
+
+
+def test_business_copy_has_a_new_identity() -> None:
+    copy = make_item(1).business_copy("item-new", NOW)
+
+    assert (copy.id, copy.created_at, copy.updated_at, copy.task_id) == ("item-new", NOW, NOW, "task-001")
 
 
 def test_moved_down_and_up_swaps_with_the_neighbour() -> None:

@@ -13,8 +13,8 @@ FIRST_POSITION: Final = 0
 class FocusItemsCollection(EntityCollection[FocusItem]):
     """Group logic of the queue: order, task lookup, moves.
 
-    Every change renumbers the positions ``0, 1, 2...`` in queue order, so the stored positions stay
-    dense. ``FocusRules`` checks the capacity, the duplicates and the task state before an addition.
+    Positions only order the items: a removal leaves a gap, a move renumbers them ``0, 1, 2...``.
+    ``FocusRules`` checks the capacity, the duplicates and the task state before an addition.
     """
 
     def ordered(self) -> Self:
@@ -63,19 +63,17 @@ class FocusItemsCollection(EntityCollection[FocusItem]):
         """
         return next((item for item in self if item.task_id == task_id), None)
 
-    def without_tasks(self, task_ids: Iterable[str], now: datetime) -> Self:
-        """Remove the items of some tasks and renumber the others.
+    def items_of_tasks(self, task_ids: Iterable[str]) -> Self:
+        """Keep the items of some tasks.
 
         Args:
-            task_ids: Tasks to remove (tasks not queued are ignored).
-            now: Change instant of the renumbered items.
+            task_ids: Tasks to look for (tasks not queued are ignored).
 
         Returns:
-            The new queue.
+            Their items, in queue order.
         """
-        removed = set(task_ids)
-        kept = self.ordered().filtered(lambda item: item.task_id not in removed)
-        return kept.renumbered(now)
+        wanted = set(task_ids)
+        return self.ordered().filtered(lambda item: item.task_id in wanted)
 
     def moved(self, item_id: str, offset: int, now: datetime) -> Self:
         """Move an item up (negative offset) or down, stopping at both ends.

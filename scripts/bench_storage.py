@@ -24,6 +24,7 @@ from typing import Annotated, Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from concentrator.application.focus.focus_defaults import FocusDefaults
 from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.user_data import StoredUserData, UserDataLimits
 from concentrator.application.timer.timer_defaults import TimerDefaults
@@ -239,6 +240,7 @@ def _codec() -> tuple[UserDataCodec, int]:
         timer=TimerDefaults.from_section(config.data.timer).limits,
         settings=SettingsDefaults.from_section(config.data.settings),
         todo=todo,
+        focus=FocusDefaults.from_section(config.data.focus).limits,
     )
     return UserDataCodec(metadata.version(PACKAGE_NAME), limits), todo.max_history_events
 

@@ -55,3 +55,15 @@ class FocusItem:
         if position == self.position:
             return self
         return replace(self, position=position, updated_at=now)
+
+    def business_copy(self, new_id: str, now: datetime) -> Self:
+        """Return a duplicate with a new identity (``BusinessCopyable``).
+
+        Args:
+            new_id: Id of the duplicate.
+            now: Creation instant of the duplicate.
+
+        Returns:
+            The duplicate, same task and position (``FocusRules`` refuses it in the queue).
+        """
+        return replace(self, id=FocusItemId(new_id), created_at=now, updated_at=now)

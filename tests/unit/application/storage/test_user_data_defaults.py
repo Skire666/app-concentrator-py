@@ -14,6 +14,7 @@ from concentrator.application.storage.user_data_defaults import SectionDefaults,
 from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.application.todo.todo_defaults import TodoDefaults
+from concentrator.domain.focus.focus_items_collection import FocusItemsCollection
 from concentrator.domain.settings.general_settings import GeneralSettings
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.log_level_enum import LogLevelEnum
@@ -174,6 +175,13 @@ def test_initial_data_has_an_inbox_named_in_the_current_language_and_no_task() -
         ("en:todo.default_list_name", PriorityEnum.NORMAL, 0, clock.now_utc())
     ]
     assert data.tasks == TasksCollection()
+    assert data.focus_queue == FocusItemsCollection()
+
+
+def test_complete_adds_an_empty_focus_queue_to_a_phase_6_file() -> None:
+    completed = _defaults().complete(replace(make_user_data(), focus_queue=None))
+
+    assert completed.focus_queue == FocusItemsCollection()
 
 
 @pytest.mark.parametrize("lists", [None, TaskListsCollection()])

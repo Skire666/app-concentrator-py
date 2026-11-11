@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from concentrator.application.common.app_config import AppConfig
+from concentrator.application.focus.focus_defaults import FocusDefaults
 from concentrator.application.ports.error_reporter_port import ErrorReporterPort
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.settings.language_hint import LanguageHint
@@ -83,6 +84,7 @@ def _data_file(
         timer=timer.limits,
         settings=SettingsDefaults.from_section(config.settings),
         todo=TodoDefaults.from_section(config.todo).limits,
+        focus=FocusDefaults.from_section(config.focus).limits,
     )
     return TomlUserDataFile(
         codec=UserDataCodec(app_version, limits),

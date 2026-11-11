@@ -5,6 +5,8 @@ from datetime import datetime
 from typing import Final, Self
 
 from concentrator.application.settings.settings_defaults import SettingsDefaults
+from concentrator.domain.focus.focus_items_collection import FocusItemsCollection
+from concentrator.domain.focus.focus_limits import FocusLimits
 from concentrator.domain.settings.user_settings import UserSettings
 from concentrator.domain.timer.hourly_chime import HourlyChime
 from concentrator.domain.timer.timer_config import TimerConfig
@@ -34,6 +36,7 @@ class UserData:
         task_lists: TODO lists (``[[task_lists]]``, phase 5); ``None`` or empty until the first list
             (Inbox) is created.
         tasks: Tasks of every list (``[[tasks]]``, phase 5).
+        focus_queue: Tasks queued under the timer (``[[focus_queue]]``, phase 7).
     """
 
     schema_version: int
@@ -43,6 +46,7 @@ class UserData:
     hourly_chime: HourlyChime | None = None
     task_lists: TaskListsCollection | None = None
     tasks: TasksCollection | None = None
+    focus_queue: FocusItemsCollection | None = None
 
     @classmethod
     def initial(
@@ -73,6 +77,7 @@ class UserData:
             hourly_chime=hourly_chime,
             task_lists=task_lists,
             tasks=TasksCollection(),
+            focus_queue=FocusItemsCollection(),
         )
 
     def with_settings(self, settings: UserSettings) -> Self:
@@ -141,6 +146,17 @@ class UserData:
         """
         return replace(self, tasks=tasks)
 
+    def with_focus_queue(self, focus_queue: FocusItemsCollection) -> Self:
+        """Return a copy with another focus queue.
+
+        Args:
+            focus_queue: New queue.
+
+        Returns:
+            The changed data.
+        """
+        return replace(self, focus_queue=focus_queue)
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class UserDataLimits:
@@ -150,11 +166,13 @@ class UserDataLimits:
         timer: Bounds of the timer configuration and of the favorites, applied by the domain rules.
         settings: Values of the ``[settings]`` keys that a file written before phase 4 does not have.
         todo: Bounds of the lists and tasks, applied by the domain rules.
+        focus: Bounds of the focus queue, applied when the file is read.
     """
 
     timer: TimerLimits
     settings: SettingsDefaults
     todo: TodoLimits
+    focus: FocusLimits
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

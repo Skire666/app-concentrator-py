@@ -123,6 +123,14 @@ class TodoSection:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class FocusSection:
+    """``[focus]``: the focus queue of zone 2."""
+
+    max_items: int
+    picker_max_results: int
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class LoggingSection:
     """``[logging]``: log level, rotating file and journal buffer."""
 
@@ -178,6 +186,7 @@ class AppConfig:
     timer: TimerSection
     chime: ChimeSection
     todo: TodoSection
+    focus: FocusSection
     logging: LoggingSection
     journal: JournalSection
     settings: SettingsSection

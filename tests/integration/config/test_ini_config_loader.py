@@ -5,6 +5,7 @@ import pytest
 
 from concentrator.application.common.app_config import (
     ChimeSection,
+    FocusSection,
     JournalSection,
     LinksSection,
     SettingsSection,
@@ -101,6 +102,7 @@ def test_shipped_ini_loads_with_tokens_resolved(paths: AppPaths, tmp_path: Path)
         default_table_ratio_percent=75,
         default_column_widths_px=(60, 120, 140, 130, 50, 50, 140, 140),
     )
+    assert config.focus == FocusSection(max_items=20, picker_max_results=20)
 
 
 def test_missing_file_is_reported(paths: AppPaths, tmp_path: Path) -> None:
@@ -210,6 +212,8 @@ def test_unexpected_key_is_reported(paths: AppPaths, tmp_path: Path) -> None:
         ("text_width_percent = 78", "text_width_percent = 101", "todo.text_width_percent"),
         ("recurrence_preview_count = 4", "recurrence_preview_count = 21", "todo.recurrence_preview_count"),
         ("copy_max_rows = 2000", "copy_max_rows = 0", "journal.copy_max_rows"),
+        ("max_items = 20", "max_items = 0", "focus.max_items"),
+        ("picker_max_results = 20", "picker_max_results = 101", "focus.picker_max_results"),
         ("default_table_ratio_percent = 70", "default_table_ratio_percent = 96", "journal.default_table_ratio_percent"),
         ("default_column_widths_px = 110, 90, 240, 120", "default_column_widths_px = 110, 90", "journal"),
         ("default_column_widths_px = 110, 90, 240, 120", "default_column_widths_px = 110, 90, 240, 5", "journal"),

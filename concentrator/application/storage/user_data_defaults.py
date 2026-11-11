@@ -14,6 +14,7 @@ from concentrator.application.timer.chime_defaults import ChimeDefaults
 from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.application.todo.todo_defaults import TodoDefaults
 from concentrator.domain.common.multiline_text import MultilineText
+from concentrator.domain.focus.focus_items_collection import FocusItemsCollection
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
 from concentrator.domain.timer.chime_settings import ChimeSettings
@@ -85,7 +86,7 @@ class UserDataDefaults:
     Phase 2 added ``[timer]``; phase 3 added the favorites and ``[hourly_chime]``. The favorites are
     seeded only when the file has no ``timer_presets`` key: ``timer_presets = []`` means the user deleted
     every favorite. Phase 5 added the lists and tasks: a file without any list gets an Inbox, named in
-    the current UI language (it is user data afterwards).
+    the current UI language (it is user data afterwards). Phase 7 added the (empty) focus queue.
     """
 
     def __init__(
@@ -149,6 +150,8 @@ class UserDataDefaults:
             completed = completed.with_task_lists(self._new_task_lists())
         if completed.tasks is None:
             completed = completed.with_tasks(TasksCollection())
+        if completed.focus_queue is None:
+            completed = completed.with_focus_queue(FocusItemsCollection())
         return completed
 
     def complete_session(self, session: UserDataSessionPort) -> None:
@@ -166,6 +169,7 @@ class UserDataDefaults:
                 "hourly_chime": current.hourly_chime,
                 "task_lists": current.task_lists or None,
                 "tasks": current.tasks,
+                "focus_queue": current.focus_queue,
             }
             missing = [name for name, value in sections.items() if value is None]
             _logger.info("Data file completed with the default sections: %s", ", ".join(missing))

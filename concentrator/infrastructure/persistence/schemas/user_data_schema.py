@@ -4,6 +4,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
+from concentrator.infrastructure.persistence.schemas.focus_item_schema import FocusItemSchema
 from concentrator.infrastructure.persistence.schemas.hourly_chime_schema import HourlyChimeSchema
 from concentrator.infrastructure.persistence.schemas.schema_types import PERSISTENCE_MODEL_CONFIG, UtcTimestamp
 from concentrator.infrastructure.persistence.schemas.task_list_schema import TaskListSchema
@@ -31,3 +32,4 @@ class UserDataSchema(BaseModel):
     hourly_chime: HourlyChimeSchema | None = None
     task_lists: tuple[TaskListSchema, ...] | None = None
     tasks: tuple[TaskSchema, ...] | None = None
+    focus_queue: tuple[FocusItemSchema, ...] | None = None

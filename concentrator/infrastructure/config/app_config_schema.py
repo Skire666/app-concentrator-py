@@ -254,6 +254,15 @@ class TodoSectionSchema(BaseModel):
         return self
 
 
+class FocusSectionSchema(BaseModel):
+    """``[focus]``."""
+
+    model_config = _STRICT
+
+    max_items: Annotated[int, Field(ge=1, le=100)]
+    picker_max_results: Annotated[int, Field(ge=1, le=100)]
+
+
 class LoggingSectionSchema(BaseModel):
     """``[logging]``."""
 
@@ -338,6 +347,7 @@ class AppConfigSchema(BaseModel):
     timer: TimerSectionSchema
     chime: ChimeSectionSchema
     todo: TodoSectionSchema
+    focus: FocusSectionSchema
     logging: LoggingSectionSchema
     journal: JournalSectionSchema
     settings: SettingsSectionSchema

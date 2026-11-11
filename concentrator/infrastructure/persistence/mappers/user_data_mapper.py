@@ -9,11 +9,13 @@ from concentrator.application.storage.user_data import StoredUserData, UserData,
 from concentrator.domain.common.data_result import DataResult
 from concentrator.domain.common.time_rules import TimeRules
 from concentrator.domain.common.validation_result import ValidationResult
+from concentrator.domain.focus.focus_items_collection import FocusItemsCollection
 from concentrator.domain.timer.hourly_chime import HourlyChime
 from concentrator.domain.timer.timer_config import TimerConfig
 from concentrator.domain.timer.timer_presets_collection import TimerPresetsCollection
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
 from concentrator.domain.todo.tasks_collection import TasksCollection
+from concentrator.infrastructure.persistence.mappers.focus_queue_mapper import FocusQueueMapper
 from concentrator.infrastructure.persistence.mappers.hourly_chime_mapper import HourlyChimeMapper
 from concentrator.infrastructure.persistence.mappers.task_lists_mapper import TaskListsMapper
 from concentrator.infrastructure.persistence.mappers.tasks_mapper import TasksMapper
@@ -29,6 +31,7 @@ CHIME_FIELD: Final = "hourly_chime"
 SAVED_AT_FIELD: Final = "saved_at"
 TASK_LISTS_FIELD: Final = "task_lists"
 TASKS_FIELD: Final = "tasks"
+FOCUS_QUEUE_FIELD: Final = "focus_queue"
 
 
 def _optional[S, T](schema: S | None, convert: Callable[[S], DataResult[T]]) -> DataResult[T | None]:
@@ -79,6 +82,7 @@ class _Sections:
         chime: ``[hourly_chime]``.
         lists: ``[[task_lists]]``.
         tasks: ``[[tasks]]``.
+        focus: ``[[focus_queue]]``.
     """
 
     timer: DataResult[TimerConfig | None]
@@ -86,12 +90,17 @@ class _Sections:
     chime: DataResult[HourlyChime | None]
     lists: DataResult[TaskListsCollection | None]
     tasks: DataResult[TasksCollection | None]
+    focus: DataResult[FocusItemsCollection | None]
 
     @property
     def validation(self) -> ValidationResult:
         """Issues of every section, merged."""
         return self.timer.validation.merge(
-            self.presets.validation, self.chime.validation, self.lists.validation, self.tasks.validation
+            self.presets.validation,
+            self.chime.validation,
+            self.lists.validation,
+            self.tasks.validation,
+            self.focus.validation,
         )
 
 
@@ -106,6 +115,10 @@ def _sections(schema: UserDataSchema, limits: UserDataLimits) -> _Sections:
         The mapped sections.
     """
     lists, tasks = _todo(schema, limits)
+    known = tasks.data or TasksCollection()
+    focus = _optional(
+        schema.focus_queue, lambda section: FocusQueueMapper.to_domain(section, FOCUS_QUEUE_FIELD, known, limits.focus)
+    )
     return _Sections(
         timer=_optional(schema.timer, lambda section: TimerConfigMapper.to_domain(section, TIMER_FIELD, limits.timer)),
         presets=_optional(
@@ -114,6 +127,7 @@ def _sections(schema: UserDataSchema, limits: UserDataLimits) -> _Sections:
         chime=_optional(schema.hourly_chime, lambda section: HourlyChimeMapper.to_domain(section, CHIME_FIELD)),
         lists=lists,
         tasks=tasks,
+        focus=focus,
     )
 
 
@@ -148,6 +162,7 @@ class UserDataMapper:
             hourly_chime=sections.chime.data,
             task_lists=sections.lists.data,
             tasks=sections.tasks.data,
+            focus_queue=sections.focus.data,
         )
         return DataResult.ok(StoredUserData(data=data, saved_at=schema.saved_at), validation)
 
@@ -174,4 +189,5 @@ class UserDataMapper:
             hourly_chime=None if data.hourly_chime is None else HourlyChimeMapper.to_schema(data.hourly_chime),
             task_lists=None if data.task_lists is None else TaskListsMapper.to_schema(data.task_lists),
             tasks=None if data.tasks is None else TasksMapper.to_schema(data.tasks),
+            focus_queue=None if data.focus_queue is None else FocusQueueMapper.to_schema(data.focus_queue),
         )
