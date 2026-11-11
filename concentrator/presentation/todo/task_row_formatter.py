@@ -4,8 +4,9 @@ from datetime import datetime
 from typing import Final
 
 from concentrator.application.ports.translator_port import TranslatorPort
+from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.todo.due_marks import DueMarks, due_marks
-from concentrator.domain.todo.link_detector import LinkDetector
+from concentrator.domain.todo.link_detector import DetectedLink, LinkDetector
 from concentrator.domain.todo.recurrence_end_enum import RecurrenceEndEnum
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_sort_key_enum import TaskSortKeyEnum
@@ -50,6 +51,8 @@ COLUMN_KEYS: Final = (
 """Header of each column, in column order."""
 
 SEPARATOR: Final = " "
+LINK_CACHE_SIZE: Final = 4096
+"""Texts whose links are remembered (the texts are immutable; the cache empties when full)."""
 CHECKABLE_STATES: Final = frozenset({TaskStateEnum.OPEN, TaskStateEnum.DONE})
 
 
@@ -84,6 +87,7 @@ class TaskRowFormatter:
         self._translator = translator
         self._dates = dates
         self._links = links
+        self._found: dict[MultilineText, tuple[DetectedLink, ...]] = {}
         self._summaries = RecurrenceSummaryFormatter(translator, dates)
 
     @property
@@ -110,7 +114,7 @@ class TaskRowFormatter:
         Returns:
             The row keyed by the task id.
         """
-        links = self._links.find(task.text)
+        links = self.links(task.text)
         return TableRowSnapshot(
             key=task.id,
             cells=self._cells(task, list_name, len(links)),
@@ -146,6 +150,23 @@ class TaskRowFormatter:
             self._dates.date_time_minutes(task.created_at),
             self._dates.date_time_minutes(task.updated_at),
         )
+
+    def links(self, text: MultilineText) -> tuple[DetectedLink, ...]:
+        """Links of a text, found once per text.
+
+        Args:
+            text: Text of a task.
+
+        Returns:
+            Its links, in reading order.
+        """
+        found = self._found.get(text)
+        if found is None:
+            if len(self._found) >= LINK_CACHE_SIZE:
+                self._found.clear()
+            found = self._links.find(text)
+            self._found[text] = found
+        return found
 
     def title(self, task: Task) -> str:
         """First line of a task, with a mark when the text has more lines.

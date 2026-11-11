@@ -13,10 +13,13 @@ from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_event import TaskEvent
 from concentrator.domain.todo.task_event_kind_enum import TaskEventKindEnum
 from concentrator.domain.todo.task_history import TaskHistory
+from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.table_snapshot import CellLinkSnapshot
 from concentrator.presentation.todo.task_details_snapshot import NO_LINK, TextLineSnapshot
 from concentrator.presentation.todo.task_menu_snapshot import LinkMenuItemSnapshot
+from concentrator.presentation.todo.task_row_formatter import LINK_CACHE_SIZE, TaskRowFormatter
 from tests.fakes.todo_factory import HOME_LIST_ID, WORK_LIST_ID, make_task
+from tests.fakes.todo_stack import LINKS
 from tests.fakes.todo_ui_stack import TodoUiStack
 
 AT = datetime(2026, 11, 6, 16, 45, tzinfo=UTC)
@@ -172,3 +175,17 @@ def test_a_link_chosen_without_a_single_task_or_gone_is_ignored() -> None:
     stack.links.on_table_link("task-001", 99)
 
     assert stack.opener.links == []
+
+
+def test_links_are_found_once_per_text_and_the_cache_empties_when_full() -> None:
+    stack = TodoUiStack()
+    formatter = TaskRowFormatter(stack.translator, DateTimeFormatter(stack.translator, stack.clock), LINKS)
+    first = MultilineText(("C:/a",))
+
+    found = formatter.links(first)
+    assert formatter.links(MultilineText(("C:/a",))) is found
+    for number in range(LINK_CACHE_SIZE):
+        formatter.links(MultilineText((f"text {number}",)))
+
+    assert formatter.links(first) is not found
+    assert formatter.links(first) == found
