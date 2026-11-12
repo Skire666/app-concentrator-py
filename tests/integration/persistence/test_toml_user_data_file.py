@@ -1,4 +1,5 @@
 import codecs
+import logging
 import os
 import threading
 from collections.abc import Iterator
@@ -387,3 +388,14 @@ def test_is_same_file_ignores_case_and_dot_dot_segments(adapter: TomlUserDataFil
     assert adapter.is_same_file(path, spelled_otherwise)
     assert adapter.is_same_file(path.parent / "absent.toml", path.parent / "ABSENT.toml")
     assert not adapter.is_same_file(path, path.with_name("other.toml"))
+
+
+def test_save_logs_its_duration_at_debug(
+    adapter: TomlUserDataFile, path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    adapter.create(path, make_user_data())
+
+    with caplog.at_level(logging.DEBUG, logger="concentrator.infrastructure.persistence.toml_user_data_file"):
+        _save(adapter, path, make_user_data(LanguageEnum.ENGLISH))
+
+    assert "Save of revision 7 took 0 ms" in caplog.text

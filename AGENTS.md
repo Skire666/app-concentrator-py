@@ -77,7 +77,8 @@ app-concentrator-py/
 │                                owner confirmed; SOURCES.md names them, ADR-038)
 ├── concentrator/                source package (see §4)
 ├── tests/                       unit/, integration/, ui/, architecture/, fakes/
-├── scripts/                     check.py, coverage_gate.py, build.py, clean.py, bench_storage.py
+├── scripts/                     check.py, coverage_gate.py, build.py, clean.py, bench_storage.py,
+│                                bench_app.py
 └── docs/                        decisions.md, specs/phase-*.md
 ```
 

@@ -1,3 +1,5 @@
+import logging
+import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -5,8 +7,11 @@ import pytest
 
 from concentrator.domain.common.error_code_enum import ErrorCodeEnum
 from concentrator.infrastructure.system import windows_shell
+from concentrator.infrastructure.system.process_age import log_startup_time, process_age_ms
 from concentrator.infrastructure.system.system_clock import SystemClock
 from concentrator.infrastructure.system.uuid7_id_generator import Uuid7IdGenerator
+
+PROCESS_AGE_SANITY_MS = 24 * 60 * 60 * 1000
 
 
 def test_system_clock_returns_aware_utc_and_local_times() -> None:
@@ -77,3 +82,37 @@ def test_set_app_user_model_id_reports_shell_failure() -> None:
 
 def test_allow_set_foreground_window_returns_a_boolean() -> None:
     assert windows_shell.allow_set_foreground_window() in {True, False}
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="GetProcessTimes is a Windows API")
+def test_process_age_counts_from_process_creation() -> None:
+    elapsed = process_age_ms()
+
+    assert elapsed is not None
+    assert 0 < elapsed < PROCESS_AGE_SANITY_MS
+
+
+def test_process_age_is_unknown_outside_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    assert process_age_ms() is None
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="GetProcessTimes is a Windows API")
+def test_startup_time_is_logged_at_info(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.INFO, logger="concentrator.infrastructure.system.process_age"):
+        log_startup_time()
+
+    assert "Startup took " in caplog.text
+    assert " ms (process start to main window shown)" in caplog.text
+
+
+def test_startup_time_is_not_logged_outside_windows(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    with caplog.at_level(logging.INFO):
+        log_startup_time()
+
+    assert "Startup took" not in caplog.text

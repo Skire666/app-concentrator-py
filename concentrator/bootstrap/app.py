@@ -26,6 +26,7 @@ from concentrator.infrastructure.config.ini_config_loader import IniConfigLoader
 from concentrator.infrastructure.qt.qt_single_instance_guard import QtSingleInstanceGuard
 from concentrator.infrastructure.system import windows_shell
 from concentrator.infrastructure.system.app_paths import AppPaths
+from concentrator.infrastructure.system.process_age import log_startup_time
 from concentrator.presentation.shell.instance_protection_presenter import InstanceProtectionPresenter
 from concentrator.presentation.storage.startup_dialog_layout import StartupDialogLayout
 from concentrator.ui.support.window_activation import bring_modal_dialog_to_front
@@ -175,6 +176,7 @@ def _run_shell(app: QApplication, shell: Shell, guard: QtSingleInstanceGuard | N
     app.commitDataRequest.connect(on_commit_data)
     app.aboutToQuit.connect(on_about_to_quit)
     shell.start()
+    shell.core.scheduler.call_soon(log_startup_time)
     return app.exec()
 
 

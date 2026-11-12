@@ -34,6 +34,7 @@ from concentrator.infrastructure.persistence.writer_thread import WriterThread
 _logger = logging.getLogger(__name__)
 
 TEXT_ENCODING: Final = "utf-8"
+MS_PER_SECOND: Final = 1000
 SOURCE_FIELD: Final = "source"
 _KEEP_MAIN_CODES: Final = frozenset(
     {ErrorCodeEnum.STORAGE_FILE_UNREADABLE, ErrorCodeEnum.STORAGE_SCHEMA_VERSION_UNSUPPORTED}
@@ -207,7 +208,10 @@ class TomlUserDataFile(UserDataFilePort):
         Returns:
             The outcome.
         """
+        started = self._clock.monotonic()
         written = self._write(path, data, check_external=not overwrite_external)
+        elapsed_ms = round((self._clock.monotonic() - started) * MS_PER_SECOND)
+        _logger.debug("Save of revision %d took %d ms", revision, elapsed_ms)
         saved_at = written.data.saved_at if written.data is not None else None
         return SaveOutcome(revision=revision, saved_at=saved_at, validation=written.validation)
 
