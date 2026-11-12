@@ -1321,3 +1321,8 @@ superseded.
 - Consequences: a new dialog or page adds its captions to the mnemonic windows and is covered by the
   keyboard UI tests; a widget created by a render uses `insert_before`; a new Qt module may need its DLLs
   taken out of `TRIMMED_QT_PARTS`; the next breaking file change adds the first real migration step.
+- Amendment (phase 8 review, owner decision 2026-11-12: "Suit tes recommandations"): the items "decided
+  during the build" are approved and the open questions of the review report take their defaults: no code
+  signing and no installer for 1.0.0, no feature scheduled for 1.1 yet, Tab leaves the multi-line fields,
+  the benchmark keeps 10 history events per task, the mnemonic letters stay as chosen, and the CHANGELOG
+  date follows the day of the `v1.0.0` tag.

@@ -3,6 +3,9 @@
 First issue (2026-11-12). Branch `phase-8-release`, 8 commits on top of `main` (`a249e66`). The branch is
 not pushed and nothing is tagged. The owner decisions of the plan review are in ADR-044.
 
+Owner answer (2026-11-12): "Suit tes recommandations". The items "decided during the build" are approved and
+the open questions below take their defaults (ADR-044 amendment).
+
 ## Summary
 
 - **Release 1.0.0.** The version comes from `pyproject.toml` and goes into a Windows version resource.
