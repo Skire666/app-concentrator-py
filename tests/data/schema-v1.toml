@@ -1,0 +1,132 @@
+# Concentrator user data. Schema version 1.
+# Close Concentrator before editing this file by hand. Comments are not preserved.
+schema_version = 1
+saved_at = '2026-11-06T16:44:03Z'
+app_version = '1.0.0'
+
+[settings]
+id = '019a5c1e-7a40-7c3e-9d5a-1f2b3c4d5e6f'
+created_at = '2026-11-06T16:40:00Z'
+updated_at = '2026-11-06T16:44:03Z'
+language = 2
+log_level = 2
+notify_when_inactive = true
+
+[timer]
+id = '019a5c1f-0b2e-7d4a-8c61-2a3b4c5d6e7f'
+created_at = '2026-11-06T16:40:00Z'
+updated_at = '2026-11-06T16:50:12Z'
+duration_seconds = 1500
+sound = { kind = 2, value = 'D:/Music/Alarms/long alarm.mp3' }
+volume = 80
+loop_count = 3
+loop_forever = false
+auto_stop_seconds = 120
+auto_restart = false
+
+[[timer_presets]]
+id = '019a5c20-1111-7aaa-8bbb-1c2d3e4f5a6b'
+created_at = '2026-11-06T16:40:00Z'
+updated_at = '2026-11-06T16:40:00Z'
+label = ''
+duration_seconds = 900
+position = 0
+
+[[timer_presets]]
+id = '019a5c20-1111-7aaa-8bbb-1c2d3e4f5a6c'
+created_at = '2026-11-06T16:40:00Z'
+updated_at = '2026-11-06T16:40:00Z'
+label = 'Pomodoro'
+duration_seconds = 1530
+position = 1
+
+[hourly_chime]
+id = '019a5c20-2222-7ccc-8ddd-2d3e4f5a6b7c'
+created_at = '2026-11-06T16:40:00Z'
+updated_at = '2026-11-06T16:40:00Z'
+enabled = false
+sound = { kind = 1, value = 'chime' }
+volume = 60
+start_hour = 8
+end_hour = 20
+
+[[task_lists]]
+id = '019a5c21-aaaa-7bbb-8ccc-3e4f5a6b7c8d'
+created_at = '2026-11-06T16:41:00Z'
+updated_at = '2026-11-06T16:41:00Z'
+name = 'Work'
+description = [
+  'Client projects',
+  'and admin',
+]
+priority = 3
+position = 0
+
+[[task_lists]]
+id = '019a5c21-cccc-7ddd-8eee-5f6a7b8c9d0e'
+created_at = '2026-11-06T16:41:00Z'
+updated_at = '2026-11-06T16:41:00Z'
+name = 'Home'
+description = []
+priority = 1
+position = 1
+
+[[tasks]]
+id = '019a5c22-bbbb-7ccc-8ddd-4f5a6b7c8d9e'
+created_at = '2026-11-06T16:41:00Z'
+updated_at = '2026-11-10T16:41:00Z'
+list_id = '019a5c21-aaaa-7bbb-8ccc-3e4f5a6b7c8d'
+text = [
+  '''Weekly backup: l'archive 'projets'''',
+  '- D:/Projects/Concentrator',
+  '//nas/backup/projects',
+  'https://example.org/backup-guide?tab=notes',
+]
+due_date = '2026-11-13'
+due_time = '17:30'
+recurrence = { frequency = 2, interval = 1, weekdays = [1, 5], anchor_date = '2026-11-06', end_kind = 3, end_count = 10 }
+occurrences_done = 1
+state = 1
+history = [
+  { at = '2026-11-06T16:41:00Z', kind = 1, details = {} },
+  { at = '2026-11-06T16:46:00Z', kind = 2, details = {} },
+  { at = '2026-11-06T16:47:00Z', kind = 3, details = { from = '', to = '2026-11-13' } },
+  { at = '2026-11-06T16:48:00Z', kind = 12, details = {} },
+  { at = '2026-11-10T16:41:00Z', kind = 10, details = { due = '2026-11-09', next = '2026-11-13' } },
+]
+
+[[tasks]]
+id = '019a5c22-dddd-7eee-8fff-6a7b8c9d0e1f'
+created_at = '2026-11-06T16:51:00Z'
+updated_at = '2026-11-06T16:51:00Z'
+list_id = '019a5c21-cccc-7ddd-8eee-5f6a7b8c9d0e'
+text = [
+  'He said "ok" été — tab	here',
+]
+state = 2
+completed_at = '2026-11-06T16:51:00Z'
+history = [
+  { at = '2026-11-06T16:51:00Z', kind = 1, details = {} },
+  { at = '2026-11-06T17:01:00Z', kind = 4, details = {} },
+]
+
+[[tasks]]
+id = '019a5c22-eeee-7fff-8aaa-7b8c9d0e1f2a'
+created_at = '2026-11-06T17:11:00Z'
+updated_at = '2026-11-06T17:11:00Z'
+list_id = '019a5c21-aaaa-7bbb-8ccc-3e4f5a6b7c8d'
+text = [
+  'Archived task',
+  "with '''triple''' quotes",
+]
+state = 3
+history = [
+  { at = '2026-11-06T17:11:00Z', kind = 1, details = {} },
+]
+
+[[focus_queue]]
+id = '019a5c30-cccc-7ddd-8eee-5a6b7c8d9e0f'
+created_at = '2026-11-06T17:10:00Z'
+updated_at = '2026-11-06T17:10:00Z'
+task_id = '019a5c22-bbbb-7ccc-8ddd-4f5a6b7c8d9e'
+position = 0

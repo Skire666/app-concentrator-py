@@ -330,8 +330,11 @@ Writers of aggregates changed in bulk (tasks, lists) also expose `update_many(en
   per error, `field` = joined `loc`, code from the pydantic error type (`missing` ->
   `STORAGE_FIELD_MISSING`, `extra_forbidden` -> `STORAGE_FIELD_UNEXPECTED`, `*_type`/`*_parsing` ->
   `STORAGE_FIELD_INVALID_TYPE`, others -> `STORAGE_FIELD_INVALID_VALUE`). Details go to the log.
-- Schema evolution: additive fields need defaults. After the first release, any breaking change bumps
-  `schema_version` and adds a dict-to-dict migration step that runs before validation.
+- Schema evolution: additive fields need defaults. Schema version 1 is frozen at release 1.0.0
+  (`tests/data/schema-v1.toml` must read and write back byte for byte). Any breaking change bumps
+  `CURRENT_SCHEMA_VERSION` and appends a `SchemaMigration` (dict to dict) to the `MigrationChain` of
+  `infrastructure/persistence/migrations/`; the chain runs after the newer-version check and before
+  validation (ADR-044).
 
 ### 7.2 Atomic save and recovery
 

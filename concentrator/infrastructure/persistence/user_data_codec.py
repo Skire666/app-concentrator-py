@@ -1,7 +1,7 @@
 """Whole read and write pipelines between file text and ``StoredUserData`` (no I/O).
 
-Read: TOML text -> ``tomllib.loads`` (native dates as text) -> schema version check -> ``json.dumps``
--> ``model_validate_json`` -> mapper -> domain rules. Write: mapper -> DTO -> ``model_dump(mode="json")``
+Read: TOML text -> ``tomllib.loads`` (native dates as text) -> schema version check -> migrations ->
+``json.dumps`` -> ``model_validate_json`` -> mapper -> domain rules. Write: mapper -> DTO -> ``model_dump(mode="json")``
 -> ``TomlCodec.encode`` -> header comment (ADR-035).
 """
 
@@ -18,6 +18,11 @@ from concentrator.domain.common.severity_enum import SeverityEnum
 from concentrator.domain.common.validation_issue import ValidationIssue
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.infrastructure.persistence.mappers.user_data_mapper import UserDataMapper
+from concentrator.infrastructure.persistence.migrations.migration_chain import (
+    SCHEMA_VERSION_FIELD,
+    MigrationChain,
+    schema_version_of,
+)
 from concentrator.infrastructure.persistence.pydantic_error_mapper import validation_from_error
 from concentrator.infrastructure.persistence.schemas.timer_preset_schema import TimerPresetSchema
 from concentrator.infrastructure.persistence.schemas.user_data_schema import UserDataSchema
@@ -25,28 +30,12 @@ from concentrator.infrastructure.persistence.toml_codec import TomlCodec
 
 _logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION_FIELD: Final = "schema_version"
 PRESETS_FIELD: Final = "timer_presets"
 HEADER: Final = (
     "# Concentrator user data. Schema version {version}.\n"
     "# Close Concentrator before editing this file by hand. Comments are not preserved.\n"
 )
 LINE_END: Final = "\n"
-
-
-def _newer_version(document: dict[str, object]) -> int | None:
-    """Return the schema version of a parsed document when it is newer than this application.
-
-    Args:
-        document: Parsed TOML document.
-
-    Returns:
-        The newer version, or ``None`` (current, older, absent or not an integer: left to pydantic).
-    """
-    version = document.get(SCHEMA_VERSION_FIELD)
-    if isinstance(version, int) and not isinstance(version, bool) and version > CURRENT_SCHEMA_VERSION:
-        return version
-    return None
 
 
 def _readable_preset(index: int, element: object) -> bool:
@@ -95,15 +84,18 @@ def _without_broken_presets(document: dict[str, object]) -> dict[str, object]:
 class UserDataCodec:
     """Converts between the file text and the stored data."""
 
-    def __init__(self, app_version: str, limits: UserDataLimits) -> None:
+    def __init__(self, app_version: str, limits: UserDataLimits, migrations: MigrationChain | None = None) -> None:
         """Create the codec.
 
         Args:
             app_version: Version written in ``app_version``.
             limits: Bounds from ``concentrator.ini`` applied by the domain rules on read.
+            migrations: Steps up to the schema version this application reads; by default none, up to
+                ``CURRENT_SCHEMA_VERSION`` (the first released layout). Tests pass their own chain.
         """
         self._app_version = app_version
         self._limits = limits
+        self._migrations = migrations or MigrationChain(CURRENT_SCHEMA_VERSION)
 
     def decode(self, text: str) -> DataResult[StoredUserData]:
         """Run the read pipeline.
@@ -117,16 +109,17 @@ class UserDataCodec:
         parsed = TomlCodec.decode(text)
         if parsed.data is None:
             return DataResult.fail(parsed.validation)
-        newer = _newer_version(parsed.data)
-        if newer is not None:
-            _logger.warning("Data file schema version %d is newer than %d", newer, CURRENT_SCHEMA_VERSION)
+        version = schema_version_of(parsed.data)
+        target = self._migrations.target_version
+        if version is not None and version > target:
+            _logger.warning("Data file schema version %d is newer than %d", version, target)
             issue = ValidationIssue(
                 code=ErrorCodeEnum.STORAGE_SCHEMA_VERSION_UNSUPPORTED,
                 severity=SeverityEnum.CRITICAL,
                 field=SCHEMA_VERSION_FIELD,
             )
             return DataResult.fail(ValidationResult.of(issue))
-        return self._validate(_without_broken_presets(parsed.data))
+        return self._validate(_without_broken_presets(self._migrations.upgrade(parsed.data)))
 
     def encode(self, stored: StoredUserData) -> str:
         """Run the write pipeline.
