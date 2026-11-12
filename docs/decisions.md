@@ -1229,3 +1229,95 @@ superseded.
   6. **The task table keeps its scroll position after a model reset** and scrolls only to a selection of
      other tasks (`ui/support/table_selection.py`).
   7. **The row tooltip of the queue is escaped** (`plain_tooltip`, `AGENTS.md` section 8.5).
+
+## ADR-044 — Phase 8 hardening and release decisions
+
+- Status: accepted, owner decisions at the phase 8 plan review (2026-11-12: "Suit tes recommandations");
+  the items "decided during the build" are to be approved at the phase 8 review.
+- Context: the phase 8 spec turns the feature-complete application into release 1.0.0: measured
+  performance, keyboard and display robustness, reviewed messages, a frozen file schema with a migration
+  path, a reproducible Windows build and the user documentation.
+- Owner decisions (2026-11-12):
+  1. **Coverage thresholds:** `scripts/coverage_gate.py` and `pytest-cov` apply the thresholds of
+     `AGENTS.md` section 12 as the owner set them (80 / 75 / 70 / 70 %).
+  2. **"No path in the logs"** means the paths and URLs written in tasks: the data file path and the
+     application paths stay in the logs (needed to support a user, `AGENTS.md` section 10).
+  3. **Version resource:** company `skire666`, product `Concentrator`, copyright "Public domain
+     (Unlicense)".
+  4. **Screenshots:** the README links `docs/images/focus-page.png`, `journal-page.png` and
+     `settings-page.png`; the owner captures them (the GUI cannot be inspected by the agent).
+  5. **Mnemonics** on the field captions of every dialog and of the Settings page, on the dialog buttons
+     and on the module bar; not on the table toolbars.
+  6. **Bundle trimmed** when the gain passes 10 MB (it is 51 MB).
+  7. **Spec wording:** the smoke test checks the taskbar flash, not a Windows notification (ADR-038,
+     ADR-040).
+  8. **Version 1.0.0** is set by the last commit of the phase; the owner tags `phase-8-accepted` and
+     `v1.0.0` after the review.
+- Decided during the build (please approve):
+  1. **Schema version 1 is frozen.** `tests/data/schema-v1.toml` holds every section (favorites with a label,
+     the hourly chime, two lists, a repeating task with history, a done and an archived task with quotes,
+     the focus queue) and must read without any issue and write back byte for byte. A breaking change
+     bumps `CURRENT_SCHEMA_VERSION` and appends a `SchemaMigration` to the `MigrationChain` of
+     `infrastructure/persistence/migrations/`: dict-to-dict steps, one per version, run after the
+     newer-version check and before pydantic. The chain refuses steps that do not lead, without gap, to the
+     target version (a programming error). A migrated file is written at the new version at its next save;
+     its `.bak` keeps the old one. No new error code: a step passes unknown structures through and the
+     validation reports them.
+  2. **Measurements.** The log line `Startup took <ms> ms` measures from the creation of the process
+     (`GetProcessTimes`, so the interpreter and the imports count) to the first event-loop turn after the
+     window is shown; each save logs its duration at DEBUG. `scripts/bench_app.py` measures the save, the
+     read, the task table snapshot and the search on the shipped ini and catalogs, in a temporary
+     `%APPDATA%` and `%LOCALAPPDATA%`, and `--startup [--exe]` launches the application offscreen and
+     reads the startup line (the process tree is stopped with `taskkill /T`: the `python.exe` of a venv
+     is a launcher with a child). The tasks hold 10 history events, the cap of `todo.max_history_events`
+     (ADR-043), not the 20 of the spec table.
+  3. **Message boxes show plain text** (`QMessageBox.setTextFormat(PlainText)`): a list named
+     `<b>Work</b>` was rendered bold in the delete confirmation. A UI test seeds markup in lists, tasks and
+     the focus queue and checks every label shown as rich text, tooltip, model tooltip and menu tooltip
+     of the window.
+  4. **Log privacy test:** a sentinel string in tasks, list names, links and focus items, run through every
+     task, list, focus and link use case and through a damaged file read, never appears in a record at
+     INFO or above.
+  5. **Only the storage adapters and the log setup write files** (architecture test): the atomic writer,
+     the daily backup, the TOML data file adapter (renames) and the `faulthandler` file.
+  6. **Every error code appears in a test** (architecture test).
+  7. **Mnemonics in the catalogs.** A caption or button text marks its Alt letter with `&` (one per text,
+     an ASCII letter). The texts shown together form a window in `tests/architecture/test_mnemonics.py`,
+     which checks in English and French that every text of a window has a letter and that no two share
+     one (Qt ignores case); a text outside these windows carries none. `ui.support.mnemonics`:
+     `bind_caption` makes a caption the label of its field, `set_caption` names the field (or its focus
+     proxy) for screen readers, `mnemonic_free` strips the markers. Composite fields (duration, sound,
+     volume) forward the focus to their first input.
+  8. **Accessible names from the snapshots:** buttons and check boxes take their text without `&`, or
+     their tooltip when they show only an icon; inputs take their caption, placeholder or tooltip; a
+     focus queue row takes the task text; the journal detail pane takes the new key `journal.detail.name`.
+     Tabs, tables and scroll areas are named by Qt from their content.
+  9. **Tab order follows the reading order.** Widgets created by a render (toolbar buttons, favorites,
+     journal level buttons, focus queue rows) join the end of the focus chain; `ui.support.focus_order.
+     insert_before` moves them before the widget that follows them on screen. With Qt 6,
+     `setTabOrder(first, second)` puts `second` after every descendant of `first` and does nothing when
+     either takes no focus, so the helper starts from the last focusable widget before the anchor that is
+     not one of its containers. The list dialog reaches Priority before Description. UI tests walk the
+     focus chain of every dialog and page and fail on a step that goes up or to the left.
+  10. **Tab leaves the multi-line fields** (task text, list description: `setTabChangesFocus`), so the
+      keyboard is never trapped; a tab character can no longer be typed there.
+  11. **Error messages:** 42 English and French messages now add what to do, or say that Concentrator
+      retries by itself; `docs/reviews/phase-8-messages.md` lists every message for the owner's reading.
+      Form messages state the rule the value breaks; the four `storage_field_*` lines live in the recovery
+      dialog, whose intro and buttons say what to do.
+  12. **Packaging:** the version comes from `pyproject.toml`; `build/version_info.txt` is generated at every
+      build (`--version-file`); `--release` writes `dist/Concentrator-<version>-win64.zip` whose entries
+      start with `Concentrator/`. The Qt parts that no kept part imports (checked with the PE import
+      tables) are removed after PyInstaller: Quick, QML, PDF, virtual keyboard, software OpenGL, Qt's own
+      translations, the TLS, network information and touch plugins, the direct2d and minimal platforms and
+      every image format but ICO and SVG. The bundle goes from 153 MB to 102 MB (46 MB zipped); the
+      self-check still decodes MP3 and renders the SVG icons.
+  13. **Not part of 1.0.0:** code signing and an installer (spec review question 1). Windows SmartScreen
+      warns about the unsigned executable; `USAGE.md` explains "More info > Run anyway".
+- Alternatives considered: a custom per-window mnemonic letter chosen by the UI at run time (rejected: the
+  letter would change with the texts around it); `QWidget.setTabOrder` with a list (Qt 6.6+), rejected for
+  the same container issue; `--exclude-module` and PyInstaller hook options for the trimming (the PySide6
+  hooks collect plugins by module, so files are removed after the build instead).
+- Consequences: a new dialog or page adds its captions to the mnemonic windows and is covered by the
+  keyboard UI tests; a widget created by a render uses `insert_before`; a new Qt module may need its DLLs
+  taken out of `TRIMMED_QT_PARTS`; the next breaking file change adds the first real migration step.

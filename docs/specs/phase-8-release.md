@@ -55,7 +55,7 @@ decide at review.
   (`--version-file` generated into `build/`), product and company names, then
   `dist/Concentrator-<version>-win64.zip` containing the `onedir` folder.
 - Smoke test on a Windows 11 account without Python: first run, create file, timer rings with sound,
-  notification, lists and tasks, restart, data intact.
+  taskbar flash (no Windows notification, ADR-038, ADR-040), lists and tasks, restart, data intact.
 - Document the SmartScreen warning for an unsigned executable; code signing and an installer
   (Inno Setup or MSIX) are optional follow-ups, not part of 1.0.0.
 

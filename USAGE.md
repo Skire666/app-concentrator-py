@@ -7,6 +7,25 @@ settings page gathers your settings and the data file commands. Tasks can repeat
 filtered, and the folders and web addresses written in them open in one click. Under the timer, the focus
 queue holds the few tasks you work on now.
 
+## Installing, updating and removing
+
+Concentrator runs on Windows 11 (64-bit). It needs no Python and no administrator rights.
+
+- **Install**: unzip `Concentrator-<version>-win64.zip` into a folder of your choice, for example
+  `%LOCALAPPDATA%\Programs\Concentrator`, and run `Concentrator\Concentrator.exe`. Pin it to the taskbar
+  or the Start menu if you want.
+- **Windows SmartScreen**: Concentrator is not signed, so the first start may show "Windows protected your
+  PC". Choose **More info**, check that the application is `Concentrator.exe`, then **Run anyway**. Windows
+  remembers the choice for that file.
+- **Update**: close Concentrator, then replace the `Concentrator` folder with the new one. Your data file,
+  `ui-state.ini`, the backups and the logs live in `%APPDATA%` and `%LOCALAPPDATA%` and are kept. The new
+  `concentrator.ini` replaces yours: if you edited it, copy your values into the new file (keys may have
+  been added). A data file written by an older version opens as it is; one written by a newer version is
+  refused and left untouched.
+- **Remove**: delete the `Concentrator` folder. Delete `%APPDATA%\Concentrator` and
+  `%LOCALAPPDATA%\Concentrator` too if you no longer want your data, backups and logs (your data file may
+  be elsewhere if you chose another place).
+
 ## Starting
 
 - Run `Concentrator.exe` (or `uv run concentrator` from the source tree). No console window opens.
@@ -79,6 +98,10 @@ language) and offers what makes sense:
 
 A file locked by another program, or written by a newer version of Concentrator, is never renamed or
 overwritten.
+
+To go back to an older version of your data yourself: close Concentrator, keep a copy of the current
+data file, then copy `concentrator.toml.bak` (the version before the last save) or a daily copy from
+`%APPDATA%\Concentrator\backups\` over the data file, under its name. Start Concentrator again.
 
 ## Editing the data file by hand
 
@@ -428,11 +451,40 @@ The other sections act at once:
   file picker also darkens the window, but Windows places it and lets you move it anywhere. The dialogs
   shown at startup, before the window exists, open in the middle of the screen.
 
+## Keyboard
+
+- **Alt + underlined letter**: in every dialog and on the Settings page, moves to the field of that caption
+  or presses that button; on the module bar, opens Focus, Journal or Settings. Windows underlines the
+  letters when you hold Alt.
+- **Tab** / **Shift+Tab** go through the controls in reading order, from top to bottom and left to right;
+  in the task text and the list description, Tab also moves to the next field (no tab character is typed).
+- **Escape** closes a dialog, as its Cancel button does.
+
+| Where | Keys | Action |
+|---|---|---|
+| Zone 1 of the Focus page | Ctrl+N | New task |
+| Quick add field, focus queue fields | Enter | Add the task (the first proposed task in the queue search) |
+| Task table | Enter, double click | Edit the task |
+| Task table | Space | Mark done or reopen |
+| Task table | Del | Delete (after a question) |
+| Task table | Ctrl+click, Shift+click | Select several tasks |
+| Focus queue entry | Alt+Up, Alt+Down | Move the entry |
+| Journal | Ctrl+C | Copy the selected entries |
+
+## Editing concentrator.ini
+
+`concentrator.ini` (next to `Concentrator.exe`) holds the application constants: window sizes, timings,
+limits, default values, paths and the log level used before a data file is open. Every key is described
+by the comment above it, with its allowed values. Close Concentrator, edit the file with a text editor,
+save it as UTF-8 and start Concentrator again. A missing, unknown or invalid key stops the start with a
+message that names the file and the faulty keys. Updating Concentrator replaces this file (see
+"Installing, updating and removing").
+
 ## Files
 
 | File | Location | Content |
 |---|---|---|
-| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings (language, journal detail level, taskbar alert), timer (`[timer]`), favorites (`[[timer_presets]]`, or `timer_presets = []` when you deleted them all), hourly chime (`[hourly_chime]`), lists (`[[task_lists]]`) and tasks (`[[tasks]]`). A task whose list does not exist makes the file unreadable (the recovery dialog explains it). A file written by an older version gets the missing sections from `concentrator.ini` at the next start. |
+| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings (language, journal detail level, taskbar alert), timer (`[timer]`), favorites (`[[timer_presets]]`, or `timer_presets = []` when you deleted them all), hourly chime (`[hourly_chime]`), lists (`[[task_lists]]`), tasks (`[[tasks]]`) and the focus queue (`[[focus_queue]]`). A task whose list does not exist makes the file unreadable (the recovery dialog explains it). A file written by an older version gets the missing sections from `concentrator.ini` at the next start. |
 | `concentrator.toml.bak` | next to the data file | The version before the last save. |
 | `concentrator.toml.tmp` | next to the data file | Only while saving, or after an interrupted save. |
 | `*.corrupt-*`, `*.tmp.discarded-*`, `*.bak.discarded-*` | next to the data file | Files put aside by the recovery dialog; delete them when you no longer need them. |

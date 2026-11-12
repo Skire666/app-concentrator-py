@@ -76,7 +76,7 @@ app-concentrator-py/
 │   └── sounds/                  built-in alarm and chime .mp3 files (CC0, owned, or a license the
 │                                owner confirmed; SOURCES.md names them, ADR-038)
 ├── concentrator/                source package (see §4)
-├── tests/                       unit/, integration/, ui/, architecture/, fakes/
+├── tests/                       unit/, integration/, ui/, architecture/, fakes/, data/
 ├── scripts/                     check.py, coverage_gate.py, build.py, clean.py, bench_storage.py,
 │                                bench_app.py
 └── docs/                        decisions.md, specs/phase-*.md
@@ -493,6 +493,13 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
   `QObject`; no `processEvents()`; no `QTimer` in ui except purely visual effects.
 - Sizes and timings come from `AppConfig` (`ui.module_bar_width_px`, `ui.timer_font_size_px`, ...).
 - Rich text: always `html.escape` user content before building HTML for a `QLabel`/`QTextBrowser`.
+  A `QLabel` or `QMessageBox` that may show user content uses `Qt.TextFormat.PlainText`; a tooltip of
+  user content goes through `plain_tooltip` (a UI test seeds markup and checks the whole window).
+- Keyboard (ADR-044): a field caption is bound with `ui.support.mnemonics.bind_caption` and shown with
+  `set_caption`, which names the field for screen readers; every control Tab reaches gets an accessible
+  name from its snapshot. A widget created by a render takes its Tab place with
+  `ui.support.focus_order.insert_before`. The keyboard UI tests walk the focus chain of every dialog and
+  page.
 
 ## 9. Localization
 
@@ -507,6 +514,10 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
   `{day}`/`{month}`/`{year}`/`{hour}`/`{minute}` templates (`06/11/2026`, never `6/11/2026`).
 - Switching language updates the user settings, the translator, then `RenderCoordinator.request_all()`.
   No restart, no widget recreation. The window title is part of the shell snapshot.
+- Mnemonics: a caption, dialog button or module button text marks its Alt letter with `&` (one per text,
+  an ASCII letter); the texts shown together are listed as a window in
+  `tests/architecture/test_mnemonics.py`, which checks that no two share a letter in either language. No
+  other text carries a `&` marker; a user text shown where Qt reads `&` goes through `without_mnemonic`.
 - Tests: both catalogs have identical key sets and placeholders; every `ErrorCodeEnum` member, every
   `ActionIdEnum` label and every key referenced in code exists.
 
@@ -605,14 +616,18 @@ Build and clean:
 
 ```powershell
 uv run python scripts/build.py        # PyInstaller --onedir --windowed --noupx -> dist/Concentrator/
+uv run python scripts/build.py --release  # same, then dist/Concentrator-<version>-win64.zip
+uv run python scripts/bench_app.py [--startup]  # phase 8 performance targets on 1,000 tasks
 uv run python scripts/clean.py        # removes build/, dist/, caches, coverage files, __pycache__
 uv run python scripts/clean.py --all  # also removes .venv
 ```
 
 `build.py` bundles `assets/` (icons, sounds, i18n) inside the bundle, copies `concentrator.ini` next
-to `Concentrator.exe`, uses `assets/icons/concentrator.ico`, writes the spec file into `build/`, and
-fails if the frozen app cannot locate its ini, catalogs and sounds (smoke run with the environment
-variable `CONCENTRATOR_SELF_CHECK=1`; the app itself accepts no command-line option).
+to `Concentrator.exe`, uses `assets/icons/concentrator.ico`, writes the spec file and the Windows version
+resource (from `pyproject.toml`) into `build/`, removes the Qt parts Concentrator never loads
+(`TRIMMED_QT_PARTS`, ADR-044), and fails if the frozen app cannot locate its ini, catalogs and sounds,
+decode MP3 or render its SVG icons (smoke run with the environment variable `CONCENTRATOR_SELF_CHECK=1`;
+the app itself accepts no command-line option).
 
 ## 15. Workflow for agents
 
