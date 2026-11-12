@@ -2,7 +2,7 @@
 
 Usage: ``uv run python scripts/build.py [--release]``. Steps: Windows version resource generated into
 ``build/`` from the version of ``pyproject.toml``, PyInstaller (onedir, windowed, no UPX, spec file in
-``build/``), removal of the Qt parts Concentrator never loads, copy of ``concentrator.ini`` next to the exe
+``build/``), removal of the Qt and Python parts Concentrator never loads, copy of ``concentrator.ini`` next to the exe
 (editable without rebuilding), then the exe runs with ``CONCENTRATOR_SELF_CHECK=1`` and the build fails if it
 fails. ``--release`` also zips the folder into ``dist/Concentrator-<version>-win64.zip``.
 
@@ -41,10 +41,27 @@ COPYRIGHT: Final = "Public domain (Unlicense)"
 RELEASE_SUFFIX: Final = "win64"
 BYTES_PER_MB: Final = 1_000_000
 VERSION_PATTERN: Final = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
-QT_DIR: Final = Path("_internal") / "PySide6"
+INTERNAL_DIR: Final = Path("_internal")
+QT_DIR: Final = INTERNAL_DIR / "PySide6"
+TRIMMED_PYTHON_PARTS: Final = (
+    "libcrypto-3-x64.dll",  # OpenSSL: no network; hashlib falls back to its built-in SHA-256
+    "libssl-3-x64.dll",
+    "_ssl.pyd",
+    "_hashlib.pyd",
+    "_asyncio.pyd",
+    "_overlapped.pyd",
+    "_multiprocessing.pyd",
+    "pyexpat.pyd",
+    "select.pyd",
+    "_wmi.pyd",
+)
+"""Python extensions Concentrator never loads (checked at run time, phase 8 review), in ``_internal``."""
 TRIMMED_QT_PARTS: Final = (
     "opengl32sw.dll",  # software OpenGL: the widgets paint with the raster engine
     "translations",  # Qt's own texts: Concentrator shows its catalogs only
+    "Qt6OpenGL.dll",
+    "Qt6MultimediaWidgets.dll",
+    "QtMultimediaWidgets.pyd",
     "Qt6Pdf.dll",
     "Qt6Qml.dll",
     "Qt6QmlMeta.dll",
@@ -176,7 +193,9 @@ def _size(path: Path) -> int:
 
 
 def trim_bundle(app_dir: Path) -> int:
-    """Remove the Qt parts Concentrator never loads (``TRIMMED_QT_PARTS``); missing parts are skipped.
+    """Remove the parts Concentrator never loads (``TRIMMED_QT_PARTS``, ``TRIMMED_PYTHON_PARTS``).
+
+    Missing parts are skipped.
 
     Args:
         app_dir: The onedir folder.
@@ -185,8 +204,9 @@ def trim_bundle(app_dir: Path) -> int:
         Bytes removed.
     """
     removed = 0
-    for part in TRIMMED_QT_PARTS:
-        target = app_dir / QT_DIR / part
+    parts = (*(QT_DIR / part for part in TRIMMED_QT_PARTS), *(INTERNAL_DIR / part for part in TRIMMED_PYTHON_PARTS))
+    for part in parts:
+        target = app_dir / part
         if not target.exists():
             continue
         removed += _size(target)
@@ -245,9 +265,8 @@ def build(version: str) -> bool:
         print("PyInstaller failed")
         return False
     removed = trim_bundle(APP_DIR)
-    print(
-        f"=== Removed {removed / BYTES_PER_MB:.1f} MB of unused Qt parts; {_size(APP_DIR) / BYTES_PER_MB:.1f} MB left"
-    )
+    left = _size(APP_DIR) / BYTES_PER_MB
+    print(f"=== Removed {removed / BYTES_PER_MB:.1f} MB of unused Qt and Python parts; {left:.1f} MB left")
     shutil.copy2(INI_FILE, APP_DIR / INI_FILE.name)
     print(f"=== Copied {INI_FILE.name} next to {EXE_FILE.name}")
     return True

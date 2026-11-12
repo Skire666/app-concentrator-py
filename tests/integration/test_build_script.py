@@ -8,6 +8,7 @@ import pytest
 
 from scripts.build import (
     APP_NAME,
+    INTERNAL_DIR,
     QT_DIR,
     TRIMMED_QT_PARTS,
     project_version,
@@ -58,7 +59,14 @@ def test_pyinstaller_receives_the_version_file(tmp_path: Path) -> None:
 def test_trim_removes_the_listed_qt_parts_and_keeps_the_others(tmp_path: Path) -> None:
     qt = tmp_path / QT_DIR
     kept = [qt / "Qt6Core.dll", qt / "plugins/imageformats/qsvg.dll", qt / "plugins/multimedia/ffmpegmediaplugin.dll"]
-    trimmed = [qt / "opengl32sw.dll", qt / "translations/qtbase_fr.qm", qt / "plugins/imageformats/qpdf.dll"]
+    trimmed = [
+        qt / "opengl32sw.dll",
+        qt / "translations/qtbase_fr.qm",
+        qt / "plugins/imageformats/qpdf.dll",
+        tmp_path / INTERNAL_DIR / "libcrypto-3-x64.dll",
+        tmp_path / INTERNAL_DIR / "_ssl.pyd",
+    ]
+    kept.append(tmp_path / INTERNAL_DIR / "python314.dll")
     for path in (*kept, *trimmed):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"1234")

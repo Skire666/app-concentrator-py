@@ -1339,3 +1339,13 @@ superseded.
      tooltips and labels are used as they are.
   6. **The save DEBUG line says whether the save was written or failed**, with the error codes.
   7. `bench_app.py` stops when a measured save fails.
+- Amendment 3 (size analysis after the review, owner decision 2026-11-12: "Appliquer A").
+  1. **OpenSSL and unused Python extensions are removed** from the bundle (`TRIMMED_PYTHON_PARTS` in
+     `scripts/build.py`): `libcrypto`, `libssl`, `_ssl`, `_hashlib`, `_asyncio`, `_overlapped`,
+     `_multiprocessing`, `pyexpat`, `select`, `_wmi`. None is loaded at run time; without `_hashlib`,
+     `hashlib` uses its built-in SHA-256, which the self-check now verifies (`hash_failures`).
+  2. **`Qt6OpenGL`, `Qt6MultimediaWidgets` and `QtMultimediaWidgets.pyd` join `TRIMMED_QT_PARTS`**: no kept
+     part imports them.
+  3. Result: 92.5 MB (42.5 MB zipped) instead of 102 MB (46 MB), same startup time.
+  4. Not taken: the Windows Media Foundation audio backend instead of FFmpeg (a looped MP3 hung once in
+     three runs), a `.7z` archive, `--optimize 2` (about 0.5 MB), UPX, a one-file build.

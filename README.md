@@ -29,7 +29,7 @@ full TODO list manager. Everything stays on your computer, in one readable TOML 
 ## Requirements
 
 - Windows 11, 64-bit. No Python, no administrator rights, no network.
-- About 105 MB of disk space for the application.
+- About 95 MB of disk space for the application.
 
 ## Install
 

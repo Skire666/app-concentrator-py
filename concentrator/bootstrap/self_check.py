@@ -1,5 +1,6 @@
 """``CONCENTRATOR_SELF_CHECK=1``: validates a (frozen) installation without showing a window."""
 
+import hashlib
 import logging
 from dataclasses import replace
 from datetime import UTC, date, datetime, time
@@ -46,6 +47,8 @@ _logger = logging.getLogger(__name__)
 
 SVG_FORMAT = b"svg"
 ICON_CHECK_SIZE_PX = 32
+HASH_CHECK_INPUT: Final = b"abc"
+HASH_CHECK_DIGEST: Final = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"  # FIPS 180-2 example
 ROUND_TRIP_ID: Final = UserSettingsId("00000000-0000-7000-8000-000000000000")
 ROUND_TRIP_TIMER_ID: Final = TimerConfigId("00000000-0000-7000-8000-000000000001")
 ROUND_TRIP_CHIME_ID: Final = HourlyChimeId("00000000-0000-7000-8000-000000000002")
@@ -75,6 +78,17 @@ def _required_files(paths: AppPaths, config: AppConfig) -> list[Path]:
         paths.sounds_dir / f"{name}{SOUND_SUFFIX}" for name in (config.timer.default_sound, config.chime.default_sound)
     ]
     return [paths.config_file, *catalogs, paths.app_icon_file, *icons, *sounds]
+
+
+def hash_failures() -> list[str]:
+    """Check SHA-256 (data file fingerprints, atomic save): OpenSSL is not bundled, ``hashlib`` uses its own.
+
+    Returns:
+        One description per problem.
+    """
+    if hashlib.sha256(HASH_CHECK_INPUT).hexdigest() == HASH_CHECK_DIGEST:
+        return []
+    return ["SHA-256 gives a wrong digest"]
 
 
 def audio_failures() -> list[str]:
@@ -231,6 +245,7 @@ def run_self_check(paths: AppPaths, config: AppConfig, app_version: str) -> bool
     if not catalogs.is_success or catalogs.validation.has_warnings:
         failures.append(f"catalogs: {[code.name for code in catalogs.validation.error_codes]}")
     failures.extend(_svg_failures(paths))
+    failures.extend(hash_failures())
     failures.extend(audio_failures())
     failures.extend(storage_failures(app_version, config))
     if failures:

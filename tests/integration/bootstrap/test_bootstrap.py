@@ -13,7 +13,7 @@ from concentrator.application.common.app_config import AppConfig
 from concentrator.bootstrap.app import acquire_single_instance, run
 from concentrator.bootstrap.core import Core, build_core
 from concentrator.bootstrap.runtime import ForwardingErrorReporter
-from concentrator.bootstrap.self_check import audio_failures, storage_failures
+from concentrator.bootstrap.self_check import audio_failures, hash_failures, storage_failures
 from concentrator.bootstrap.shell import ShellServices, build_shell
 from concentrator.bootstrap.startup import apply_language_hint, open_data_file
 from concentrator.bootstrap.startup_errors import format_config_error
@@ -128,6 +128,7 @@ def test_self_check_fails_when_the_default_chime_sound_is_missing(qtbot: QtBot, 
 def test_self_check_audio_check_passes_with_the_ffmpeg_backend(qtbot: QtBot) -> None:
     del qtbot
     assert audio_failures() == []
+    assert hash_failures() == []
 
 
 def test_invalid_ini_exits_with_failure(qtbot: QtBot, tmp_path: Path) -> None:

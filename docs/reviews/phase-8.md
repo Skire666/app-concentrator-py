@@ -9,8 +9,9 @@ the open questions below take their defaults (ADR-044 amendment).
 ## Summary
 
 - **Release 1.0.0.** The version comes from `pyproject.toml` and goes into a Windows version resource.
-  `scripts/build.py --release` writes `dist/Concentrator-1.0.0-win64.zip` (46 MB). Unused Qt parts are
-  removed, taking the bundle from 153 MB to 102 MB, and the frozen self-check still passes.
+  `scripts/build.py --release` writes `dist/Concentrator-1.0.0-win64.zip` (42.5 MB after the review). Unused
+  Qt and Python parts are removed, taking the bundle from 153 MB to 92.5 MB, and the frozen self-check still
+  passes.
 - **Measured performance.** All four targets are met with 1,000 tasks: startup 1.3 s, save 0.25 s on the
   writer thread, task table 44 ms, search ≤ 12 ms (details below). `scripts/bench_app.py` measures them in
   a temporary profile, and the startup time is also logged at every start.
@@ -95,7 +96,9 @@ before the next step. No commit on the branch has a failing gate. Since then I c
 | `coverage_gate.py` | passed |
 
 `uv run python scripts/build.py --release` succeeded: 50.9 MB of Qt parts removed, 102.1 MB left, the
-self-check passed (MP3 decoding, SVG icons, data round trip), and the zip is 46.0 MB. The file properties
+self-check passed (MP3 decoding, SVG icons, data round trip), and the zip is 46.0 MB. After the review
+(option A, ADR-044 amendment 3): 60.5 MB removed, 92.5 MB left, a 42.5 MB zip, startup 1.35 to 1.42 s, and
+the self-check also checks SHA-256. The file properties
 of `Concentrator.exe` show Concentrator 1.0.0, skire666.
 
 ## Coverage per layer
