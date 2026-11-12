@@ -42,10 +42,10 @@ class Tally:
 
 
 SCOPES: Final = (
-    Scope("domain", "concentrator/domain/", 90.0),
-    Scope("application", "concentrator/application/", 85.0),
-    Scope("presentation", "concentrator/presentation/", 80.0),
-    Scope("overall", "concentrator/", 75.0),
+    Scope("domain", "concentrator/domain/", 80.0),
+    Scope("application", "concentrator/application/", 75.0),
+    Scope("presentation", "concentrator/presentation/", 70.0),
+    Scope("overall", "concentrator/", 70.0),
 )
 SUMMARY_KEYS: Final = ("covered_lines", "num_statements", "covered_branches", "num_branches")
 

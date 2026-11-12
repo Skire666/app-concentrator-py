@@ -58,3 +58,56 @@ def test_domain_focus_imports_only_identifiers_of_domain_todo() -> None:
                     if (node.module, alias.name) not in allowed
                 )
     assert imported == []
+
+
+_WRITE_METHODS = frozenset({"write_text", "write_bytes", "rename", "unlink", "touch", "symlink_to", "hardlink_to"})
+_WRITE_MODULE_FUNCTIONS = frozenset(
+    {
+        ("os", "replace"),
+        ("os", "remove"),
+        ("os", "rename"),
+        ("os", "unlink"),
+        ("shutil", "copy"),
+        ("shutil", "copy2"),
+        ("shutil", "copyfile"),
+        ("shutil", "move"),
+        ("shutil", "rmtree"),
+    }
+)
+_WRITE_MODE_CHARACTERS = frozenset("wax+")
+_FILE_WRITERS = [
+    "concentrator/infrastructure/logging/logging_setup.py",
+    "concentrator/infrastructure/persistence/atomic_file_writer.py",
+    "concentrator/infrastructure/persistence/daily_backup.py",
+    "concentrator/infrastructure/persistence/toml_user_data_file.py",
+]
+
+
+def _open_mode(call: ast.Call) -> str:
+    keyword = next((item.value for item in call.keywords if item.arg == "mode"), None)
+    position = 0 if isinstance(call.func, ast.Attribute) else 1
+    value = keyword if keyword is not None else (call.args[position] if len(call.args) > position else None)
+    return value.value if isinstance(value, ast.Constant) and isinstance(value.value, str) else ""
+
+
+def _writes_files(node: ast.AST) -> bool:
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and (node.value.id, node.attr) in _WRITE_MODULE_FUNCTIONS
+    ):
+        return True
+    if not isinstance(node, ast.Call):
+        return False
+    name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", "")
+    if name in _WRITE_METHODS:
+        return True
+    return name == "open" and bool(_WRITE_MODE_CHARACTERS & set(_open_mode(node)))
+
+
+def test_only_the_storage_adapters_and_the_log_setup_write_files() -> None:
+    writers = sorted(
+        relative(path) for path in source_files() if any(_writes_files(node) for node in ast.walk(parse(path)))
+    )
+
+    assert writers == _FILE_WRITERS

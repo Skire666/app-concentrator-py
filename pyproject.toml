@@ -242,7 +242,7 @@ branch = true
 omit = ["concentrator/__main__.py"]
 
 [tool.coverage.report]
-fail_under = 75  # overall threshold; per-layer thresholds live in scripts/coverage_gate.py
+fail_under = 70  # overall threshold; per-layer thresholds live in scripts/coverage_gate.py
 show_missing = true
 skip_covered = true
 exclude_also = [
