@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QLabel, QMenu, QVBoxLayout, QWidget
 
 from concentrator.presentation.timer.presets_snapshot import PresetSnapshot, PresetsSnapshot
 from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.ui.support.focus_order import insert_before
 from concentrator.ui.support.styles import SECTION_TITLE_STYLE
 from concentrator.ui.widgets.flow_layout import FlowLayout
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
@@ -135,6 +136,7 @@ class PresetsPanel(QWidget):
             button.installEventFilter(self)
             self._flow.insert_widget(index, button)
             self._buttons.append(button)
+            insert_before(self._add, self._buttons)
         while len(self._buttons) > count:
             button = self._buttons.pop()
             self._flow.removeWidget(button)

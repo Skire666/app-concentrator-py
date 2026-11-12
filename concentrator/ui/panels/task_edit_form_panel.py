@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from concentrator.presentation.todo.task_edit_snapshot import DueFieldSnapshot, TaskEditSnapshot
 from concentrator.ui.panels.recurrence_form_panel import RecurrenceFormPanel
+from concentrator.ui.support.mnemonics import accessible_name, bind_caption, set_caption
 from concentrator.ui.support.styles import INVALID_INPUT_STYLE, INVALID_PROPERTY, set_dynamic_property
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
@@ -64,6 +65,9 @@ class TaskEditFormPanel(QWidget):
         self._recurrence = RecurrenceFormPanel(self)
         self._save = SnapshotButton(self)
         self._cancel = SnapshotButton(self)
+        bind_caption(self._text_caption, self._text)
+        self._text.setTabChangesFocus(True)
+        bind_caption(self._list_caption, self._list)
         self._connect()
         self._build_layout(spacing_px)
 
@@ -109,9 +113,9 @@ class TaskEditFormPanel(QWidget):
             snapshot: Dialog state.
         """
         self.setUpdatesEnabled(False)
-        self._text_caption.setText(snapshot.text.label)
+        set_caption(self._text_caption, snapshot.text.label)
         apply_text(self._text, self._text_error, snapshot.text)
-        self._list_caption.setText(snapshot.task_list.label)
+        set_caption(self._list_caption, snapshot.task_list.label)
         self._list.apply(snapshot.task_list)
         self._apply_due(snapshot.due)
         self._recurrence.render_snapshot(snapshot.recurrence)
@@ -128,6 +132,8 @@ class TaskEditFormPanel(QWidget):
         widgets = (self._has_date, self._date, self._has_time, self._time)
         blockers = [QSignalBlocker(widget) for widget in widgets]
         self._has_date.setText(due.date_label)
+        self._date.setAccessibleName(accessible_name(due.date_label))
+        self._time.setAccessibleName(accessible_name(due.time_label))
         self._has_date.setChecked(due.has_date)
         self._date.setDisplayFormat(due.date_format)
         self._date.setDate(QDate(due.year, due.month, due.day))

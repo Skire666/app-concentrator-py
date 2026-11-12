@@ -7,6 +7,7 @@ from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QCompleter, QLineEdit, QVBoxLayout, QWidget
 
 from concentrator.presentation.focus.focus_queue_snapshot import FocusFieldSnapshot, PickerChoiceSnapshot
+from concentrator.ui.support.mnemonics import accessible_name
 
 TASK_ID_ROLE: Final = Qt.ItemDataRole.UserRole + 1
 
@@ -67,6 +68,7 @@ class TaskPickerWidget(QWidget):
         self._cleared = field.cleared_count
         self._input.setPlaceholderText(field.placeholder)
         self._input.setToolTip(field.tooltip)
+        self._input.setAccessibleName(accessible_name(field.placeholder, field.tooltip))
         blocker.unblock()
         if choices == self._choices:
             return

@@ -35,6 +35,7 @@ class DurationInputWidget(QWidget):
             layout.addWidget(spin)
             layout.addWidget(unit)
         layout.addStretch(1)
+        self.setFocusProxy(self._spins[0])
 
     @property
     def spin_boxes(self) -> tuple[QSpinBox, QSpinBox, QSpinBox]:
@@ -60,6 +61,8 @@ class DurationInputWidget(QWidget):
             set_dynamic_property(spin, INVALID_PROPERTY, invalid)
         for label, text in zip(self._units, units, strict=True):
             label.setText(text)
+        for spin, text in zip(self._spins[1:], units[1:], strict=True):
+            spin.setAccessibleName(text)
 
     def _emit(self) -> None:
         """Forward the current values."""

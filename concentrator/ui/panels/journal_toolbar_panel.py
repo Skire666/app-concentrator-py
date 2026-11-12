@@ -4,6 +4,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from concentrator.presentation.journal.journal_snapshot import JournalToolbarSnapshot
+from concentrator.ui.support.focus_order import insert_before
 from concentrator.ui.widgets.level_toggle_widget import LevelToggleWidget
 from concentrator.ui.widgets.search_box_widget import SearchBoxWidget
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
@@ -64,11 +65,8 @@ class JournalToolbarPanel(QWidget):
         Args:
             snapshot: Toolbar state.
         """
-        while len(self._levels) < len(snapshot.levels):
-            toggle = LevelToggleWidget(self)
-            toggle.level_toggled.connect(self.level_toggled.emit)
-            self._levels_row.insertWidget(len(self._levels), toggle)
-            self._levels.append(toggle)
+        if len(self._levels) < len(snapshot.levels):
+            self._add_levels(len(snapshot.levels))
         for toggle, level in zip(self._levels, snapshot.levels, strict=False):
             toggle.apply(level)
         self._search.apply(snapshot.search)
@@ -93,6 +91,19 @@ class JournalToolbarPanel(QWidget):
         button.setCheckable(checkable)
         button.action_requested.connect(self.action_requested.emit)
         return button
+
+    def _add_levels(self, count: int) -> None:
+        """Create the missing level toggles; Tab reaches them before the search box, as they show.
+
+        Args:
+            count: Number of levels of the snapshot.
+        """
+        while len(self._levels) < count:
+            toggle = LevelToggleWidget(self)
+            toggle.level_toggled.connect(self.level_toggled.emit)
+            self._levels_row.insertWidget(len(self._levels), toggle)
+            self._levels.append(toggle)
+        insert_before(self._search, self._levels)
 
     def _build_layout(self) -> None:
         """Two rows: levels and search; Follow, Pause, counter, then Copy, Clear view, Open log folder."""

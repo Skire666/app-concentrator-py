@@ -9,6 +9,7 @@ from concentrator.presentation.settings.settings_snapshot import (
     SettingsFormSnapshot,
 )
 from concentrator.ui.panels.chime_fields_panel import ChimeFieldsPanel
+from concentrator.ui.support.mnemonics import bind_caption, set_caption
 from concentrator.ui.support.styles import INVALID_INPUT_STYLE
 from concentrator.ui.widgets.field_check_box import FieldCheckBox
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
@@ -49,6 +50,8 @@ class SettingsFormPanel(QWidget):
         self._chime_hint = QLabel(self._chime)
         self._chime_hint.setWordWrap(True)
         self._chime_hint.setTextFormat(Qt.TextFormat.PlainText)
+        for caption, combo in zip(self._captions, (self._language, self._log_level), strict=True):
+            bind_caption(caption, combo)
         self._connect()
         self._build_layout(spacing_px)
 
@@ -101,7 +104,7 @@ class SettingsFormPanel(QWidget):
             strict=True,
         ):
             combo.apply(field)
-            caption.setText(field.label)
+            set_caption(caption, field.label)
             caption.setToolTip(field.tooltip)
             error.set_error(field.error)
         self._notify.apply(general.notify_when_inactive)

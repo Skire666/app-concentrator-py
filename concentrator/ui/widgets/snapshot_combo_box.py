@@ -4,6 +4,7 @@ from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import QComboBox, QWidget
 
 from concentrator.presentation.settings.settings_snapshot import ChoiceFieldSnapshot
+from concentrator.ui.support.mnemonics import accessible_name
 from concentrator.ui.support.styles import INVALID_PROPERTY, set_dynamic_property
 
 
@@ -33,5 +34,6 @@ class SnapshotComboBox(QComboBox):
             self.addItems(list(snapshot.options))
         self.setCurrentIndex(snapshot.selected)
         self.setToolTip(snapshot.tooltip)
+        self.setAccessibleName(accessible_name(snapshot.label, snapshot.tooltip))
         blocker.unblock()
         set_dynamic_property(self, INVALID_PROPERTY, bool(snapshot.error))

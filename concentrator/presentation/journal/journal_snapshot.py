@@ -72,10 +72,12 @@ class JournalDetailSnapshot:
     Attributes:
         text: Every line of the entry (message and traceback), ``""`` without selection.
         placeholder: Shown without selection.
+        name: Name of the detail pane for screen readers.
     """
 
     text: str
     placeholder: str
+    name: str
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

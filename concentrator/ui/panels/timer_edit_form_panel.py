@@ -11,6 +11,7 @@ from concentrator.presentation.timer.timer_edit_snapshot import (
     TimerEditSnapshot,
 )
 from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.ui.support.mnemonics import bind_caption, set_caption
 from concentrator.ui.support.styles import INVALID_INPUT_STYLE, INVALID_PROPERTY, set_dynamic_property
 from concentrator.ui.widgets.duration_input_widget import DurationInputWidget
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
@@ -57,6 +58,9 @@ class TimerEditFormPanel(QWidget):
         self._cancel = SnapshotButton(self)
         self._labels = {row: QLabel(self) for row in ROWS}
         self._errors = {row: FieldErrorLabel(self) for row in ROWS}
+        fields = (self._duration, self._sound, self._volume, self._loop_count, self._auto_stop)
+        for row, field in zip(ROWS, fields, strict=True):
+            bind_caption(self._labels[row], field)
         self._connect()
         self._build_layout(layout.spacing_px)
 
@@ -198,7 +202,7 @@ class TimerEditFormPanel(QWidget):
         """
         fields = (snapshot.duration, snapshot.sound, snapshot.volume, snapshot.loops, snapshot.auto_stop)
         for row, field in zip(ROWS, fields, strict=True):
-            self._labels[row].setText(field.label)
+            set_caption(self._labels[row], field.label)
             self._errors[row].set_error(field.error)
 
     def _connect(self) -> None:

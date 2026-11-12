@@ -4,6 +4,7 @@ from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QVBoxLayout, QWidget
 
 from concentrator.presentation.todo.list_edit_snapshot import ListEditSnapshot
+from concentrator.ui.support.mnemonics import bind_caption, set_caption
 from concentrator.ui.support.styles import INVALID_INPUT_STYLE, INVALID_PROPERTY, set_dynamic_property
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
@@ -45,6 +46,7 @@ class ListEditFormPanel(QWidget):
         self._priority_caption = QLabel(self)
         self._save = SnapshotButton(self)
         self._cancel = SnapshotButton(self)
+        self._bind_captions()
         self._name.textEdited.connect(self.name_changed.emit)
         self._description.textChanged.connect(lambda: self.description_changed.emit(self._description.toPlainText()))
         self._priority.index_selected.connect(self.priority_selected.emit)
@@ -77,6 +79,15 @@ class ListEditFormPanel(QWidget):
         """Save and Cancel (for tests)."""
         return self._save, self._cancel
 
+    def _bind_captions(self) -> None:
+        """Give each caption its field (mnemonic and accessible name); Tab follows the rows from top to bottom."""
+        bind_caption(self._name_caption, self._name)
+        bind_caption(self._description_caption, self._description)
+        bind_caption(self._priority_caption, self._priority)
+        self._description.setTabChangesFocus(True)
+        QWidget.setTabOrder(self._name, self._priority)
+        QWidget.setTabOrder(self._priority, self._description)
+
     def render_snapshot(self, snapshot: ListEditSnapshot) -> None:
         """Show the draft without emitting the field signals.
 
@@ -85,7 +96,7 @@ class ListEditFormPanel(QWidget):
         """
         self.setUpdatesEnabled(False)
         name = snapshot.name
-        self._name_caption.setText(name.label)
+        set_caption(self._name_caption, name.label)
         if self._name.text() != name.text:
             blocker = QSignalBlocker(self._name)
             self._name.setText(name.text)
@@ -93,9 +104,9 @@ class ListEditFormPanel(QWidget):
         self._name.setPlaceholderText(name.placeholder)
         set_dynamic_property(self._name, INVALID_PROPERTY, bool(name.error))
         self._name_error.set_error(name.error)
-        self._description_caption.setText(snapshot.description.label)
+        set_caption(self._description_caption, snapshot.description.label)
         apply_text(self._description, self._description_error, snapshot.description)
-        self._priority_caption.setText(snapshot.priority.label)
+        set_caption(self._priority_caption, snapshot.priority.label)
         self._priority.apply(snapshot.priority)
         self._save.apply(snapshot.save)
         self._cancel.apply(snapshot.cancel)

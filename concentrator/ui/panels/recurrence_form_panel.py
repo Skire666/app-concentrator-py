@@ -8,6 +8,7 @@ from concentrator.presentation.todo.task_edit_snapshot import (
     RecurrenceFieldSnapshot,
     RecurrenceRuleSnapshot,
 )
+from concentrator.ui.support.mnemonics import bind_caption, set_caption
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
 from concentrator.ui.widgets.snapshot_combo_box import SnapshotComboBox
 from concentrator.ui.widgets.weekday_toggle_widget import WeekdayToggleWidget
@@ -62,6 +63,8 @@ class RecurrenceFormPanel(QWidget):
         self._preview = QLabel(self)
         self._preview.setWordWrap(True)
         self._error = FieldErrorLabel(self)
+        bind_caption(self._every, self._interval)
+        bind_caption(self._ends, self._end)
         self._connect()
         self._build_layout()
 
@@ -120,7 +123,7 @@ class RecurrenceFormPanel(QWidget):
             rule: Rule fields.
         """
         blocker = QSignalBlocker(self._interval)
-        self._every.setText(rule.every_label)
+        set_caption(self._every, rule.every_label)
         self._interval.setMaximum(rule.interval_max)
         self._interval.setValue(rule.interval)
         blocker.unblock()
@@ -135,7 +138,7 @@ class RecurrenceFormPanel(QWidget):
             ending: End fields.
         """
         blockers = [QSignalBlocker(self._end_date), QSignalBlocker(self._end_count)]
-        self._ends.setText(ending.end.label)
+        set_caption(self._ends, ending.end.label)
         self._end.apply(ending.end)
         self._end_date.setDisplayFormat(ending.date_format)
         self._end_date.setDate(QDate(ending.end_date.year, ending.end_date.month, ending.end_date.day))

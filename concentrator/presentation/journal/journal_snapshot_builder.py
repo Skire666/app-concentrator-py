@@ -147,4 +147,7 @@ class JournalSnapshotBuilder:
         """
         entry = self._view.current_entry()
         text = "" if entry is None else self._view.entries.line(entry)
-        return JournalDetailSnapshot(text=text, placeholder=self._translator.tr("journal.detail.placeholder"))
+        tr = self._translator.tr
+        return JournalDetailSnapshot(
+            text=text, placeholder=tr("journal.detail.placeholder"), name=tr("journal.detail.name")
+        )

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QSizePolicy, QToolButton, QVBoxLayout, QWidget
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.shell.shell_snapshot import ModuleButtonSnapshot, ShellSnapshot
 from concentrator.ui.support.icon_loader import IconLoader
+from concentrator.ui.support.mnemonics import accessible_name
 from concentrator.ui.support.styles import HIGHLIGHTED_PROPERTY, MODULE_BAR_STYLE
 from concentrator.ui.widgets.badge_button import BadgeButton
 
@@ -44,6 +45,7 @@ class _ModuleButton(BadgeButton):
         """
         self.setText(snapshot.text)
         self.setToolTip(snapshot.tooltip)
+        self.setAccessibleName(accessible_name(snapshot.text, snapshot.tooltip))
         self.setChecked(snapshot.checked)
         self.setEnabled(snapshot.enabled)
         self.set_badge(snapshot.badge)

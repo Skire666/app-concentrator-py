@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QVBox
 
 from concentrator.presentation.timer.preset_edit_snapshot import PresetEditSnapshot
 from concentrator.presentation.timer.timer_layout import TimerLayout
+from concentrator.ui.support.mnemonics import bind_caption, set_caption
 from concentrator.ui.support.styles import INVALID_INPUT_STYLE, INVALID_PROPERTY, set_dynamic_property
 from concentrator.ui.widgets.duration_input_widget import DurationInputWidget
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
@@ -40,6 +41,8 @@ class PresetEditFormPanel(QWidget):
         self._duration_error = FieldErrorLabel(self)
         self._save = SnapshotButton(self)
         self._cancel = SnapshotButton(self)
+        bind_caption(self._label_caption, self._label)
+        bind_caption(self._duration_caption, self._duration)
         self._label.textEdited.connect(self.label_changed)
         self._duration.duration_changed.connect(self.duration_changed)
         self._save.action_requested.connect(self.action_requested)
@@ -84,7 +87,7 @@ class PresetEditFormPanel(QWidget):
         """
         self.setUpdatesEnabled(False)
         label = snapshot.label
-        self._label_caption.setText(label.label)
+        set_caption(self._label_caption, label.label)
         if self._label.text() != label.text:
             blocker = QSignalBlocker(self._label)
             self._label.setText(label.text)
@@ -94,7 +97,7 @@ class PresetEditFormPanel(QWidget):
         set_dynamic_property(self._label, INVALID_PROPERTY, bool(label.error))
         self._label_error.set_error(label.error)
         duration = snapshot.duration
-        self._duration_caption.setText(duration.label)
+        set_caption(self._duration_caption, duration.label)
         self._duration.apply(
             (duration.hours, duration.minutes, duration.seconds),
             max_hours=duration.max_hours,

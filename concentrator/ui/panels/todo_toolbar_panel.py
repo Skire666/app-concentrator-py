@@ -9,6 +9,7 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
 from concentrator.presentation.todo.task_menu_snapshot import MoveTargetSnapshot
 from concentrator.presentation.todo.todo_toolbar_snapshot import TodoToolbarSnapshot
+from concentrator.ui.support.focus_order import insert_before
 from concentrator.ui.support.plain_text import without_mnemonic
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
 from concentrator.ui.widgets.snapshot_check_box import SnapshotCheckBox
@@ -90,6 +91,10 @@ class TodoToolbarPanel(QWidget):
         self._layout.addStretch(1)
         self._layout.addWidget(self._show_done)
         self._layout.addWidget(self._show_archived)
+        ordered = [
+            self._move if item.action is ActionIdEnum.TASK_MOVE else self._buttons[item.action] for item in buttons
+        ]
+        insert_before(self._show_done, ordered)
 
     def _render_move(self, button: ButtonSnapshot, targets: tuple[MoveTargetSnapshot, ...]) -> None:
         """Show the "Move to list" button and rebuild its menu when the targets changed.

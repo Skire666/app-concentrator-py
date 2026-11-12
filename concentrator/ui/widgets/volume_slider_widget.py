@@ -33,6 +33,7 @@ class VolumeSliderWidget(QWidget):
         layout.addWidget(self._slider, 1)
         layout.addWidget(self._value)
         layout.addWidget(self._preview)
+        self.setFocusProxy(self._slider)
 
     @property
     def slider(self) -> QSlider:

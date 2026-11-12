@@ -4,6 +4,7 @@ from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import QCheckBox, QWidget
 
 from concentrator.presentation.settings.settings_snapshot import ToggleFieldSnapshot
+from concentrator.ui.support.mnemonics import accessible_name
 
 
 class FieldCheckBox(QCheckBox):
@@ -28,5 +29,6 @@ class FieldCheckBox(QCheckBox):
         """
         blocker = QSignalBlocker(self)
         self.setText(snapshot.text)
+        self.setAccessibleName(accessible_name(snapshot.text))
         self.setChecked(snapshot.checked)
         blocker.unblock()

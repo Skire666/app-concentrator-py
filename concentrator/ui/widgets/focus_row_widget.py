@@ -83,6 +83,7 @@ class FocusRowWidget(QWidget):
         self._check.setToolTip(snapshot.complete.tooltip)
         blocker.unblock()
         self._text.setText(snapshot.text)
+        self.setAccessibleName(snapshot.text)
         self._text.setToolTip(plain_tooltip(snapshot.tooltip))
         self._due.setText(snapshot.due_text)
         self._due.setVisible(bool(snapshot.due_text))

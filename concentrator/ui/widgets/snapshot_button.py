@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QPushButton, QWidget
 
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
+from concentrator.ui.support.mnemonics import accessible_name
 
 
 class SnapshotButton(QPushButton):
@@ -32,6 +33,7 @@ class SnapshotButton(QPushButton):
         self._action = snapshot.action
         self.setText(snapshot.text)
         self.setToolTip(snapshot.tooltip)
+        self.setAccessibleName(accessible_name(snapshot.text, snapshot.tooltip))
         self.setEnabled(snapshot.enabled)
         self.setVisible(snapshot.visible)
         self.setChecked(snapshot.checked)

@@ -6,6 +6,8 @@ from PySide6.QtCore import QPoint, QSignalBlocker, Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QMenu, QScrollArea, QVBoxLayout, QWidget
 
 from concentrator.presentation.focus.focus_queue_snapshot import FocusQueueSnapshot, FocusRowSnapshot
+from concentrator.ui.support.focus_order import insert_before
+from concentrator.ui.support.mnemonics import accessible_name
 from concentrator.ui.support.plain_text import without_mnemonic
 from concentrator.ui.support.styles import INVALID_PROPERTY, SECTION_TITLE_STYLE, set_dynamic_property
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
@@ -140,6 +142,7 @@ class FocusQueuePanel(QWidget):
             self._quick_add.setText(field.text)
         self._quick_add_cleared = field.cleared_count
         self._quick_add.setPlaceholderText(field.placeholder)
+        self._quick_add.setAccessibleName(accessible_name(field.placeholder, field.tooltip))
         self._quick_add.setToolTip(field.tooltip)
         blocker.unblock()
         set_dynamic_property(self._quick_add, INVALID_PROPERTY, bool(snapshot.error))
@@ -151,13 +154,8 @@ class FocusQueuePanel(QWidget):
             rows: Queued tasks, in order.
         """
         self._snapshot_rows = rows
-        while len(self._rows) < len(rows):
-            index = len(self._rows)
-            widget = FocusRowWidget(self._host)
-            widget.action_requested.connect(partial(self._emit_row_action, index))
-            widget.menu_requested.connect(partial(self.show_menu, index))
-            self._rows_layout.insertWidget(index, widget)
-            self._rows.append(widget)
+        if len(self._rows) < len(rows):
+            self._add_rows(len(rows))
         for widget, row in zip(self._rows, rows, strict=False):
             widget.apply(row)
         for index, widget in enumerate(self._rows):
@@ -166,6 +164,21 @@ class FocusQueuePanel(QWidget):
         if moved is not None:
             moved.setFocus()
         self._moved_item = ""
+
+    def _add_rows(self, count: int) -> None:
+        """Create the missing row widgets; Tab reaches them right after the fields above them.
+
+        Args:
+            count: Number of rows of the snapshot.
+        """
+        while len(self._rows) < count:
+            index = len(self._rows)
+            widget = FocusRowWidget(self._host)
+            widget.action_requested.connect(partial(self._emit_row_action, index))
+            widget.menu_requested.connect(partial(self.show_menu, index))
+            self._rows_layout.insertWidget(index, widget)
+            self._rows.append(widget)
+        insert_before(self._scroll, self._rows)
 
     def _emit_row_action(self, index: int, action: int) -> None:
         """Forward an action of a row with its item.

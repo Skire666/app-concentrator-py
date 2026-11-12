@@ -4,6 +4,7 @@ from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import QComboBox, QFormLayout, QLabel, QVBoxLayout, QWidget
 
 from concentrator.presentation.timer.chime_settings_snapshot import ChimeFieldsSnapshot, HourRangeSnapshot
+from concentrator.ui.support.mnemonics import bind_caption, set_caption
 from concentrator.ui.support.styles import INVALID_INPUT_STYLE, INVALID_PROPERTY, set_dynamic_property
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
 from concentrator.ui.widgets.sound_picker_widget import SoundPickerWidget
@@ -34,6 +35,8 @@ class ChimeFieldsPanel(QWidget):
         self._end = QComboBox(self)
         self._captions = tuple(QLabel(self) for _row in range(4))
         self._errors = tuple(FieldErrorLabel(self) for _row in range(4))
+        for caption, field in zip(self._captions, (self._sound, self._volume, self._start, self._end), strict=True):
+            bind_caption(caption, field)
         self._connect()
         self._build_layout(spacing_px)
 
@@ -92,7 +95,7 @@ class ChimeFieldsPanel(QWidget):
             (hours.end_label, hours.end_error),
         )
         for caption, error, (text, message) in zip(self._captions, self._errors, texts, strict=True):
-            caption.setText(text)
+            set_caption(caption, text)
             error.set_error(message)
 
     def _render_hours(self, hours: HourRangeSnapshot) -> None:

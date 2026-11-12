@@ -38,3 +38,4 @@ class JournalDetailPanel(QWidget):
         if self._text.toPlainText() != snapshot.text:
             self._text.setPlainText(snapshot.text)
         self._text.setPlaceholderText(snapshot.placeholder)
+        self._text.setAccessibleName(snapshot.name)

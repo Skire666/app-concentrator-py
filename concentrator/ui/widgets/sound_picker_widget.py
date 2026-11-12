@@ -30,6 +30,7 @@ class SoundPickerWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._combo, 1)
         layout.addWidget(self._choose)
+        self.setFocusProxy(self._combo)
 
     @property
     def combo(self) -> QComboBox:
