@@ -33,8 +33,20 @@ def test_field_level_message_contains_the_label(language: LanguageEnum, expected
 @pytest.mark.parametrize(
     ("language", "expected"),
     [
-        (LanguageEnum.ENGLISH, "The data file is damaged: syntax error at line 3, column 6."),
-        (LanguageEnum.FRENCH, "Le fichier de données est endommagé : erreur de syntaxe ligne 3, colonne 6."),
+        (
+            LanguageEnum.ENGLISH,
+            (
+                "The data file is damaged: syntax error at line 3, column 6. Correct it in a text editor, or restore a "
+                "backup."
+            ),
+        ),
+        (
+            LanguageEnum.FRENCH,
+            (
+                "Le fichier de données est endommagé : erreur de syntaxe ligne 3, colonne 6. Corrigez-la dans un "
+                "éditeur de texte ou restaurez une sauvegarde."
+            ),
+        ),
     ],
 )
 def test_syntax_message_fills_its_position(language: LanguageEnum, expected: str) -> None:
