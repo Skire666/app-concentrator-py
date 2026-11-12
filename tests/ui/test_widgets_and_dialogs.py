@@ -2,7 +2,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QByteArray, QDate, QTimer
+from PySide6.QtCore import QByteArray, QDate, Qt, QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
@@ -95,6 +95,34 @@ def test_choose_escape_gives_the_cancel_answer(qtbot: QtBot) -> None:
     QTimer.singleShot(0, escape)
 
     assert QtDialogService(ModalHost.create(parent, 10)).choose("Title", "Q?", ("A", "B", "C"), 1) == 1
+
+
+@pytest.mark.parametrize("kind", ["confirm", "choose", "inform", "warn", "error"])
+def test_message_boxes_show_a_list_name_with_markup_as_typed(qtbot: QtBot, kind: str) -> None:
+    parent = QWidget()
+    qtbot.addWidget(parent)
+    service = QtDialogService(ModalHost.create(parent, 10))
+    formats: list[Qt.TextFormat] = []
+
+    def read_and_close() -> None:
+        box = QApplication.activeModalWidget()
+        assert isinstance(box, QMessageBox)
+        formats.append(box.textFormat())
+        box.findChildren(QPushButton)[0].click()
+
+    QTimer.singleShot(0, read_and_close)
+    message = "Delete the list “<b>Work</b>”?"
+    calls = {
+        "confirm": lambda: service.confirm("Title", message, "Yes", "No"),
+        "choose": lambda: service.choose("Title", message, ("A", "B"), 1),
+        "inform": lambda: service.inform("Title", message, "Close"),
+        "warn": lambda: service.warn("Title", message, "Close"),
+        "error": lambda: service.error("Title", message, "Close"),
+    }
+
+    calls[kind]()
+
+    assert formats == [Qt.TextFormat.PlainText]
 
 
 def test_qt_clipboard_replaces_the_text(qtbot: QtBot) -> None:

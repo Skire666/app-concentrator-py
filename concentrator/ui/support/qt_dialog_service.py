@@ -7,6 +7,7 @@ centered, kept inside; ADR-036), ``ScreenDialogRunner`` before.
 from datetime import date
 from typing import override
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from concentrator.presentation.ports.dialog_port import DatePrompt, DialogPort
@@ -39,9 +40,7 @@ class QtDialogService(DialogPort):
 
     @override
     def confirm(self, title: str, message: str, accept_text: str, reject_text: str) -> bool:
-        box = QMessageBox(
-            QMessageBox.Icon.Question, title, message, QMessageBox.StandardButton.NoButton, self._runner.parent
-        )
+        box = self._box(QMessageBox.Icon.Question, title, message)
         accept = box.addButton(accept_text, QMessageBox.ButtonRole.AcceptRole)
         reject = box.addButton(reject_text, QMessageBox.ButtonRole.RejectRole)
         box.setDefaultButton(reject)
@@ -51,9 +50,7 @@ class QtDialogService(DialogPort):
 
     @override
     def choose(self, title: str, message: str, options: tuple[str, ...], cancel_index: int) -> int:
-        box = QMessageBox(
-            QMessageBox.Icon.Question, title, message, QMessageBox.StandardButton.NoButton, self._runner.parent
-        )
+        box = self._box(QMessageBox.Icon.Question, title, message)
         buttons = [
             box.addButton(
                 text, QMessageBox.ButtonRole.RejectRole if index == cancel_index else QMessageBox.ButtonRole.ActionRole
@@ -117,8 +114,23 @@ class QtDialogService(DialogPort):
             message: Text.
             button_text: Label of the closing button.
         """
-        box = QMessageBox(icon, title, message, QMessageBox.StandardButton.NoButton, self._runner.parent)
+        box = self._box(icon, title, message)
         button = box.addButton(button_text, QMessageBox.ButtonRole.AcceptRole)
         box.setDefaultButton(button)
         box.setEscapeButton(button)
         self._runner.run(box)
+
+    def _box(self, icon: QMessageBox.Icon, title: str, message: str) -> QMessageBox:
+        """Create a message box that shows its message as plain text (it may hold a list name or a path).
+
+        Args:
+            icon: Message icon.
+            title: Window title.
+            message: Text, shown as typed.
+
+        Returns:
+            The box, without buttons.
+        """
+        box = QMessageBox(icon, title, message, QMessageBox.StandardButton.NoButton, self._runner.parent)
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        return box
