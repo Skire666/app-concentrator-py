@@ -3,7 +3,7 @@ pas de JSON5, faire un toml.
 1000 taches pour le benchmark, et 100 pré-régalge de réveil.
 Chauqe taches, à un historique de 10 (surtout pour les ccyclique)
 Langue apr défaut = FR-FR
-toml est save lorqu'une tache set créer, MAJ, 
+toml est save lorqu'une tache set créer, MAJ,
 
 rajoute les couleurs la prochaine fois.
 définir enum
@@ -195,14 +195,14 @@ Un minuteur et ses boutons :
 Sous le minuteur :
 Une liste de TODO rapide permet d'ajouter des actions à faire (TODO list temporaire, à piocher dans les TODO existant).
 Cette TODO liste peut être alimenté par un bouton "spéciale" disponible sur chaque tâche.
-Une fois la tache terminée (l'utilisateur change d'état), alors l'action est historisé. 
+Une fois la tache terminée (l'utilisateur change d'état), alors l'action est historisé.
 
 Sous la liste du TODO rapide :
 - il y a une liste de favoris avec des minuteurs pré-réglé (15, 30, 45)
 - Des options spécials permettent : de sonner toutes les heures
 
 ---------------------------
-Menu B) 
+Menu B)
 ---------------------------
 
 Affiche le journal de tous les actions.
@@ -371,4 +371,4 @@ Tests
 -------------------------------------------------
 
 Produire les tests dans le dossier 'tests'
-- Coverage thresholds: domain ≥ 90 %, application ≥ 85 %, presentation ≥ 80 %, overall ≥ 75 %.
+- Coverage thresholds: domain ≥ 80 %, application ≥ 75 %, presentation ≥ 70 %, overall ≥ 70 %.

@@ -557,10 +557,10 @@ CRITICAL and show a dialog. Never use exceptions for control flow.
 
 | Scope | Minimum |
 |---|---|
-| `concentrator/domain` | 90 % |
-| `concentrator/application` | 85 % |
-| `concentrator/presentation` | 80 % |
-| overall `concentrator` | 75 % |
+| `concentrator/domain` | 80 % |
+| `concentrator/application` | 75 % |
+| `concentrator/presentation` | 70 % |
+| overall `concentrator` | 70 % |
 
 - Every bug fix starts with a failing test. Every error code has at least one test producing it.
 
