@@ -88,6 +88,7 @@ class TimerSection:
     default_presets_minutes: tuple[int, ...]
     max_presets: int
     max_preset_label_length: int
+    audio_buffer_ms: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

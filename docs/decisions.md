@@ -52,7 +52,7 @@ superseded.
 
 ## ADR-004 — MP3 playback with QtMultimedia
 
-- Status: accepted (phase 2).
+- Status: superseded by ADR-045 (miniaudio, 2026-11-12); accepted at phase 2.
 - Context: play MP3 of any size, in a loop or N times, with volume, while the app is in the
   background.
 - Decision: `QMediaPlayer` + `QAudioOutput` from PySide6 (`PySide6-Addons`, already installed by the
@@ -1349,3 +1349,49 @@ superseded.
   3. Result: 92.5 MB (42.5 MB zipped) instead of 102 MB (46 MB), same startup time.
   4. Not taken: the Windows Media Foundation audio backend instead of FFmpeg (a looped MP3 hung once in
      three runs), a `.7z` archive, `--optimize 2` (about 0.5 MB), UPX, a one-file build.
+
+## ADR-045 — MP3 playback with miniaudio instead of Qt Multimedia
+
+- Status: accepted, owner request (2026-11-12): "Le multimédia de QT et FFMpeg sont lourds, alors que je ne
+  lis qu'un simple mp3. Remplace-les par miniaudio 1.73." Supersedes ADR-004. Branch `audio-miniaudio`.
+- Context: Concentrator only plays short MP3 files (alarm, preview, hourly chime). Qt Multimedia brought
+  its FFmpeg backend: 22.7 MB of the 92.5 MB bundle (`avcodec`, `avformat`, `avutil`, `swscale`,
+  `swresample`, `Qt6Multimedia`, two plugins). The Windows Media Foundation backend of Qt was rejected
+  at the phase 8 size analysis (a looped MP3 hung once in three runs).
+- Decision:
+  1. **Dependency `miniaudio==1.73`** (pyminiaudio, MIT; miniaudio C library, public domain or MIT-0). Its
+     Windows wheel for CPython 3.14 is prebuilt; it brings `cffi` (and `pycparser`, used only to build
+     cffi modules). It decodes MP3, WAV, FLAC and Vorbis and plays through WASAPI.
+  2. **`infrastructure/audio/miniaudio_sound_player.py`**: `MiniaudioSoundPlayer` implements
+     `SoundPlayerPort`. `play` checks each candidate file (`get_file_info`), opens the default output
+     (16-bit stereo, 44.1 kHz), sets the device master volume from the perceived volume with Qt's former
+     logarithmic curve (`-ln(1 - v) / ln(100)`, 1 above 99 %), and starts a generator that streams the
+     file N times or until stopped. `stop` closes the stream. A sound that ends by itself closes its stream
+     on the main thread (`MainThreadDispatcherPort`, guarded by a play generation). The beep stays
+     `QApplication.beep`.
+  3. **Thread** (`AGENTS.md` section 6.4): miniaudio calls the generator from its own native audio thread.
+     The generator only decodes, never raises (a decoding error or a vanished file ends the sound with a
+     WARNING) and calls back through the dispatcher.
+  4. **Errors**: a missing file `AUDIO_FILE_NOT_FOUND`, an undecodable one `AUDIO_FORMAT_UNSUPPORTED` (both
+     logged, the next file is tried, then the beep); no output device or a device that cannot open
+     `AUDIO_DEVICE_UNAVAILABLE`; a device that opens but refuses to start `AUDIO_PLAYBACK_FAILED`.
+     miniaudio raises `FileNotFoundError`, not `MiniaudioError`, for a missing file.
+  5. **New ini key `[timer] audio_buffer_ms = 20`** [10..200]: closing a miniaudio stream waits about 2.5
+     periods (200 ms period: 0.5 s frozen window on OK, a favorite or closing a preview; 20 ms: 55 ms).
+     A larger value only helps if the sound crackles on a very busy computer.
+  6. **Typing**: miniaudio ships no `py.typed`; `typings/miniaudio.pyi` (basedpyright's default stub path)
+     declares the part used, with 16-bit sample arrays. No type-checker setting changes, no ignore.
+  7. **Build**: `--exclude-module PySide6.QtMultimedia` and `PySide6.QtMultimediaWidgets`, and
+     `--hidden-import _cffi_backend` (imported by the native `_miniaudio` extension, invisible to
+     PyInstaller: without it the frozen app stopped before logging). The self-check decodes the default
+     alarm and chime sounds with miniaudio.
+  8. **Guards**: architecture tests: no module imports `PySide6.QtMultimedia`; only the audio adapter
+     imports `miniaudio`.
+- Results (same PC, 1,000 tasks): bundle 92.5 MB → 70.7 MB, zip 42.5 MB → 32.6 MB, startup 1.35 to
+  1.57 s → 1.26 to 1.31 s (FFmpeg is no longer loaded at startup); `play()` 26 ms, `stop()` 56 ms. 25 of 25
+  looped plays of the 5 built-in sounds ended on time on the real device, and 4 plays under a saturated
+  main thread took 5.16 s for 5.12 s of sound.
+- Alternatives: keep Qt Multimedia with FFmpeg (heavy); Qt with the Windows backend (hung once in three);
+  `just_playback` (miniaudio too, less control); `winsound` (WAV only, no volume); pygame (SDL, heavier).
+- Consequences: one runtime dependency more (pure wheels for Windows x64 only matter here); the audio
+  buffer is a tunable; listening checks (alarm, chime, preview, volume curve, crackles) are manual.

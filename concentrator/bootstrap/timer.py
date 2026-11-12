@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 
 from PySide6.QtWidgets import QApplication
 
@@ -17,9 +18,9 @@ from concentrator.application.timer.timer_queries import TimerQueries
 from concentrator.bootstrap.core import Core
 from concentrator.bootstrap.storage import Storage
 from concentrator.domain.timer.timer_state_enum import TimerStateEnum
+from concentrator.infrastructure.audio.miniaudio_sound_player import MiniaudioDevice, MiniaudioSoundPlayer
 from concentrator.infrastructure.persistence.store_timer_config import StoreTimerConfigReader, StoreTimerConfigWriter
 from concentrator.infrastructure.qt.qt_attention import QtAttention
-from concentrator.infrastructure.qt.qt_sound_player import QtSoundPlayer
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.infrastructure.system.builtin_sound_catalog import BuiltinSoundCatalog
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
@@ -42,17 +43,19 @@ class TimerServices:
         defaults: Timer values of ``concentrator.ini``.
         editor: Edit dialog presenter (its dialog is attached with the main window).
         presenter: Timer panel presenter.
+        players: Creates the other players by name (the hourly chime), with the same audio settings.
     """
 
     engine: TimerEngine
     queries: TimerQueries
     commands: TimerCommands
     catalog: BuiltinSoundCatalog
-    alarm_player: QtSoundPlayer
+    alarm_player: MiniaudioSoundPlayer
     preview: SoundPreview
     defaults: TimerDefaults
     editor: TimerEditPresenter
     presenter: TimerPresenter
+    players: Callable[[str], MiniaudioSoundPlayer]
 
     def ringing(self) -> bool:
         """Tell whether the alarm rings (module bar highlight).
@@ -69,6 +72,23 @@ class TimerServices:
             Whether the timer is running, paused or ringing.
         """
         return self.queries.current_view().state is not TimerStateEnum.IDLE
+
+
+def sound_player(name: str, *, app: QApplication, core: Core, buffer_ms: int) -> MiniaudioSoundPlayer:
+    """Create one miniaudio player (ADR-045); the Windows beep is its last resort.
+
+    Args:
+        name: ``alarm``, ``preview`` or ``chime`` (log).
+        app: The application (beep).
+        core: Main-thread services (the end of a sound comes back through the dispatcher).
+        buffer_ms: ``timer.audio_buffer_ms``.
+
+    Returns:
+        The player.
+    """
+    return MiniaudioSoundPlayer(
+        name, dispatcher=core.dispatcher, beep=app.beep, open_device=partial(MiniaudioDevice, buffer_ms)
+    )
 
 
 def build_timer(
@@ -88,15 +108,10 @@ def build_timer(
         The services.
     """
     defaults = storage.timer_defaults
-    engine = TimerEngine(
-        clock=core.clock,
-        config=StoreTimerConfigReader(storage.store),
-        event_bus=core.event_bus,
-        fallback=defaults.settings,
-        blink_interval_ms=config.ui.alert_blink_interval_ms,
-    )
+    engine = _engine(config, core, storage)
     catalog = BuiltinSoundCatalog(paths.sounds_dir)
-    preview_player = QtSoundPlayer("preview", app)
+    players = partial(sound_player, app=app, core=core, buffer_ms=config.timer.audio_buffer_ms)
+    preview_player = players("preview")
     queries = TimerQueries(engine, StoreTimerConfigReader(storage.store), catalog, preview_player, defaults.snooze)
     commands = _commands(engine, core, storage)
     preview = SoundPreview(preview_player, catalog)
@@ -106,11 +121,32 @@ def build_timer(
         queries=queries,
         commands=commands,
         catalog=catalog,
-        alarm_player=QtSoundPlayer("alarm", app),
+        alarm_player=players("alarm"),
         preview=preview,
         defaults=defaults,
         editor=editor,
         presenter=_presenter(config, translator, core, (queries, commands, editor)),
+        players=players,
+    )
+
+
+def _engine(config: AppConfig, core: Core, storage: Storage) -> TimerEngine:
+    """Create the countdown engine.
+
+    Args:
+        config: Loaded configuration (blink interval).
+        core: Main-thread services.
+        storage: Store and timer defaults.
+
+    Returns:
+        The engine.
+    """
+    return TimerEngine(
+        clock=core.clock,
+        config=StoreTimerConfigReader(storage.store),
+        event_bus=core.event_bus,
+        fallback=storage.timer_defaults.settings,
+        blink_interval_ms=config.ui.alert_blink_interval_ms,
     )
 
 

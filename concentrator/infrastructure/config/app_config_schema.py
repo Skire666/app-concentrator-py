@@ -173,6 +173,7 @@ class TimerSectionSchema(BaseModel):
     default_presets_minutes: NumberList
     max_presets: Annotated[int, Field(ge=1, le=50)]
     max_preset_label_length: Annotated[int, Field(ge=1, le=200)]
+    audio_buffer_ms: Annotated[int, Field(ge=10, le=200)]
 
     def preset_minutes(self) -> tuple[int, ...]:
         """Return the values of ``default_presets_minutes``.

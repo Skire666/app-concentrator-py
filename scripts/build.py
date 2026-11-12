@@ -60,8 +60,6 @@ TRIMMED_QT_PARTS: Final = (
     "opengl32sw.dll",  # software OpenGL: the widgets paint with the raster engine
     "translations",  # Qt's own texts: Concentrator shows its catalogs only
     "Qt6OpenGL.dll",
-    "Qt6MultimediaWidgets.dll",
-    "QtMultimediaWidgets.pyd",
     "Qt6Pdf.dll",
     "Qt6Qml.dll",
     "Qt6QmlMeta.dll",
@@ -81,8 +79,11 @@ TRIMMED_QT_PARTS: Final = (
     ),
 )
 """Qt parts no kept part imports (checked with the PE import tables at phase 8); the ICO and SVG image
-plugins, the FFmpeg multimedia plugin and the windows and offscreen platforms stay. The self-check fails if
-MP3 decoding or the SVG icons break."""
+plugins and the windows and offscreen platforms stay. The self-check fails if the SVG icons break."""
+EXCLUDED_MODULES: Final = ("PySide6.QtMultimedia", "PySide6.QtMultimediaWidgets")
+HIDDEN_IMPORTS: Final = ("_cffi_backend",)
+"""Imported by the native ``_miniaudio`` extension, so PyInstaller cannot see it (ADR-045)."""
+"""Qt Multimedia and its FFmpeg plugin are never bundled: miniaudio plays the sounds (ADR-045)."""
 VERSION_INFO_TEMPLATE: Final = """\
 VSVersionInfo(
   ffi=FixedFileInfo(
@@ -175,6 +176,10 @@ def pyinstaller_command(version_file: Path) -> list[str]:
     command += ["--distpath", str(DIST_DIR), "--copy-metadata", "concentrator", "--version-file", str(version_file)]
     for name in BUNDLED_ASSET_DIRS:
         command += ["--add-data", f"{ASSETS_DIR / name}{os.pathsep}assets/{name}"]
+    for module in EXCLUDED_MODULES:
+        command += ["--exclude-module", module]
+    for module in HIDDEN_IMPORTS:
+        command += ["--hidden-import", module]
     return command
 
 

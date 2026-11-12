@@ -125,10 +125,20 @@ def test_self_check_fails_when_the_default_chime_sound_is_missing(qtbot: QtBot, 
     assert "chime.mp3" in install.log_text
 
 
-def test_self_check_audio_check_passes_with_the_ffmpeg_backend(qtbot: QtBot) -> None:
-    del qtbot
-    assert audio_failures() == []
+def test_self_check_decodes_the_default_sounds_with_miniaudio(tmp_path: Path) -> None:
+    install = _Install(tmp_path, copy_assets=True)
+
+    assert audio_failures(install.paths, install.config()) == []
     assert hash_failures() == []
+
+
+def test_self_check_reports_a_sound_that_is_not_mp3(tmp_path: Path) -> None:
+    install = _Install(tmp_path, copy_assets=True)
+    (install.paths.sounds_dir / f"{install.config().timer.default_sound}.mp3").write_bytes(b"not an mp3")
+
+    assert audio_failures(install.paths, install.config()) == [
+        f"MP3 cannot be decoded: {install.config().timer.default_sound}"
+    ]
 
 
 def test_invalid_ini_exits_with_failure(qtbot: QtBot, tmp_path: Path) -> None:

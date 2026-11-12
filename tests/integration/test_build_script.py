@@ -50,6 +50,14 @@ def test_version_file_is_a_python_expression_with_product_and_version() -> None:
     assert "StringStruct('OriginalFilename', 'Concentrator.exe')" in text
 
 
+def test_pyinstaller_leaves_qt_multimedia_out(tmp_path: Path) -> None:
+    command = pyinstaller_command(tmp_path / "version_info.txt")
+
+    excluded = [command[index + 1] for index, item in enumerate(command) if item == "--exclude-module"]
+    assert excluded == ["PySide6.QtMultimedia", "PySide6.QtMultimediaWidgets"]
+    assert command[command.index("--hidden-import") + 1] == "_cffi_backend"
+
+
 def test_pyinstaller_receives_the_version_file(tmp_path: Path) -> None:
     command = pyinstaller_command(tmp_path / "version_info.txt")
 
@@ -58,7 +66,7 @@ def test_pyinstaller_receives_the_version_file(tmp_path: Path) -> None:
 
 def test_trim_removes_the_listed_qt_parts_and_keeps_the_others(tmp_path: Path) -> None:
     qt = tmp_path / QT_DIR
-    kept = [qt / "Qt6Core.dll", qt / "plugins/imageformats/qsvg.dll", qt / "plugins/multimedia/ffmpegmediaplugin.dll"]
+    kept = [qt / "Qt6Core.dll", qt / "plugins/imageformats/qsvg.dll", qt / "plugins/platforms/qwindows.dll"]
     trimmed = [
         qt / "opengl32sw.dll",
         qt / "translations/qtbase_fr.qm",
@@ -80,7 +88,7 @@ def test_trim_removes_the_listed_qt_parts_and_keeps_the_others(tmp_path: Path) -
 
 
 def test_trim_list_never_names_a_part_the_self_check_needs() -> None:
-    needed = {"plugins/imageformats/qsvg.dll", "plugins/imageformats/qico.dll", "plugins/multimedia", "Qt6Svg.dll"}
+    needed = {"plugins/imageformats/qsvg.dll", "plugins/imageformats/qico.dll", "plugins/platforms", "Qt6Svg.dll"}
 
     assert needed.isdisjoint(TRIMMED_QT_PARTS)
 

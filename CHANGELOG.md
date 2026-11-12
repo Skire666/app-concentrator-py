@@ -4,6 +4,14 @@ All notable changes to Concentrator. The format follows [Keep a Changelog](https
 and versions follow [Semantic Versioning](https://semver.org/). The data file has its own
 `schema_version`; a release that changes it says so here.
 
+## [Unreleased]
+
+### Changed
+
+- Sounds are played by miniaudio instead of Qt Multimedia and FFmpeg: the application takes 70.7 MB
+  instead of 92.5 MB (32.6 MB zipped instead of 42.5 MB) and starts about 0.1 s faster. New setting
+  `audio_buffer_ms` in `concentrator.ini` (`[timer]`).
+
 ## [1.0.0] - 2026-11-12
 
 First release, for Windows 11 (64-bit), in English and French. Data file schema version 1.

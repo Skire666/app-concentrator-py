@@ -324,7 +324,9 @@ three buttons that change with the state.
   countdown alone; the dialog says so. While the dialog is open, the timer buttons are behind it: close the
   dialog to stop a ringing alarm (the automatic stop still applies).
 - If a chosen MP3 file is moved or deleted, the alarm plays the default sound instead and the journal
-  records an error (the Journal button shows it); if no sound can be played at all, Windows beeps. The dialog shows the missing file under
+  records an error (the Journal button shows it); if no sound can be played at all, Windows beeps.
+  Sounds start and stop at once; if they crackle while the computer is very busy, raise
+  `audio_buffer_ms` in `concentrator.ini` (`[timer]`, 20 ms by default). The dialog shows the missing file under
   **Sound**, and you can still save the other settings.
 - The built-in sounds are **Alarm** (the default), **Beep**, **Chime**, **Notification** and **Soft
   tone**. A data file that names a built-in sound of an older version plays the default sound until

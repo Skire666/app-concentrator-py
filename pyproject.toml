@@ -23,8 +23,9 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "pyside6>=6.11",  # Qt Widgets + QtMultimedia (MP3 playback through the FFmpeg backend)
+    "pyside6>=6.11",  # Qt Widgets; Qt Multimedia is not used (ADR-045)
     "pydantic>=2.12,<3",  # 2.12 is the first release supporting Python 3.14
+    "miniaudio==1.73",  # MP3 decoding and playback, prebuilt Windows wheel for CPython 3.14 (ADR-045)
 ]
 
 # Windows launcher without console window: `uv run concentrator`.

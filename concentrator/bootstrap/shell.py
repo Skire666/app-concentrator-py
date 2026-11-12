@@ -120,6 +120,7 @@ class Shell:
         self.shutdown_presenter.flush_without_dialog()
         self.tick_timer.stop()
         self.timer.alarm_player.stop()
+        self.timer.preview.stop()
         self.extras.chime_player.stop()
         self.window.save_layout()
         self.core.preferences.sync()
@@ -198,7 +199,7 @@ def build_shell(
     """
     core, storage = services.core, services.storage
     timer = build_timer(app, config, paths, translator, core=core, storage=storage)
-    extras = build_timer_extras(app, translator, core=core, storage=storage, timer=timer)
+    extras = build_timer_extras(translator, core=core, storage=storage, timer=timer)
     pages = _pages(config, paths, translator, services, timer)
     presenters = _presenters(services, translator, (timer, extras), pages)
     window = _main_window(config, paths, core, presenters)

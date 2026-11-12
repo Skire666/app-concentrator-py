@@ -35,9 +35,9 @@ class SoundPlayerPort(Protocol):
             playback: Files, volume and play count.
 
         Returns:
-            Success, or ``AUDIO_DEVICE_UNAVAILABLE`` (the beep sounds instead). Failures found while
-            playing (``AUDIO_FORMAT_UNSUPPORTED``, ``AUDIO_PLAYBACK_FAILED``) are logged and move on to
-            the next file.
+            Success, ``AUDIO_DEVICE_UNAVAILABLE`` or ``AUDIO_PLAYBACK_FAILED`` (the beep sounds instead).
+            A file that cannot be played (``AUDIO_FILE_NOT_FOUND``, ``AUDIO_FORMAT_UNSUPPORTED``) is logged
+            and the next file is tried.
         """
         ...
 

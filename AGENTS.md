@@ -107,7 +107,8 @@ concentrator/
 │   ├── i18n/             JSON catalog loader, Translator
 │   ├── logging/          setup, ring buffer handler, exception hooks
 │   ├── system/           SystemClock, Uuid7IdGenerator, AppPaths, Windows shell helpers (ctypes)
-│   └── qt/               Qt-backed driven adapters: sound, attention, single instance, scheduler,
+│   ├── audio/            MiniaudioSoundPlayer (MP3 playback on miniaudio, ADR-045)
+│   └── qt/               Qt-backed driven adapters: attention, single instance, scheduler,
 │                         main-thread dispatcher, link opener, QSettings stores, Qt log bridge
 ├── presentation/         Qt-free view logic
 │   ├── ports/            Protocols implemented by ui (DialogPort, ...)
@@ -145,7 +146,7 @@ and `infrastructure -> application -> domain`. `bootstrap` wires everything.
 | `domain` | stdlib, `domain` | `application`, `infrastructure`, `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6`, `pydantic`, `tomllib` |
 | `application` | stdlib, `domain`, `application` | `infrastructure`, `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6`, `pydantic`, `tomllib` |
 | `presentation` | stdlib, `domain`, `application` | `infrastructure`, `ui`, `bootstrap`, `PySide6`, `shiboken6`, `pydantic`, `tomllib` |
-| `infrastructure` (except `qt`) | stdlib, `domain`, `application`, `pydantic` (persistence, config), `tomllib` (persistence only) | `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6` |
+| `infrastructure` (except `qt`) | stdlib, `domain`, `application`, `pydantic` (persistence, config), `tomllib` (persistence only), `miniaudio` (`infrastructure.audio` only) | `presentation`, `ui`, `bootstrap`, `PySide6`, `shiboken6` |
 | `infrastructure.qt` | stdlib, `domain`, `application`, `PySide6` | `presentation`, `ui`, `bootstrap`, `pydantic`, `tomllib` |
 | `ui` | stdlib, `presentation`, `PySide6` | `domain`, `application`, `infrastructure`, `bootstrap`, `pydantic`, `tomllib` |
 | `ui.widgets` | + `ui.support` | `ui.panels`, `ui.windows` |
@@ -297,6 +298,9 @@ Writers of aggregates changed in bulk (tasks, lists) also expose `update_many(en
   I/O of immutable `UserData` snapshots, and every other user-data write (startup create, restore,
   quarantine). Results come back through `MainThreadDispatcherPort`; synchronous writes wait with a
   timeout (ADR-028).
+- miniaudio plays each sound from its own native audio thread, which calls the sound generator of
+  `infrastructure/audio/` (ADR-045). The generator never raises and touches no shared state; the end of a
+  sound comes back through `MainThreadDispatcherPort`.
 - No other threads without an approved decision in `docs/decisions.md`.
 
 ## 7. Infrastructure
@@ -379,9 +383,10 @@ silent code-level defaults for ini keys.
 
 ### 7.4 Qt-backed adapters (`infrastructure/qt/`)
 
-- `QtSoundPlayer`: `QMediaPlayer` + `QAudioOutput` (QtMultimedia, FFmpeg backend). Streams files of
-  any size, `setLoops(n)` or `QMediaPlayer.Loops.Infinite`. Volume 0-100 converted with
-  `QAudio.convertVolume` (logarithmic to linear). Separate instances for alarm and chime.
+- Sounds are not played by Qt: `infrastructure/audio/MiniaudioSoundPlayer` (miniaudio, ADR-045) streams
+  MP3 files of any size, loops them N times or until stopped, and converts the volume 0-100 with Qt's
+  former logarithmic curve. Separate instances for alarm, preview and chime; `QApplication.beep` is the
+  last resort. Qt Multimedia and FFmpeg are never imported nor bundled (architecture test, build excludes).
 - `QtAttention`: `QApplication.alert(window, 0)` (taskbar button flashes until activated);
   `AlarmCoordinator` asks for it only when no Concentrator window is active
   (`QGuiApplication.applicationState()`) and the user setting `notify_when_inactive` is on.
@@ -594,7 +599,8 @@ VS Code: extensions `ms-python.python`, `charliermarsh.ruff`, `detachhead.basedp
 Pylance (`"python.languageServer": "None"`) to avoid two type checkers; interpreter
 `.venv\Scripts\python.exe`; ruff as formatter on save; pytest enabled. Keep `.vscode/` committed.
 
-Dependencies: runtime `pyside6`, `pydantic` (the TOML reader is the standard library `tomllib`); dev
+Dependencies: runtime `pyside6`, `pydantic`, `miniaudio` (sound; its type stub is `typings/miniaudio.pyi`;
+the TOML reader is the standard library `tomllib`); dev
 `ruff`, `basedpyright`, `pytest`, `pytest-cov`, `pytest-qt`, `pyinstaller`. Add a dependency only with an
 entry in `docs/decisions.md`.
 

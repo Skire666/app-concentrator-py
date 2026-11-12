@@ -78,6 +78,7 @@ def make_timer_section(**changes: int | str | tuple[int, ...]) -> TimerSection:
         default_presets_minutes=(15, 30, 45),
         max_presets=12,
         max_preset_label_length=40,
+        audio_buffer_ms=20,
     )
     return replace(section, **changes)
 

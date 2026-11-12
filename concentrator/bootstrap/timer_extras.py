@@ -2,8 +2,6 @@
 
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QApplication
-
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.timer.chime_commands import ChimeCommands
 from concentrator.application.timer.chime_queries import ChimeQueries
@@ -18,9 +16,9 @@ from concentrator.application.timer.timer_events import (
 from concentrator.bootstrap.core import Core
 from concentrator.bootstrap.storage import Storage
 from concentrator.bootstrap.timer import TimerServices
+from concentrator.infrastructure.audio.miniaudio_sound_player import MiniaudioSoundPlayer
 from concentrator.infrastructure.persistence.store_hourly_chime import StoreHourlyChimeReader, StoreHourlyChimeWriter
 from concentrator.infrastructure.persistence.store_timer_presets import StoreTimerPresetReader, StoreTimerPresetWriter
-from concentrator.infrastructure.qt.qt_sound_player import QtSoundPlayer
 from concentrator.presentation.timer.chime_presenter import ChimePresenter
 from concentrator.presentation.timer.chime_settings_presenter import ChimeSettingsPresenter
 from concentrator.presentation.timer.preset_edit_presenter import PresetEditPresenter
@@ -45,16 +43,15 @@ class TimerExtras:
     chime: ChimePresenter
     chime_editor: ChimeSettingsPresenter
     chime_service: ChimeService
-    chime_player: QtSoundPlayer
+    chime_player: MiniaudioSoundPlayer
 
 
 def build_timer_extras(
-    app: QApplication, translator: TranslatorPort, *, core: Core, storage: Storage, timer: TimerServices
+    translator: TranslatorPort, *, core: Core, storage: Storage, timer: TimerServices
 ) -> TimerExtras:
     """Create the favorites and the hourly chime once the data file is open.
 
     Args:
-        app: Owner of the chime player.
         translator: Current-language translator.
         core: Main-thread services.
         storage: Store, timer limits and chime defaults.
@@ -65,7 +62,7 @@ def build_timer_extras(
     """
     presets, preset_editor = _presets(translator, core, storage, timer)
     chime, chime_editor, chime_queries = _chime(translator, core, storage, timer)
-    chime_player = QtSoundPlayer("chime", app)
+    chime_player = timer.players("chime")
     service = ChimeService(
         clock=core.clock,
         queries=chime_queries,

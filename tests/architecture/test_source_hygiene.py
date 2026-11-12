@@ -38,6 +38,22 @@ def _imported_modules(tree: ast.Module) -> set[str]:
     return names
 
 
+def test_no_module_imports_qt_multimedia() -> None:
+    importers = sorted(
+        relative(path)
+        for path in source_files()
+        if any(name.startswith("PySide6.QtMultimedia") for name in _imported_modules(parse(path)))
+    )
+
+    assert importers == []
+
+
+def test_only_the_audio_adapter_imports_miniaudio() -> None:
+    importers = sorted(relative(path) for path in source_files() if "miniaudio" in _imported_modules(parse(path)))
+
+    assert importers == ["concentrator/infrastructure/audio/miniaudio_sound_player.py"]
+
+
 def test_only_the_toml_codec_imports_tomllib() -> None:
     importers = sorted(relative(path) for path in source_files() if "tomllib" in _imported_modules(parse(path)))
 

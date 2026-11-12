@@ -36,9 +36,9 @@ from concentrator.domain.todo.task_list import TaskList, TaskListId
 from concentrator.domain.todo.task_lists_collection import TaskListsCollection
 from concentrator.domain.todo.tasks_collection import TasksCollection
 from concentrator.domain.todo.weekday_enum import WeekdayEnum
+from concentrator.infrastructure.audio.miniaudio_sound_player import decodes
 from concentrator.infrastructure.i18n.json_catalog_translator import CATALOG_SUFFIX, load_catalogs
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
-from concentrator.infrastructure.qt.qt_sound_player import MP3_MIME_TYPE, decodable_mime_types
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.infrastructure.system.builtin_sound_catalog import SOUND_SUFFIX
 from concentrator.ui.panels.module_bar_panel import MODULE_ICON_FILES
@@ -91,15 +91,22 @@ def hash_failures() -> list[str]:
     return ["SHA-256 gives a wrong digest"]
 
 
-def audio_failures() -> list[str]:
-    """Check that the Qt multimedia FFmpeg plugin is bundled and decodes MP3 (ADR-004).
+def audio_failures(paths: AppPaths, config: AppConfig) -> list[str]:
+    """Check that miniaudio is bundled and decodes the default alarm and chime MP3 files (ADR-045).
+
+    No device is opened: a computer without audio output still passes.
+
+    Args:
+        paths: Application paths.
+        config: Loaded configuration (default sounds).
 
     Returns:
         One description per problem.
     """
-    if MP3_MIME_TYPE in decodable_mime_types():
-        return []
-    return ["Qt multimedia cannot decode MP3 (FFmpeg plugin missing)"]
+    names = (config.timer.default_sound, config.chime.default_sound)
+    return [
+        f"MP3 cannot be decoded: {name}" for name in names if not decodes(paths.sounds_dir / f"{name}{SOUND_SUFFIX}")
+    ]
 
 
 def _svg_failures(paths: AppPaths) -> list[str]:
@@ -246,7 +253,7 @@ def run_self_check(paths: AppPaths, config: AppConfig, app_version: str) -> bool
         failures.append(f"catalogs: {[code.name for code in catalogs.validation.error_codes]}")
     failures.extend(_svg_failures(paths))
     failures.extend(hash_failures())
-    failures.extend(audio_failures())
+    failures.extend(audio_failures(paths, config))
     failures.extend(storage_failures(app_version, config))
     if failures:
         _logger.error("Self-check failed: %s", failures)
