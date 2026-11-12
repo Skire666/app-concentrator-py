@@ -50,11 +50,19 @@ def process_age_ms() -> int | None:
     return max(0, (_ticks(now) - _ticks(created)) // FILETIME_TICKS_PER_MS)
 
 
-def log_startup_time() -> None:
+def log_startup_time(*, dialogs_shown: bool = False) -> None:
     """Log the startup time; called on the first event-loop turn after the main window is shown.
 
-    The phase 8 target is 2 s with 1,000 tasks (``scripts/bench_app.py --startup`` reads this line).
+    The phase 8 target is 2 s with 1,000 tasks (``scripts/bench_app.py --startup`` reads this line). When
+    a startup dialog waited for the user, the time is logged as such, not as a startup time.
+
+    Args:
+        dialogs_shown: Whether a dialog was shown before the main window.
     """
     elapsed = process_age_ms()
-    if elapsed is not None:
+    if elapsed is None:
+        return
+    if dialogs_shown:
+        _logger.info("Main window shown %d ms after the process started, startup dialogs included", elapsed)
+    else:
         _logger.info("Startup took %d ms (process start to main window shown)", elapsed)

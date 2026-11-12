@@ -3,6 +3,7 @@
 The mouse wheel always scrolls the page, even over a list, a spin box or a slider (ADR-041).
 """
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
@@ -30,6 +31,7 @@ class SettingsPage(QWidget):
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # the fields take the focus; it scrolls to them
         content = QWidget(scroll)
         self._form = SettingsFormPanel(spacing_px, content)
         self._files = SettingsFilesPanel(spacing_px, content)

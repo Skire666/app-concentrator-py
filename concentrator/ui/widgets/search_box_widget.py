@@ -4,7 +4,6 @@ from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import QLineEdit, QWidget
 
 from concentrator.presentation.journal.journal_snapshot import SearchBoxSnapshot
-from concentrator.ui.support.mnemonics import accessible_name
 
 
 class SearchBoxWidget(QLineEdit):
@@ -33,5 +32,5 @@ class SearchBoxWidget(QLineEdit):
             self.setText(snapshot.text)
         self.setPlaceholderText(snapshot.placeholder)
         self.setToolTip(snapshot.tooltip)
-        self.setAccessibleName(accessible_name(snapshot.placeholder, snapshot.tooltip))
+        self.setAccessibleName(snapshot.placeholder or snapshot.tooltip)
         blocker.unblock()

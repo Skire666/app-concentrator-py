@@ -25,10 +25,12 @@ from pytestqt.qtbot import QtBot
 
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
+from concentrator.presentation.journal.journal_snapshot import SearchBoxSnapshot
 from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.presentation.todo.todo_layout import TodoLayout
-from concentrator.ui.support.mnemonics import bind_caption, mnemonic_free, set_caption
+from concentrator.ui.support.mnemonics import accessible_name, bind_caption, mnemonic_free, set_caption
 from concentrator.ui.support.modal_host import ScreenDialogRunner
+from concentrator.ui.widgets.search_box_widget import SearchBoxWidget
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
 from concentrator.ui.windows.chime_settings_dialog import ChimeSettingsWindow
 from concentrator.ui.windows.preset_edit_dialog import PresetEditWindow
@@ -276,6 +278,25 @@ def test_alt_and_the_letter_of_a_caption_focus_its_field(qtbot: QtBot) -> None:
 
     qtbot.waitUntil(fields[1].hasFocus, timeout=1000)
     assert fields[1].accessibleName() == "Description"
+
+
+def test_no_scroll_area_is_a_tab_stop(shown: ShellHarness) -> None:
+    shown.window.module_bar.button(ActionIdEnum.SHELL_SHOW_SETTINGS).click()
+    shown.turn()
+
+    stops = _tab_chain(shown.window.focus_page) + _tab_chain(shown.window.settings_page)
+
+    assert [widget for widget in stops if isinstance(widget, QScrollArea)] == []
+
+
+def test_a_placeholder_name_keeps_its_ampersand(qtbot: QtBot) -> None:
+    box = SearchBoxWidget()
+    qtbot.addWidget(box)
+
+    box.apply(SearchBoxSnapshot(text="", placeholder="Tasks & notes", tooltip="Search"))
+
+    assert box.accessibleName() == "Tasks & notes"
+    assert accessible_name("Sa&ve", "Tasks & notes") == "Save"
 
 
 def test_an_icon_button_is_named_after_its_tooltip(qtbot: QtBot) -> None:

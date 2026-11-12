@@ -4,7 +4,6 @@ from PySide6.QtCore import QSignalBlocker, Signal
 from PySide6.QtWidgets import QLineEdit, QVBoxLayout, QWidget
 
 from concentrator.presentation.todo.quick_add_snapshot import QuickAddSnapshot
-from concentrator.ui.support.mnemonics import accessible_name
 from concentrator.ui.support.styles import INVALID_PROPERTY, set_dynamic_property
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
 
@@ -53,7 +52,7 @@ class QuickAddPanel(QWidget):
             self._input.setText(snapshot.text)
         self._input.setPlaceholderText(snapshot.placeholder)
         self._input.setToolTip(snapshot.tooltip)
-        self._input.setAccessibleName(accessible_name(snapshot.placeholder, snapshot.tooltip))
+        self._input.setAccessibleName(snapshot.placeholder or snapshot.tooltip)
         blocker.unblock()
         self._error.set_error(snapshot.error)
         set_dynamic_property(self._input, INVALID_PROPERTY, bool(snapshot.error))

@@ -42,6 +42,21 @@ def _preceding(anchor: QWidget, widgets: Sequence[QWidget]) -> QWidget | None:
     return None
 
 
+def insert_after(anchor: QWidget, widgets: Sequence[QWidget]) -> None:
+    """Put widgets, in this order, right after ``anchor`` (and its descendants) in the Tab order.
+
+    Use it when the widget shown before the new ones takes the focus; ``insert_before`` otherwise.
+
+    Args:
+        anchor: Focusable widget shown just before the inserted ones.
+        widgets: Widgets to insert, in reading order.
+    """
+    previous = anchor
+    for widget in widgets:
+        QWidget.setTabOrder(previous, widget)
+        previous = widget
+
+
 def insert_before(anchor: QWidget, widgets: Sequence[QWidget]) -> None:
     """Put widgets, in this order, just before ``anchor`` in the Tab order of their window.
 

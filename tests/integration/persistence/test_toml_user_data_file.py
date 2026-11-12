@@ -398,4 +398,17 @@ def test_save_logs_its_duration_at_debug(
     with caplog.at_level(logging.DEBUG, logger="concentrator.infrastructure.persistence.toml_user_data_file"):
         _save(adapter, path, make_user_data(LanguageEnum.ENGLISH))
 
-    assert "Save of revision 7 took 0 ms" in caplog.text
+    assert "Save of revision 7 written in 0 ms" in caplog.text
+
+
+def test_a_refused_save_logs_that_it_failed(
+    adapter: TomlUserDataFile, path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    adapter.create(path, make_user_data())
+    path.write_text(SPEC_EXAMPLE_TEXT + "\n# edited by hand\n", encoding="utf-8")
+
+    with caplog.at_level(logging.DEBUG, logger="concentrator.infrastructure.persistence.toml_user_data_file"):
+        outcome = _save(adapter, path, make_user_data(LanguageEnum.ENGLISH))
+
+    assert outcome.validation.error_codes == (ErrorCodeEnum.STORAGE_FILE_CHANGED_EXTERNALLY,)
+    assert "Save of revision 7 failed in 0 ms: ['STORAGE_FILE_CHANGED_EXTERNALLY']" in caplog.text

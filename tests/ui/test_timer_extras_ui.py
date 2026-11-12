@@ -120,6 +120,17 @@ def test_presets_panel_emits_the_preset_id_with_the_action(qtbot: QtBot) -> None
     assert recorder.values == [(int(ActionIdEnum.PRESET_APPLY), "preset-30"), int(ActionIdEnum.PRESET_ADD)]
 
 
+def test_a_favorite_label_with_an_ampersand_is_shown_as_typed(qtbot: QtBot) -> None:
+    stack = TimerUiStack()
+    stack.presets.presets = TimerPresetsCollection((make_preset(20, label="R&D"),))
+
+    panel = _presets_panel(qtbot, stack)
+
+    button = panel.preset_buttons[0]
+    assert button.text() == "R&&D"
+    assert button.accessibleName() == "R&D"
+
+
 def test_presets_panel_follows_the_number_of_favorites(qtbot: QtBot) -> None:
     stack = TimerUiStack()
     panel = _presets_panel(qtbot, stack)

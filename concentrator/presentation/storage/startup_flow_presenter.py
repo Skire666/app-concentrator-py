@@ -77,6 +77,12 @@ class StartupFlowPresenter:
         self._quit = False
         self._closed_by_action = False
         self._in_session = False
+        self._asked = False
+
+    @property
+    def asked_the_user(self) -> bool:
+        """Whether a first-run or recovery dialog was shown (its time is not startup time)."""
+        return self._asked
 
     @property
     def plan(self) -> StartupPlan | None:
@@ -188,6 +194,7 @@ class StartupFlowPresenter:
             self._quit = True
             return
         self._closed_by_action = False
+        self._asked = True
         if _section_for(plan) is RenderSectionEnum.FIRST_RUN:
             self._ui.show_first_run()
         else:

@@ -4,7 +4,6 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QWidget
 
 from concentrator.presentation.settings.settings_snapshot import PathRowSnapshot
-from concentrator.ui.support.mnemonics import accessible_name
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
 
 
@@ -51,7 +50,7 @@ class PathRowWidget(QWidget):
             self._path.setText(snapshot.path)
             self._path.setCursorPosition(0)
         self._path.setToolTip(snapshot.path)
-        self._path.setAccessibleName(accessible_name(snapshot.label))
+        self._path.setAccessibleName(snapshot.label)
         self._open.apply(snapshot.open_folder)
 
     def _emit_open(self, _action: int) -> None:

@@ -95,6 +95,16 @@ def test_migrated_file_is_written_at_the_new_version() -> None:
     assert f"[[{LEGACY_TASKS}]]" not in text
 
 
+def test_a_version_older_than_every_step_is_refused() -> None:
+    step = SchemaMigration(from_version=2, migrate=_rename_legacy_tasks)
+    codec = UserDataCodec(APP_VERSION, USER_DATA_LIMITS, MigrationChain(3, (step,)))
+
+    result = codec.decode(_reference_text())
+
+    assert result.validation.error_codes == (ErrorCodeEnum.STORAGE_FIELD_INVALID_VALUE,)
+    assert result.validation.issues[0].field == "schema_version"
+
+
 def test_version_2_file_is_refused_by_version_1() -> None:
     text = _reference_text().replace("\nschema_version = 1\n", "\nschema_version = 2\n")
 

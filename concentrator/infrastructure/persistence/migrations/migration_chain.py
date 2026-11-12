@@ -56,6 +56,17 @@ class MigrationChain:
         """Schema version this application reads and writes."""
         return self._target_version
 
+    def accepts(self, version: int) -> bool:
+        """Tell whether a document of this version can be read, after migration if needed.
+
+        Args:
+            version: Schema version of a document, not newer than the target.
+
+        Returns:
+            Whether it is the target version or the first version of a step.
+        """
+        return version == self._target_version or version in self._steps
+
     def upgrade(self, document: Document) -> Document:
         """Bring a document up to the target version.
 
@@ -63,8 +74,8 @@ class MigrationChain:
             document: Parsed TOML document, not newer than the target (checked before).
 
         Returns:
-            The migrated document; unchanged when it is current, has no usable version, or is older than
-            the first step (the schema validation then reports the version).
+            The migrated document; unchanged when it is current or has no usable version (the schema
+            validation then reports it). The codec refuses an older version without step (``accepts``).
         """
         first = schema_version_of(document)
         if first is None or first not in self._steps:

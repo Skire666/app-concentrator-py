@@ -211,9 +211,12 @@ class TomlUserDataFile(UserDataFilePort):
         started = self._clock.monotonic()
         written = self._write(path, data, check_external=not overwrite_external)
         elapsed_ms = round((self._clock.monotonic() - started) * MS_PER_SECOND)
-        _logger.debug("Save of revision %d took %d ms", revision, elapsed_ms)
-        saved_at = written.data.saved_at if written.data is not None else None
-        return SaveOutcome(revision=revision, saved_at=saved_at, validation=written.validation)
+        if written.data is None:
+            codes = [code.name for code in written.validation.error_codes]
+            _logger.debug("Save of revision %d failed in %d ms: %s", revision, elapsed_ms, codes)
+            return SaveOutcome(revision=revision, saved_at=None, validation=written.validation)
+        _logger.debug("Save of revision %d written in %d ms", revision, elapsed_ms)
+        return SaveOutcome(revision=revision, saved_at=written.data.saved_at, validation=written.validation)
 
     def _create_job(self, path: Path, data: UserData) -> DataResult[StoredUserData]:
         """Writer thread: create a new data file, after putting aside a ``.tmp`` or ``.bak`` left there.

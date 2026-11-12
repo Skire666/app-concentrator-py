@@ -81,6 +81,7 @@ def test_remembered_valid_file_opens_without_dialog(setup: Setup) -> None:
 
     assert setup.presenter.run()
     assert setup.ui.shown == []
+    assert not setup.presenter.asked_the_user
     assert setup.presenter.plan is not None
     assert setup.presenter.plan.step is StartupStepEnum.READY
     assert setup.presenter.build_first_run_snapshot() is None
@@ -92,6 +93,7 @@ def test_first_run_create_at_the_default_location(setup: Setup) -> None:
 
     assert setup.presenter.run()
 
+    assert setup.presenter.asked_the_user
     snapshot = setup.seen_first_run[0]
     assert snapshot.title == "en:startup.first_run.title"
     assert snapshot.intro == "en:startup.first_run.intro"

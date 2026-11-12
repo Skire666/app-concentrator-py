@@ -1,5 +1,6 @@
 """Favorites of zone 2: a wrapping row of buttons, a context menu on each, and "Add..."."""
 
+from dataclasses import replace
 from functools import partial
 from typing import override
 
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import QLabel, QMenu, QVBoxLayout, QWidget
 from concentrator.presentation.timer.presets_snapshot import PresetSnapshot, PresetsSnapshot
 from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.ui.support.focus_order import insert_before
+from concentrator.ui.support.plain_text import without_mnemonic
 from concentrator.ui.support.styles import SECTION_TITLE_STYLE
 from concentrator.ui.widgets.flow_layout import FlowLayout
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
@@ -92,7 +94,7 @@ class PresetsPanel(QWidget):
         self._empty.setVisible(bool(snapshot.empty_text))
         self._resize_buttons(len(snapshot.presets))
         for button, preset in zip(self._buttons, snapshot.presets, strict=True):
-            button.apply(preset.button)
+            button.apply(replace(preset.button, text=without_mnemonic(preset.button.text)))
         self._add.apply(snapshot.add)
         self.setUpdatesEnabled(True)
 
@@ -129,6 +131,7 @@ class PresetsPanel(QWidget):
         Args:
             count: Number of favorites.
         """
+        added = False
         while len(self._buttons) < count:
             index = len(self._buttons)
             button = SnapshotButton(self._host)
@@ -136,6 +139,8 @@ class PresetsPanel(QWidget):
             button.installEventFilter(self)
             self._flow.insert_widget(index, button)
             self._buttons.append(button)
+            added = True
+        if added:
             insert_before(self._add, self._buttons)
         while len(self._buttons) > count:
             button = self._buttons.pop()

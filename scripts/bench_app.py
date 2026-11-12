@@ -81,6 +81,7 @@ TRANSITIONS: Final = (TaskEventKindEnum.COMPLETED, TaskEventKindEnum.REOPENED)
 INVALID_INI: Final = "invalid concentrator.ini:"
 CANNOT_CREATE: Final = "cannot create the data file:"
 UNREADABLE_SEED: Final = "cannot read the seeded file:"
+SAVE_FAILED: Final = "a save failed, so its time means nothing:"
 NO_LIST: Final = "the new data file has no list"
 NO_STARTUP_LINE: Final = "no startup line in the log: is Concentrator already running?"
 
@@ -200,7 +201,7 @@ def measure_storage(core: Core, config: AppConfig, data: UserData, repeat: int) 
         Report lines.
 
     Raises:
-        BenchError: If the file cannot be read back.
+        BenchError: If a save fails or the file cannot be read back.
     """
     path = config.paths.default_data_file
     writer = WriterThread(core.dispatcher, ForwardingErrorReporter())
@@ -208,7 +209,13 @@ def measure_storage(core: Core, config: AppConfig, data: UserData, repeat: int) 
         adapter = TomlUserDataFile(
             codec=codec_of(config), writer=writer, clock=core.clock, storage=config.storage, backup_dir=path.parent
         )
-        save_ms = best_ms(lambda: adapter.save(path, data, 1, timeout_ms=SAVE_TIMEOUT_MS), repeat)
+
+        def save() -> None:
+            outcome = adapter.save(path, data, 1, timeout_ms=SAVE_TIMEOUT_MS)
+            if outcome.validation.is_failure:
+                raise BenchError(SAVE_FAILED, [code.name for code in outcome.validation.error_codes])
+
+        save_ms = best_ms(save, repeat)
         loaded = adapter.load(path)
         if loaded.data is None:
             raise BenchError(UNREADABLE_SEED, [code.name for code in loaded.validation.error_codes])

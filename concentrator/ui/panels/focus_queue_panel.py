@@ -6,8 +6,7 @@ from PySide6.QtCore import QPoint, QSignalBlocker, Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QMenu, QScrollArea, QVBoxLayout, QWidget
 
 from concentrator.presentation.focus.focus_queue_snapshot import FocusQueueSnapshot, FocusRowSnapshot
-from concentrator.ui.support.focus_order import insert_before
-from concentrator.ui.support.mnemonics import accessible_name
+from concentrator.ui.support.focus_order import insert_after
 from concentrator.ui.support.plain_text import without_mnemonic
 from concentrator.ui.support.styles import INVALID_PROPERTY, SECTION_TITLE_STYLE, set_dynamic_property
 from concentrator.ui.widgets.field_error_label import FieldErrorLabel
@@ -142,7 +141,7 @@ class FocusQueuePanel(QWidget):
             self._quick_add.setText(field.text)
         self._quick_add_cleared = field.cleared_count
         self._quick_add.setPlaceholderText(field.placeholder)
-        self._quick_add.setAccessibleName(accessible_name(field.placeholder, field.tooltip))
+        self._quick_add.setAccessibleName(field.placeholder or field.tooltip)
         self._quick_add.setToolTip(field.tooltip)
         blocker.unblock()
         set_dynamic_property(self._quick_add, INVALID_PROPERTY, bool(snapshot.error))
@@ -166,7 +165,7 @@ class FocusQueuePanel(QWidget):
         self._moved_item = ""
 
     def _add_rows(self, count: int) -> None:
-        """Create the missing row widgets; Tab reaches them right after the fields above them.
+        """Create the missing row widgets; Tab reaches them right after the quick-add field above them.
 
         Args:
             count: Number of rows of the snapshot.
@@ -178,7 +177,7 @@ class FocusQueuePanel(QWidget):
             widget.menu_requested.connect(partial(self.show_menu, index))
             self._rows_layout.insertWidget(index, widget)
             self._rows.append(widget)
-        insert_before(self._scroll, self._rows)
+        insert_after(self._quick_add, self._rows)
 
     def _emit_row_action(self, index: int, action: int) -> None:
         """Forward an action of a row with its item.
@@ -208,6 +207,7 @@ class FocusQueuePanel(QWidget):
         self._rows_layout.addStretch(1)
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self._scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # rows take the focus; it scrolls to them
         self._scroll.setWidget(self._host)
         header = QHBoxLayout()
         header.addWidget(self._title, 1)

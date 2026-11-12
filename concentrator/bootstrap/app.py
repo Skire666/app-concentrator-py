@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, replace
+from functools import partial
 from importlib import metadata
 from typing import Final
 
@@ -151,13 +152,14 @@ def claim_instance(app: QApplication, config: AppConfig, paths: AppPaths, runtim
     return instance
 
 
-def _run_shell(app: QApplication, shell: Shell, guard: QtSingleInstanceGuard | None) -> int:
+def _run_shell(app: QApplication, shell: Shell, guard: QtSingleInstanceGuard | None, *, asked: bool) -> int:
     """Steps 7 to 9: show the window, run the event loop; flush on session end and on quit (ADR-032).
 
     Args:
         app: The application.
         shell: Wired window.
         guard: Instance guard, ``None`` when unguarded.
+        asked: Whether a startup dialog waited for the user (the startup time is then not logged as such).
 
     Returns:
         The event loop exit code.
@@ -176,7 +178,7 @@ def _run_shell(app: QApplication, shell: Shell, guard: QtSingleInstanceGuard | N
     app.commitDataRequest.connect(on_commit_data)
     app.aboutToQuit.connect(on_about_to_quit)
     shell.start()
-    shell.core.scheduler.call_soon(log_startup_time)
+    shell.core.scheduler.call_soon(partial(log_startup_time, dialogs_shown=asked))
     return app.exec()
 
 
@@ -238,7 +240,8 @@ def _run_with_data_file(
     if flow is None:
         return EXIT_OK
     shell = build_shell(app, config, paths, translator, runtime.reporter, replace(services, startup=flow))
-    return _run_shell(app, shell, guard)
+    asked = flow.presenter.asked_the_user or not services.instance.protected
+    return _run_shell(app, shell, guard, asked=asked)
 
 
 def run(paths: AppPaths, *, self_check: bool) -> int:

@@ -1326,3 +1326,16 @@ superseded.
   signing and no installer for 1.0.0, no feature scheduled for 1.1 yet, Tab leaves the multi-line fields,
   the benchmark keeps 10 history events per task, the mnemonic letters stay as chosen, and the CHANGELOG
   date follows the day of the `v1.0.0` tag.
+- Amendment 2 (phase 8 code review, 2026-11-12); details in `docs/reviews/phase-8-code-review.md`.
+  1. **A favorite label is user text**: its button shows it through `without_mnemonic`, so a `&` never makes
+     an Alt letter.
+  2. **A schema version older than every migration step is refused** (`MigrationChain.accepts`) with
+     `STORAGE_FIELD_INVALID_VALUE` on `schema_version`, instead of being read as the current layout.
+  3. **The startup time is logged only for a startup without dialog**; otherwise the line says that the
+     startup dialogs are included (`StartupFlowPresenter.asked_the_user`, unguarded-instance warning).
+  4. **Scroll areas take no focus** (focus queue, Settings page): no empty Tab stop. The focus queue rows
+     follow the quick-add field (`focus_order.insert_after`).
+  5. **Only captions and button texts lose their mnemonic markers** in accessible names; placeholders,
+     tooltips and labels are used as they are.
+  6. **The save DEBUG line says whether the save was written or failed**, with the error codes.
+  7. `bench_app.py` stops when a measured save fails.

@@ -107,6 +107,15 @@ def test_startup_time_is_logged_at_info(caplog: pytest.LogCaptureFixture) -> Non
     assert " ms (process start to main window shown)" in caplog.text
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="GetProcessTimes is a Windows API")
+def test_a_startup_with_dialogs_is_not_logged_as_a_startup_time(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.INFO, logger="concentrator.infrastructure.system.process_age"):
+        log_startup_time(dialogs_shown=True)
+
+    assert "Startup took" not in caplog.text
+    assert "after the process started, startup dialogs included" in caplog.text
+
+
 def test_startup_time_is_not_logged_outside_windows(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:

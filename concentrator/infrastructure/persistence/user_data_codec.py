@@ -110,16 +110,35 @@ class UserDataCodec:
         if parsed.data is None:
             return DataResult.fail(parsed.validation)
         version = schema_version_of(parsed.data)
+        refused = self._version_issue(version) if version is not None else None
+        if refused is not None:
+            return DataResult.fail(ValidationResult.of(refused))
+        return self._validate(_without_broken_presets(self._migrations.upgrade(parsed.data)))
+
+    def _version_issue(self, version: int) -> ValidationIssue | None:
+        """Refuse a schema version this application cannot read.
+
+        Args:
+            version: Schema version of the file.
+
+        Returns:
+            ``STORAGE_SCHEMA_VERSION_UNSUPPORTED`` for a newer file (never overwritten),
+            ``STORAGE_FIELD_INVALID_VALUE`` for an older version without migration step, else ``None``.
+        """
         target = self._migrations.target_version
-        if version is not None and version > target:
+        if version > target:
             _logger.warning("Data file schema version %d is newer than %d", version, target)
-            issue = ValidationIssue(
+            return ValidationIssue(
                 code=ErrorCodeEnum.STORAGE_SCHEMA_VERSION_UNSUPPORTED,
                 severity=SeverityEnum.CRITICAL,
                 field=SCHEMA_VERSION_FIELD,
             )
-            return DataResult.fail(ValidationResult.of(issue))
-        return self._validate(_without_broken_presets(self._migrations.upgrade(parsed.data)))
+        if not self._migrations.accepts(version):
+            _logger.warning("Data file schema version %d has no migration to %d", version, target)
+            return ValidationIssue(
+                code=ErrorCodeEnum.STORAGE_FIELD_INVALID_VALUE, severity=SeverityEnum.ERROR, field=SCHEMA_VERSION_FIELD
+            )
+        return None
 
     def encode(self, stored: StoredUserData) -> str:
         """Run the write pipeline.
