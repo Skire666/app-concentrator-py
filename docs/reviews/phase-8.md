@@ -9,9 +9,9 @@ the open questions below take their defaults (ADR-044 amendment).
 ## Summary
 
 - **Release 1.0.0.** The version comes from `pyproject.toml` and goes into a Windows version resource.
-  `scripts/build.py --release` writes `dist/Concentrator-1.0.0-win64.zip` (42.5 MB after the review). Unused
-  Qt and Python parts are removed, taking the bundle from 153 MB to 92.5 MB, and the frozen self-check still
-  passes.
+  `scripts/build.py --release` writes `dist/Concentrator-1.0.0-win64.zip` (32.6 MB after the review and the
+  move to miniaudio, ADR-045). Unused Qt and Python parts are removed and Qt Multimedia is gone, taking the
+  bundle from 153 MB to 70.7 MB; the frozen self-check still passes.
 - **Measured performance.** All four targets are met with 1,000 tasks: startup 1.3 s, save 0.25 s on the
   writer thread, task table 44 ms, search ≤ 12 ms (details below). `scripts/bench_app.py` measures them in
   a temporary profile, and the startup time is also logged at every start.

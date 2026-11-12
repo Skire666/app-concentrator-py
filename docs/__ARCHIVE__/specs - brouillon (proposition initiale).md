@@ -25,6 +25,31 @@ Donc dans l'idée, je lui ai dit ne plus focus le composant.
 Par contre, difficile d'avoir une règle général : toujours scroll page ?.
 Typiquement, le menu principale, y'a pas de scroll écran, juste le tableau à l'intérieur. J'ai donc envie que le focus ce fasse sur le tableau, et on sur la page.
 
+
+Utiliser un QSplashScreen pour l'expérience utilisateur
+Si le chargement de votre application reste structurellement long (modules complexes, gros écosystème), l'utilisation d'un écran de démarrage natif donne une impression de réactivité immédiate à l'utilisateur :
+
+
+Analyse aussi comment réduire la taille de la distribution.
+Il a mis qtmultimedia et ffmpeg, du coup je lui ai demandé :
+- Le multimédia de QT et FFMpeg sont lourd, alors que je ne lit qu'un simple mp3.
+- Je veux que tu remplaces ça "miniaudio 1.73" : https://pypi.org/project/miniaudio/#description
+- Installe cette brique pour lire le mp3. Ajoute la en dépendance sur le projet, et remplace le code.
+- Je ne veux plus le multimédia de Pyside ni FFmpeg.
+Fait ensuite le bilan, dit moi les blocages, et fait la comparaison avec le nouveau build.
+BILAN : marche trop boen passe de 100mo a 70Mo, démarrage en 1 seconde (tellment rapide)
+
+
+Découverte :tous les imoprts en haut
+mais j'ai trouvé des cas intéressant pour l'optmisation, les faire en mode lazy.
+Mettre en place des Lazy Imports (Imports paresseux)
+Importer l'intégralité de PySide6.QtWidgets, QtNetwork, ou des sous-modules lourds (QtWebEngine, QtCharts) au tout début du script ralentit l'interpréteur Python.
+```
+def open_browser_tab(self):
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+    # ...
+```
+
 -------
 
 Demander a claude d'économiser des tokens ?
