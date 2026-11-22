@@ -1147,9 +1147,13 @@ superseded.
   today or later (`RecurrenceCalculator.first_on_or_after`): today for a new series, which starts on the
   weekday of today; the next date of the task's own series when it is ticked again. The owner chose today
   over the first date of the preview (which would skip today's occurrence). The due time stays unset. A
-  due date already set is kept; later changes of the series do not move the due date; unticking Repeat
-  keeps it. The `RECURRENCE_REQUIRES_DUE_DATE` inline error now shows only when Due date is unticked
-  afterwards.
+  due date already set is kept; unticking Repeat keeps it. The `RECURRENCE_REQUIRES_DUE_DATE` inline error
+  now shows only when Due date is unticked afterwards. Follow-up owner request (same day): **in a weekly
+  series, ticking or unticking a weekday moves the due date** to the first date of the series from today
+  on (today included), even over a due date chosen by hand, and ticks Due date; nothing moves when no day
+  stays ticked. A new series starts on its due date, so its interval does not push that first date to a
+  later week; a stored series keeps the weeks of its anchor. The other changes of the series (interval,
+  unit, end) do not move the due date (`TaskEditForm.set_weekday`).
 
 ## ADR-043 — Phase 7 focus queue decisions
 

@@ -173,7 +173,7 @@ class RecurrenceFieldPresenter:
             self._change(lambda draft: replace(draft, frequency=frequency))
 
     def on_weekday_toggled(self, day_value: int, checked: bool) -> None:
-        """Choose or remove a weekday of a weekly series.
+        """Choose or remove a weekday of a weekly series; the due date follows (``TaskEditForm.set_weekday``).
 
         Args:
             day_value: ``WeekdayEnum`` value.
@@ -181,7 +181,8 @@ class RecurrenceFieldPresenter:
         """
         day = WeekdayEnum.parse(day_value)
         if day.is_set:
-            self._change(lambda draft: draft.with_weekday(day, checked=checked))
+            self._form().set_weekday(day, checked=checked)
+            self._renderer.request(RenderSectionEnum.TASK_EDIT)
 
     def on_end_selected(self, index: int) -> None:
         """Choose when the series ends.

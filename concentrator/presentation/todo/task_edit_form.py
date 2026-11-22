@@ -8,11 +8,13 @@ from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.todo.recurrence import Recurrence, anchored
 from concentrator.domain.todo.recurrence_calculator import RecurrenceCalculator
+from concentrator.domain.todo.recurrence_frequency_enum import RecurrenceFrequencyEnum
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_draft import TaskDraft
 from concentrator.domain.todo.task_list import TaskListId
 from concentrator.domain.todo.task_rules import TaskRules
 from concentrator.domain.todo.todo_limits import TodoLimits
+from concentrator.domain.todo.weekday_enum import WeekdayEnum
 from concentrator.presentation.common.form_state import FormState
 from concentrator.presentation.todo.recurrence_form import RecurrenceDraft
 
@@ -194,16 +196,37 @@ class TaskEditForm:
         due_date = draft.due_date or self._first_due_date(recurrence)
         self._state.set_draft(replace(draft, due_date=due_date, recurrence=recurrence))
 
-    def _first_due_date(self, recurrence: RecurrenceDraft) -> date | None:
-        """First date of a series from today on, proposed as the due date when Repeat is ticked.
+    def set_weekday(self, day: WeekdayEnum, *, checked: bool) -> None:
+        """Choose or remove a weekday of a weekly series.
+
+        While at least one day stays chosen, the due date moves to the first date of the series from today
+        on, and Due date is ticked (ADR-042 amendment of 2026-11-22).
 
         Args:
-            recurrence: Repeat section, on.
+            day: Weekday toggled.
+            checked: Whether it is now chosen.
+        """
+        draft = self._state.draft
+        recurrence = draft.recurrence.with_weekday(day, checked=checked)
+        due_date = draft.due_date
+        if recurrence.frequency is RecurrenceFrequencyEnum.WEEKLY and recurrence.weekdays:
+            due_date = self._first_due_date(recurrence) or due_date
+        self._state.set_draft(replace(draft, due_date=due_date, recurrence=recurrence))
+
+    def _first_due_date(self, recurrence: RecurrenceDraft) -> date | None:
+        """First date of a series from today on, proposed as the due date.
+
+        A new series starts on its due date, so its interval does not push the first date to a later week;
+        a stored series keeps the weeks of its anchor.
+
+        Args:
+            recurrence: Repeat section.
 
         Returns:
-            The date, ``None`` when the series has none (the rules then report the missing due date).
+            The date, ``None`` when Repeat is off or the series has none (the rules then report it).
         """
-        series = recurrence.to_recurrence(None, self._today)
+        start = recurrence if recurrence.anchor_date else replace(recurrence, interval=1)
+        series = start.to_recurrence(None, self._today)
         return None if series is None else RecurrenceCalculator.first_on_or_after(series, self._today)
 
     def change_recurrence(self, change: Callable[[RecurrenceDraft], RecurrenceDraft]) -> None:

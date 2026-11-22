@@ -119,6 +119,101 @@ def test_ticking_a_stored_series_again_without_due_date_takes_its_next_date() ->
     assert (snapshot.recurrence.rule.interval, snapshot.recurrence.rule.frequency.selected) == (3, 0)
 
 
+def _due(stack: TodoUiStack) -> tuple[bool, date]:
+    due = stack.task_editor.build_snapshot().due
+    return due.has_date, date(due.year, due.month, due.day)
+
+
+def test_weekday_changes_move_the_due_date_to_the_first_chosen_day_from_today() -> None:
+    stack = _open_new()
+    section = stack.task_editor.recurrence
+    section.on_repeat_toggled(True)
+
+    section.on_weekday_toggled(int(WeekdayEnum.MONDAY), True)
+    assert _due(stack) == (True, TODAY)
+    section.on_weekday_toggled(int(WeekdayEnum.FRIDAY), False)
+
+    assert _due(stack) == (True, date(2026, 11, 9))
+
+
+def test_ticking_a_weekday_replaces_a_chosen_due_date() -> None:
+    stack = _open_new()
+    stack.task_editor.on_due_date_changed(True, 2026, 12, 25)
+    section = stack.task_editor.recurrence
+    section.on_repeat_toggled(True)
+
+    section.on_weekday_toggled(int(WeekdayEnum.WEDNESDAY), True)
+
+    assert _due(stack) == (True, TODAY)
+
+
+def test_ticking_a_weekday_ticks_the_due_date() -> None:
+    stack = _open_new()
+    section = stack.task_editor.recurrence
+    section.on_repeat_toggled(True)
+    stack.task_editor.on_due_date_changed(False, 2026, 11, 6)
+
+    section.on_weekday_toggled(int(WeekdayEnum.TUESDAY), True)
+
+    assert _due(stack) == (True, TODAY)
+    assert not stack.task_editor.build_snapshot().recurrence.error
+
+
+def test_removing_the_last_weekday_keeps_the_due_date() -> None:
+    stack = _open_new()
+    stack.task_editor.on_due_date_changed(True, 2026, 11, 10)
+    section = stack.task_editor.recurrence
+    section.on_repeat_toggled(True)
+
+    section.on_weekday_toggled(int(WeekdayEnum.TUESDAY), False)
+
+    assert _due(stack) == (True, date(2026, 11, 10))
+
+
+def test_first_day_of_a_new_series_ignores_its_interval() -> None:
+    stack = _open_new()
+    section = stack.task_editor.recurrence
+    section.on_repeat_toggled(True)
+    section.on_interval_changed(2)
+
+    section.on_weekday_toggled(int(WeekdayEnum.MONDAY), True)
+    section.on_weekday_toggled(int(WeekdayEnum.FRIDAY), False)
+
+    assert _due(stack) == (True, date(2026, 11, 9))
+
+
+def test_first_day_of_a_stored_series_keeps_its_weeks() -> None:
+    recurrence = Recurrence.create(
+        frequency=RecurrenceFrequencyEnum.WEEKLY,
+        interval=2,
+        weekdays=(WeekdayEnum.FRIDAY,),
+        anchor_date=TODAY,
+        end_kind=RecurrenceEndEnum.NEVER,
+    )
+    stack = TodoUiStack(tasks=[replace(make_task(1, due_date=TODAY), recurrence=recurrence)])
+    stack.task_editor.open_edit("task-001")
+    section = stack.task_editor.recurrence
+
+    section.on_weekday_toggled(int(WeekdayEnum.MONDAY), True)
+    section.on_weekday_toggled(int(WeekdayEnum.FRIDAY), False)
+
+    assert _due(stack) == (True, date(2026, 11, 16))
+
+
+def test_weekday_changes_outside_a_weekly_series_keep_the_due_date() -> None:
+    stack = _open_new()
+    section = stack.task_editor.recurrence
+    section.on_weekday_toggled(int(WeekdayEnum.MONDAY), True)
+    assert not _due(stack)[0]
+    stack.task_editor.on_due_date_changed(True, 2026, 11, 10)
+    section.on_repeat_toggled(True)
+    section.on_frequency_selected(2)
+
+    section.on_weekday_toggled(int(WeekdayEnum.MONDAY), True)
+
+    assert _due(stack) == (True, date(2026, 11, 10))
+
+
 def test_weekly_mon_fri_every_two_weeks_four_times_is_saved() -> None:
     stack = TodoUiStack()
 

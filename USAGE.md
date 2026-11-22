@@ -178,7 +178,10 @@ filter bar, the tasks in a table and, under it, the details and the history of t
   next 4 dates (`recurrence_preview_count` in `concentrator.ini`). A repeating task needs a due date:
   ticking **Repeat** on a task without one also ticks **Due date** and sets it to today (to the next date
   of the series that is today or later when you tick a task's own series again). A due date already set is
-  kept, changing the series afterwards does not move it, and unticking **Repeat** keeps it.
+  kept, and unticking **Repeat** keeps it.
+- In a weekly series, ticking or unticking a day moves the due date to the first chosen day from today on
+  (today included), as long as one day stays ticked; **Due date** is ticked if it was not. Other changes
+  of the series (interval, unit, end) do not move the due date.
 - A monthly series keeps the day of its first date: on the 31st it falls on the 30th in April and on
   the 28th (or 29th) in February. A yearly series on 29 February falls on 28 February in other years.
 - **Done** (or the check box, or Space) on a repeating task completes the current occurrence: the task
