@@ -165,8 +165,9 @@ filter bar, the tasks in a table and, under it, the details and the history of t
   moves the selected tasks to another list. **Delete...** (or Del) always asks first, with the number
   of tasks.
 - **Set due date...** gives one date to every selected task (each keeps its due time); **Clear due
-  date** removes their dates. Clear due date is greyed when a selected task repeats: a repeating task
-  needs a date. Both change every selected task or none.
+  date** removes their dates. Both are in the context menu of the table only, not in the toolbar. Clear
+  due date is greyed when a selected task repeats: a repeating task needs a date. Both change every
+  selected task or none.
 - Select several tasks with Ctrl+click or Shift+click; the toolbar buttons and the context menu
   (right-click in the table) follow the selection.
 
@@ -202,7 +203,8 @@ filter bar, the tasks in a table and, under it, the details and the history of t
 - Click a column header to sort by it; click again to reverse the order. Tasks without a due date stay
   at the end when sorting by due date. New data files sort by creation date, newest first
   (`default_sort` and `default_sort_descending` in `concentrator.ini`).
-- **Show done** and **Show archived** show or hide those tasks (done shown, archived hidden at first).
+- **Show done** and **Show archived**, at the bottom right of the table, show or hide those tasks (done
+  shown, archived hidden at first).
 - The filter bar above the table narrows it:
   - **Due**: all dates, overdue, today, this week (Monday to Sunday), next 7 days (today included), with a
     date, without a date. Overdue shows open tasks only.

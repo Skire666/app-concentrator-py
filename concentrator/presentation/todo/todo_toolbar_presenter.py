@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.domain.common.validation_result import ValidationResult
@@ -12,7 +13,7 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.ui_texts import UiTexts
 from concentrator.presentation.todo.task_actions import TaskActions
-from concentrator.presentation.todo.task_menu_builder import TaskMenuBuilder, no_task_queued
+from concentrator.presentation.todo.task_menu_builder import CONTEXT_MENU_ONLY_ACTIONS, TaskMenuBuilder, no_task_queued
 from concentrator.presentation.todo.todo_tabs_presenter import TODO_SECTIONS
 from concentrator.presentation.todo.todo_toolbar_snapshot import TodoToolbarSnapshot
 from concentrator.presentation.todo.todo_view import TodoView
@@ -71,8 +72,9 @@ class TodoToolbarPresenter:
         """
         state = self._view.state
         menu = self._menu.build(self._view.selected(), self._view.lists(), state.list_id)
+        buttons = tuple(button for button in menu.buttons if button.action not in CONTEXT_MENU_ONLY_ACTIONS)
         return TodoToolbarSnapshot(
-            menu=menu,
+            menu=replace(menu, buttons=buttons),
             show_done=action_button(
                 self._texts, self._gate, ActionIdEnum.TODO_TOGGLE_SHOW_DONE, checked=state.show_done
             ),

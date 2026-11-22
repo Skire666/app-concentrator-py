@@ -66,15 +66,27 @@ def test_the_prompt_starts_on_the_first_due_date_and_times_are_kept() -> None:
     assert (stack.task("task-001").due_date, stack.task("task-001").due_time) == (NEW_DUE, time(8, 0))
 
 
+def test_due_date_actions_are_in_the_context_menu_only() -> None:
+    stack = TodoUiStack(tasks=[make_task(1, due_date=TODAY)])
+    stack.select("task-001")
+
+    toolbar = {button.action for button in stack.toolbar.build_snapshot().menu.buttons}
+    context_menu = {button.action for button in stack.table.build_snapshot().menu.buttons}
+
+    due_actions = {ActionIdEnum.TASK_SET_DUE_DATE, ActionIdEnum.TASK_CLEAR_DUE_DATE}
+    assert not toolbar & due_actions
+    assert context_menu == toolbar | due_actions
+
+
 def test_clear_due_date_is_off_without_a_date_and_for_a_repeating_task() -> None:
     stack = TodoUiStack(tasks=[make_task(1), make_task(2, due_date=TODAY), _recurring(3)])
 
     stack.select("task-001")
-    assert not _button(stack.toolbar.build_snapshot().menu, ActionIdEnum.TASK_CLEAR_DUE_DATE).enabled
+    assert not _button(stack.table.build_snapshot().menu, ActionIdEnum.TASK_CLEAR_DUE_DATE).enabled
     stack.select("task-002")
-    assert _button(stack.toolbar.build_snapshot().menu, ActionIdEnum.TASK_CLEAR_DUE_DATE).enabled
+    assert _button(stack.table.build_snapshot().menu, ActionIdEnum.TASK_CLEAR_DUE_DATE).enabled
     stack.select("task-002", "task-003")
-    button = _button(stack.toolbar.build_snapshot().menu, ActionIdEnum.TASK_CLEAR_DUE_DATE)
+    button = _button(stack.table.build_snapshot().menu, ActionIdEnum.TASK_CLEAR_DUE_DATE)
     assert not button.enabled
     assert button.tooltip == "en:error.recurrence_requires_due_date"
 

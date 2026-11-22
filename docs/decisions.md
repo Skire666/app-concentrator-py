@@ -1154,6 +1154,17 @@ superseded.
   stays ticked. A new series starts on its due date, so its interval does not push that first date to a
   later week; a stored series keeps the weeks of its anchor. The other changes of the series (interval,
   unit, end) do not move the due date (`TaskEditForm.set_weekday`).
+- Amendment (owner request, 2026-11-22): **Show done and Show archived move under the task table**, which
+  supersedes "stay in the toolbar" of item 9. They sit on the right of a bar attached to the bottom of the
+  table (`TodoTogglesPanel`), in the upper pane of the table / details splitter, so the bar follows the table
+  when the splitter moves; the stored splitter state keeps its two panes. The toolbar buttons now share its
+  whole width (same stretch for each, no spacer). The section stays `TODO_TOOLBAR` with the same snapshot:
+  `FocusPage` renders it in both panels, and the Tab order goes table, Show done, Show archived, then the
+  Details / History tabs.
+- Amendment (owner request, 2026-11-22): **Set due date... and Clear due date leave the toolbar** and stay in
+  the context menu of the table. `TodoToolbarPresenter` drops `CONTEXT_MENU_ONLY_ACTIONS` from the buttons
+  of its snapshot; the context menu still lists every action of `TASK_MENU_ACTIONS`. Both actions are now
+  bound to `TODO_TABLE` (the section of the context menu) instead of `TODO_TOOLBAR`.
 
 ## ADR-043 — Phase 7 focus queue decisions
 

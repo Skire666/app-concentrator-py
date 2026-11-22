@@ -15,6 +15,7 @@ from concentrator.presentation.todo.task_details_snapshot import TaskDetailsSnap
 from concentrator.presentation.todo.task_history_snapshot import TaskHistorySnapshot
 from concentrator.presentation.todo.todo_layout import TodoLayout
 from concentrator.presentation.todo.todo_presenters import TodoPresenters
+from concentrator.presentation.todo.todo_toolbar_snapshot import TodoToolbarSnapshot
 from concentrator.ui.panels.focus_queue_panel import FocusQueuePanel
 from concentrator.ui.panels.presets_panel import PresetsPanel
 from concentrator.ui.panels.quick_add_panel import QuickAddPanel
@@ -25,64 +26,21 @@ from concentrator.ui.panels.task_history_panel import TaskHistoryPanel
 from concentrator.ui.panels.task_table_panel import TaskTablePanel
 from concentrator.ui.panels.timer_panel import TimerPanel
 from concentrator.ui.panels.todo_tabs_panel import TodoTabsPanel
+from concentrator.ui.panels.todo_toggles_panel import TodoTogglesPanel
 from concentrator.ui.panels.todo_toolbar_panel import TodoToolbarPanel
+from concentrator.ui.windows.focus_page_parts import info_tabs, table_pane, zone1_bars, zone2_panels
 
 _PERCENT: Final = 100
 _DETAILS_TAB: Final = 0
 _HISTORY_TAB: Final = 1
 
 
-def _zone1_bars(zone1: QWidget) -> tuple[TodoTabsPanel, TodoToolbarPanel, QuickAddPanel, TaskFilterPanel]:
-    """Create the bars above the task table.
-
-    Args:
-        zone1: Container of zone 1.
-
-    Returns:
-        List tabs, toolbar, quick add field and filter bar.
-    """
-    return TodoTabsPanel(zone1), TodoToolbarPanel(zone1), QuickAddPanel(zone1), TaskFilterPanel(zone1)
-
-
-def _info_tabs(splitter: QSplitter) -> tuple[QTabWidget, TaskDetailsPanel, TaskHistoryPanel]:
-    """Create the Details and History tabs under the task table.
-
-    Args:
-        splitter: Table / details splitter.
-
-    Returns:
-        The tab widget and its two panels.
-    """
-    tabs = QTabWidget(splitter)
-    return tabs, TaskDetailsPanel(tabs), TaskHistoryPanel(tabs)
-
-
-def _zone2_panels(
-    timer_layout: TimerLayout, zone2: QWidget
-) -> tuple[TimerPanel, FocusQueuePanel, PresetsPanel, SpecialOptionsPanel]:
-    """Create the panels of zone 2.
-
-    Args:
-        timer_layout: Font of the timer digits and spacing of the favorites and of the queue.
-        zone2: Container of zone 2.
-
-    Returns:
-        Timer, focus queue, favorites and special options.
-    """
-    return (
-        TimerPanel(timer_layout, zone2),
-        FocusQueuePanel(timer_layout.spacing_px, zone2),
-        PresetsPanel(timer_layout, zone2),
-        SpecialOptionsPanel(zone2),
-    )
-
-
 class FocusPage(QWidget):
     """Zone 1 and zone 2 in a horizontal splitter.
 
-    Zone 1, top to bottom: list tabs, toolbar, quick add, filter bar, then the task table above the details
-    pane in a vertical splitter (the details pane can be collapsed). Zone 2, top to bottom: timer, the room of the
-    focus queue, favorites, special options.
+    Zone 1, top to bottom: list tabs, toolbar, quick add, filter bar, then the task table, with the Show done /
+    Show archived bar attached to its bottom, above the details pane in a vertical splitter (the details pane can
+    be collapsed). Zone 2, top to bottom: timer, the room of the focus queue, favorites, special options.
     """
 
     def __init__(
@@ -106,13 +64,13 @@ class FocusPage(QWidget):
         self._splitter = QSplitter(Qt.Orientation.Horizontal, self)
         zone1 = QWidget(self._splitter)
         self._new_task = QShortcut(zone1)
-        self._tabs, self._toolbar, self._quick_add, self._filters = _zone1_bars(zone1)
+        self._tabs, self._toolbar, self._quick_add, self._filters = zone1_bars(zone1)
         self._todo_splitter = QSplitter(Qt.Orientation.Vertical, zone1)
-        self._table = TaskTablePanel(todo_layout.column_widths_px, todo_layout.text_width_percent, self._todo_splitter)
-        self._info, self._details, self._history = _info_tabs(self._todo_splitter)
+        pane, self._table, self._toggles = table_pane(self._todo_splitter, todo_layout)
+        self._info, self._details, self._history = info_tabs(self._todo_splitter)
         zone2 = QWidget(self._splitter)
-        self._timer, self._focus, self._presets, self._options = _zone2_panels(timer_layout, zone2)
-        self._build_zone1(zone1, todo_layout.spacing_px)
+        self._timer, self._focus, self._presets, self._options = zone2_panels(timer_layout, zone2)
+        self._build_zone1(zone1, pane, todo_layout.spacing_px)
         self._build_zone2(zone2, timer_layout.spacing_px)
         self._build_splitter(zone1, zone2)
         self.reset_splitter()
@@ -152,6 +110,11 @@ class FocusPage(QWidget):
     def toolbar_panel(self) -> TodoToolbarPanel:
         """Task toolbar of zone 1."""
         return self._toolbar
+
+    @property
+    def toggles_panel(self) -> TodoTogglesPanel:
+        """Show done / Show archived bar under the task table."""
+        return self._toggles
 
     @property
     def quick_add_panel(self) -> QuickAddPanel:
@@ -194,6 +157,7 @@ class FocusPage(QWidget):
         self._tabs.list_action_requested.connect(todo.tabs.on_list_action_requested)
         self._toolbar.action_requested.connect(todo.toolbar.on_action_requested)
         self._toolbar.move_requested.connect(todo.toolbar.on_move_requested)
+        self._toggles.action_requested.connect(todo.toolbar.on_action_requested)
         self._quick_add.text_changed.connect(todo.quick_add.on_text_changed)
         self._quick_add.submitted.connect(todo.quick_add.on_submitted)
         self._connect_filters(todo)
@@ -236,12 +200,21 @@ class FocusPage(QWidget):
             renderer: Render coordinator.
         """
         renderer.register(RenderSectionEnum.TODO_TABS, todo.tabs.build_snapshot, self._tabs.render_snapshot)
-        renderer.register(RenderSectionEnum.TODO_TOOLBAR, todo.toolbar.build_snapshot, self._toolbar.render_snapshot)
+        renderer.register(RenderSectionEnum.TODO_TOOLBAR, todo.toolbar.build_snapshot, self._render_toolbar)
         renderer.register(RenderSectionEnum.QUICK_ADD, todo.quick_add.build_snapshot, self._quick_add.render_snapshot)
         renderer.register(RenderSectionEnum.TODO_FILTERS, todo.filters.build_snapshot, self._filters.render_snapshot)
         renderer.register(RenderSectionEnum.TODO_TABLE, todo.table.build_snapshot, self._table.render_snapshot)
         renderer.register(RenderSectionEnum.TODO_DETAILS, todo.details.build_snapshot, self._render_details)
         renderer.register(RenderSectionEnum.TODO_HISTORY, todo.history.build_snapshot, self._render_history)
+
+    def _render_toolbar(self, snapshot: TodoToolbarSnapshot) -> None:
+        """Show the task actions above the table and the toggles under it.
+
+        Args:
+            snapshot: Toolbar state.
+        """
+        self._toolbar.render_snapshot(snapshot)
+        self._toggles.render_snapshot(snapshot)
 
     def _render_details(self, snapshot: TaskDetailsSnapshot) -> None:
         """Show the Details tab and its caption.
@@ -343,16 +316,17 @@ class FocusPage(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._splitter)
 
-    def _build_zone1(self, zone1: QWidget, spacing_px: int) -> None:
-        """Tabs, toolbar, quick add, filters, then table and details.
+    def _build_zone1(self, zone1: QWidget, table_pane: QWidget, spacing_px: int) -> None:
+        """Tabs, toolbar, quick add, filters, then table (with its toggles) and details.
 
         Args:
             zone1: Container of zone 1.
+            table_pane: Table and its toggles, the upper pane of the splitter.
             spacing_px: Space between its parts.
         """
         self._new_task.setKey(QKeySequence(QKeySequence.StandardKey.New))
         self._new_task.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self._todo_splitter.addWidget(self._table)
+        self._todo_splitter.addWidget(table_pane)
         self._info.addTab(self._details, "")
         self._info.addTab(self._history, "")
         self._todo_splitter.addWidget(self._info)

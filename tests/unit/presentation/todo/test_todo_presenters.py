@@ -207,11 +207,11 @@ def test_toolbar_states_follow_a_mixed_selection() -> None:
         ActionIdEnum.TASK_REOPEN,
         ActionIdEnum.TASK_ARCHIVE,
         ActionIdEnum.TASK_MOVE,
-        ActionIdEnum.TASK_SET_DUE_DATE,
         ActionIdEnum.FOCUS_ADD_SELECTED,
         ActionIdEnum.TASK_DELETE,
     }
     assert [(target.list_id, target.enabled) for target in menu.move_targets] == [(HOME_LIST_ID, True)]
+    assert ActionIdEnum.TASK_SET_DUE_DATE in _enabled(stack.table.build_snapshot().menu)
 
     stack.select("task-002")
     assert _enabled(stack.toolbar.build_snapshot().menu) >= {ActionIdEnum.TASK_EDIT, ActionIdEnum.TASK_DUPLICATE}

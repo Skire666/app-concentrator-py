@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 from PySide6.QtCore import QPoint, Qt, QTimer, QUrl
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QDialog, QMenu, QWidget
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QMenu, QWidget
 from pytestqt.qtbot import QtBot
 
 from concentrator.application.todo.task_list_commands import ListValues
@@ -153,12 +153,43 @@ def test_toolbar_toggles_hide_done_tasks(harness: ShellHarness) -> None:
     page.toolbar_panel.buttons[ActionIdEnum.TASK_COMPLETE].click()
     _settle(harness)
 
-    show_done, _show_archived = page.toolbar_panel.toggles
+    show_done, _show_archived = page.toggles_panel.toggles
     show_done.click()
     _settle(harness)
 
     assert page.table_panel.model.rowCount() == 0
     assert harness.preferences.values["layout/todo/show_done"] == "0"
+
+
+def test_toggles_sit_right_under_the_table_on_the_right(qtbot: QtBot, harness: ShellHarness) -> None:
+    page = harness.window.focus_page
+    harness.window.resize(1400, 900)
+    harness.window.show()
+    qtbot.waitExposed(harness.window)
+    table, toggles = page.table_panel, page.toggles_panel
+
+    table_bottom_left = table.mapTo(page, QPoint(0, table.height()))
+    _show_done, show_archived = toggles.toggles
+    archived_right = show_archived.mapTo(page, QPoint(show_archived.width(), 0)).x()
+
+    assert toggles.mapTo(page, QPoint(0, 0)) == table_bottom_left
+    assert archived_right == table_bottom_left.x() + table.width()
+    assert all(not page.toolbar_panel.isAncestorOf(toggle) for toggle in toggles.toggles)
+
+
+def test_toolbar_buttons_share_the_width_of_the_bar(harness: ShellHarness) -> None:
+    toolbar = harness.window.focus_page.toolbar_panel
+    layout = toolbar.layout()
+    assert isinstance(layout, QHBoxLayout)
+
+    items = [layout.itemAt(index) for index in range(layout.count())]
+    widgets = [item.widget() for item in items if item is not None]
+
+    assert all(widget is not None for widget in widgets)
+    assert len(widgets) == len(items) == len(toolbar.buttons) + 1
+    assert toolbar.move_button in widgets
+    assert {layout.stretch(index) for index in range(layout.count())} == {1}
+    assert not toolbar.buttons.keys() & {ActionIdEnum.TASK_SET_DUE_DATE, ActionIdEnum.TASK_CLEAR_DUE_DATE}
 
 
 def test_header_click_sorts_and_shows_the_indicator(harness: ShellHarness) -> None:

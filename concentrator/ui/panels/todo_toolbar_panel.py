@@ -1,6 +1,7 @@
-"""Task toolbar: the task actions, the "Move to list" menu and the Show done / Show archived toggles."""
+"""Task toolbar: the task actions and the "Move to list" menu, sharing the width of the bar."""
 
 from functools import partial
+from typing import Final
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHBoxLayout, QMenu, QToolButton, QWidget
@@ -9,14 +10,19 @@ from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.button_snapshot import ButtonSnapshot
 from concentrator.presentation.todo.task_menu_snapshot import MoveTargetSnapshot
 from concentrator.presentation.todo.todo_toolbar_snapshot import TodoToolbarSnapshot
-from concentrator.ui.support.focus_order import insert_before
+from concentrator.ui.support.focus_order import insert_after, insert_before
 from concentrator.ui.support.plain_text import without_mnemonic
 from concentrator.ui.widgets.snapshot_button import SnapshotButton
-from concentrator.ui.widgets.snapshot_check_box import SnapshotCheckBox
+
+_BUTTON_STRETCH: Final = 1
+"""Same stretch for every button: they share the width of the bar."""
 
 
 class TodoToolbarPanel(QWidget):
-    """Emits ``action_requested(int)`` for a button or a toggle and ``move_requested(str)`` for a target list."""
+    """Emits ``action_requested(int)`` for a button and ``move_requested(str)`` for a target list.
+
+    The Show done / Show archived toggles of the same snapshot are shown under the table (``TodoTogglesPanel``).
+    """
 
     action_requested = Signal(int)
     move_requested = Signal(str)
@@ -36,10 +42,6 @@ class TodoToolbarPanel(QWidget):
         self._move_menu = QMenu(self._move)
         self._move.setMenu(self._move_menu)
         self._targets: tuple[MoveTargetSnapshot, ...] = ()
-        self._show_done = SnapshotCheckBox(self)
-        self._show_archived = SnapshotCheckBox(self)
-        self._show_done.action_requested.connect(self.action_requested.emit)
-        self._show_archived.action_requested.connect(self.action_requested.emit)
 
     @property
     def buttons(self) -> dict[ActionIdEnum, SnapshotButton]:
@@ -51,13 +53,8 @@ class TodoToolbarPanel(QWidget):
         """The "Move to list" button (for tests)."""
         return self._move
 
-    @property
-    def toggles(self) -> tuple[SnapshotCheckBox, SnapshotCheckBox]:
-        """Show done and Show archived (for tests)."""
-        return self._show_done, self._show_archived
-
     def render_snapshot(self, snapshot: TodoToolbarSnapshot) -> None:
-        """Show the buttons, the move targets and the toggles (idempotent).
+        """Show the buttons and the move targets (idempotent).
 
         Args:
             snapshot: Toolbar state.
@@ -70,31 +67,44 @@ class TodoToolbarPanel(QWidget):
                 self._render_move(button, snapshot.menu.move_targets)
             elif button.action in self._buttons:
                 self._buttons[button.action].apply(button)
-        self._show_done.apply(snapshot.show_done)
-        self._show_archived.apply(snapshot.show_archived)
         self.setUpdatesEnabled(True)
 
     def _create_buttons(self, buttons: tuple[ButtonSnapshot, ...]) -> None:
-        """Create one button per action, in snapshot order, then the toggles.
+        """Create one button per action, in snapshot order, each taking an equal share of the width.
 
         Args:
             buttons: Buttons of the first snapshot.
         """
+        ordered: list[QWidget] = []
         for button in buttons:
-            if button.action is ActionIdEnum.TASK_MOVE:
-                self._layout.addWidget(self._move)
-                continue
-            widget = SnapshotButton(self)
-            widget.action_requested.connect(self.action_requested.emit)
-            self._buttons[button.action] = widget
-            self._layout.addWidget(widget)
-        self._layout.addStretch(1)
-        self._layout.addWidget(self._show_done)
-        self._layout.addWidget(self._show_archived)
-        ordered = [
-            self._move if item.action is ActionIdEnum.TASK_MOVE else self._buttons[item.action] for item in buttons
-        ]
-        insert_before(self._show_done, ordered)
+            widget = self._move if button.action is ActionIdEnum.TASK_MOVE else self._new_button(button.action)
+            self._layout.addWidget(widget, _BUTTON_STRETCH)
+            ordered.append(widget)
+        self._order_tab_stops(ordered)
+
+    def _new_button(self, action: ActionIdEnum) -> SnapshotButton:
+        """Create the button of an action.
+
+        Args:
+            action: Its action.
+
+        Returns:
+            The button, forwarding its clicks.
+        """
+        widget = SnapshotButton(self)
+        widget.action_requested.connect(self.action_requested.emit)
+        self._buttons[action] = widget
+        return widget
+
+    def _order_tab_stops(self, ordered: list[QWidget]) -> None:
+        """Put the buttons created by the render around "Move to list", created with the panel, in the Tab order.
+
+        Args:
+            ordered: Every button of the bar, in reading order.
+        """
+        split = next((index for index, widget in enumerate(ordered) if widget is self._move), len(ordered))
+        insert_before(self._move, ordered[:split])
+        insert_after(self._move, ordered[split + 1 :])
 
     def _render_move(self, button: ButtonSnapshot, targets: tuple[MoveTargetSnapshot, ...]) -> None:
         """Show the "Move to list" button and rebuild its menu when the targets changed.

@@ -33,7 +33,9 @@ TASK_MENU_ACTIONS: Final = (
     ActionIdEnum.FOCUS_REMOVE_SELECTED,
     ActionIdEnum.TASK_DELETE,
 )
-"""Buttons of the toolbar and items of the context menu, in order."""
+"""Items of the context menu and, without ``CONTEXT_MENU_ONLY_ACTIONS``, buttons of the toolbar, in order."""
+CONTEXT_MENU_ONLY_ACTIONS: Final = frozenset({ActionIdEnum.TASK_SET_DUE_DATE, ActionIdEnum.TASK_CLEAR_DUE_DATE})
+"""Task actions the toolbar leaves out: only the context menu of the table offers them."""
 FOCUS_ACTIONS: Final = frozenset({ActionIdEnum.FOCUS_ADD_SELECTED, ActionIdEnum.FOCUS_REMOVE_SELECTED})
 
 ACTION_STATES: Final = {
