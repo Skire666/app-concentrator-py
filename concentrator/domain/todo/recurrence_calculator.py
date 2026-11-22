@@ -98,6 +98,22 @@ class RecurrenceCalculator:
                 return None
 
     @staticmethod
+    def first_on_or_after(recurrence: Recurrence, day: date) -> date | None:
+        """Return the first date of the series that is a date or later (due date proposed when Repeat is ticked).
+
+        Args:
+            recurrence: Valid recurrence.
+            day: First date allowed, usually today. On the first supported date, which no clock gives, the
+                search starts after it.
+
+        Returns:
+            The date, or ``None`` when there is none.
+        """
+        if day == date.min:
+            return RecurrenceCalculator.next_after(recurrence, day)
+        return RecurrenceCalculator.next_after(recurrence, day - timedelta(days=1))
+
+    @staticmethod
     def next_from(recurrence: Recurrence, current: date, today: date) -> NextOccurrence:
         """Return the next due date of a completed occurrence: the first date after ``current`` that is not past.
 

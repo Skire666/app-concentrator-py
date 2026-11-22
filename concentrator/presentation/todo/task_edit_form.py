@@ -7,6 +7,7 @@ from datetime import date, time
 from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.common.validation_result import ValidationResult
 from concentrator.domain.todo.recurrence import Recurrence, anchored
+from concentrator.domain.todo.recurrence_calculator import RecurrenceCalculator
 from concentrator.domain.todo.task import Task
 from concentrator.domain.todo.task_draft import TaskDraft
 from concentrator.domain.todo.task_list import TaskListId
@@ -175,6 +176,9 @@ class TaskEditForm:
     def set_repeat(self, *, enabled: bool) -> None:
         """Tick or untick Repeat; the stored series comes back when it is ticked again.
 
+        Ticking it without a due date sets the due date to the first date of the series from today on;
+        unticking it keeps the due date (ADR-042 amendment of 2026-11-22).
+
         Args:
             enabled: Whether the task repeats.
         """
@@ -182,11 +186,25 @@ class TaskEditForm:
         if enabled == draft.recurrence.enabled:
             return
         stored = self._state.baseline.recurrence
-        if enabled:
-            recurrence = stored if stored.enabled else RecurrenceDraft.started(draft.due_date or self._today)
-        else:
+        if not enabled:
             recurrence = replace(stored, enabled=False) if stored.enabled else RecurrenceDraft()
-        self._state.set_draft(replace(draft, recurrence=recurrence))
+            self._state.set_draft(replace(draft, recurrence=recurrence))
+            return
+        recurrence = stored if stored.enabled else RecurrenceDraft.started(draft.due_date or self._today)
+        due_date = draft.due_date or self._first_due_date(recurrence)
+        self._state.set_draft(replace(draft, due_date=due_date, recurrence=recurrence))
+
+    def _first_due_date(self, recurrence: RecurrenceDraft) -> date | None:
+        """First date of a series from today on, proposed as the due date when Repeat is ticked.
+
+        Args:
+            recurrence: Repeat section, on.
+
+        Returns:
+            The date, ``None`` when the series has none (the rules then report the missing due date).
+        """
+        series = recurrence.to_recurrence(None, self._today)
+        return None if series is None else RecurrenceCalculator.first_on_or_after(series, self._today)
 
     def change_recurrence(self, change: Callable[[RecurrenceDraft], RecurrenceDraft]) -> None:
         """Change a value of the Repeat section.

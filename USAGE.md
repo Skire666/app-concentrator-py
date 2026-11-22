@@ -175,7 +175,10 @@ filter bar, the tasks in a table and, under it, the details and the history of t
 - In the task dialog, tick **Repeat**: every N days, weeks, months or years. A weekly series repeats on
   the days you choose (the weekday of the due date at first). **Ends**: never, on a date, or after N
   times. The dialog shows the repetition in words ("Every 2 weeks on Monday and Friday, 4 times") and the
-  next 4 dates (`recurrence_preview_count` in `concentrator.ini`). A repeating task needs a due date.
+  next 4 dates (`recurrence_preview_count` in `concentrator.ini`). A repeating task needs a due date:
+  ticking **Repeat** on a task without one also ticks **Due date** and sets it to today (to the next date
+  of the series that is today or later when you tick a task's own series again). A due date already set is
+  kept, changing the series afterwards does not move it, and unticking **Repeat** keeps it.
 - A monthly series keeps the day of its first date: on the 31st it falls on the 30th in April and on
   the 28th (or 29th) in February. A yearly series on 29 February falls on 28 February in other years.
 - **Done** (or the check box, or Space) on a repeating task completes the current occurrence: the task

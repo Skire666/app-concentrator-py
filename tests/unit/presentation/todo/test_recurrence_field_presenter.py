@@ -49,15 +49,74 @@ def test_ticking_repeat_proposes_weekly_on_the_weekday_of_the_due_date() -> None
     assert snapshot.preview.startswith("en:todo.task_edit.repeat_preview(dates=en:format.date(day=17")
 
 
+def test_ticking_repeat_without_due_date_sets_it_to_today() -> None:
+    stack = _open_new()
+    editor = stack.task_editor
+
+    editor.recurrence.on_repeat_toggled(True)
+
+    snapshot = editor.build_snapshot()
+    assert (snapshot.due.has_date, snapshot.due.year, snapshot.due.month, snapshot.due.day) == (True, 2026, 11, 6)
+    assert not snapshot.due.has_time
+    assert not snapshot.recurrence.error
+    assert snapshot.recurrence.preview.startswith("en:todo.task_edit.repeat_preview(dates=en:format.date(day=13")
+    assert snapshot.save.enabled
+
+
+def test_ticking_repeat_keeps_a_due_date_already_chosen() -> None:
+    stack = _open_new()
+    editor = stack.task_editor
+    editor.on_due_date_changed(True, 2026, 12, 25)
+
+    editor.recurrence.on_repeat_toggled(True)
+
+    due = editor.build_snapshot().due
+    assert (due.has_date, due.year, due.month, due.day) == (True, 2026, 12, 25)
+
+
+def test_unticking_repeat_keeps_the_due_date_it_set() -> None:
+    stack = _open_new()
+    editor = stack.task_editor
+    editor.recurrence.on_repeat_toggled(True)
+
+    editor.recurrence.on_repeat_toggled(False)
+
+    snapshot = editor.build_snapshot()
+    assert not snapshot.recurrence.enabled
+    assert (snapshot.due.has_date, snapshot.due.day) == (True, 6)
+
+
 def test_repeat_without_due_date_shows_the_rule_error() -> None:
     stack = _open_new()
+    editor = stack.task_editor
+    editor.recurrence.on_repeat_toggled(True)
 
-    stack.task_editor.recurrence.on_repeat_toggled(True)
+    editor.on_due_date_changed(False, 2026, 11, 6)
 
-    snapshot = stack.task_editor.build_snapshot()
+    snapshot = editor.build_snapshot()
     assert snapshot.recurrence.error == "en:error.recurrence_requires_due_date"
     assert not snapshot.recurrence.preview
     assert not snapshot.save.enabled
+
+
+def test_ticking_a_stored_series_again_without_due_date_takes_its_next_date() -> None:
+    recurrence = Recurrence.create(
+        frequency=RecurrenceFrequencyEnum.DAILY,
+        interval=3,
+        anchor_date=date(2026, 11, 1),
+        end_kind=RecurrenceEndEnum.NEVER,
+    )
+    stack = TodoUiStack(tasks=[replace(make_task(1, due_date=date(2026, 11, 4)), recurrence=recurrence)])
+    editor = stack.task_editor
+    editor.open_edit("task-001")
+    editor.on_due_date_changed(False, 2026, 11, 4)
+    editor.recurrence.on_repeat_toggled(False)
+
+    editor.recurrence.on_repeat_toggled(True)
+
+    snapshot = editor.build_snapshot()
+    assert (snapshot.due.has_date, snapshot.due.month, snapshot.due.day) == (True, 11, 7)
+    assert (snapshot.recurrence.rule.interval, snapshot.recurrence.rule.frequency.selected) == (3, 0)
 
 
 def test_weekly_mon_fri_every_two_weeks_four_times_is_saved() -> None:
@@ -208,5 +267,6 @@ def test_errors_of_a_new_task_wait_for_a_change() -> None:
     assert not stack.task_editor.build_snapshot().recurrence.error
 
     stack.task_editor.recurrence.on_repeat_toggled(True)
+    stack.task_editor.on_due_date_changed(False, 2026, 11, 6)
 
     assert stack.task_editor.build_snapshot().recurrence.error == "en:error.recurrence_requires_due_date"

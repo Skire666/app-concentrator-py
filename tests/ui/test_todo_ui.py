@@ -424,6 +424,29 @@ def test_filter_bar_due_filter_and_recurring_toggle(harness: ShellHarness) -> No
     assert filters.recurring_box.isChecked()
 
 
+def test_task_dialog_ticking_repeat_ticks_the_due_date(qtbot: QtBot) -> None:
+    stack = TodoUiStack(register_editors=False)
+    window = TaskEditWindow(stack.task_editor, stack.renderer, ScreenDialogRunner(), LAYOUT)
+    qtbot.addWidget(window.dialog)
+    stack.task_editor.attach(window, stack.dialogs)
+    panel = window.dialog.panel
+    seen: dict[str, bool] = {}
+
+    def act() -> None:
+        has_date, date_input = panel.date_inputs
+        seen["before"] = has_date.isChecked()
+        panel.recurrence_panel.repeat_box.setChecked(True)
+        stack.scheduler.run_pending()
+        seen["after"] = has_date.isChecked()
+        seen["date_enabled"] = date_input.isEnabled()
+        panel.buttons[1].click()
+
+    QTimer.singleShot(0, act)
+    stack.task_editor.open_new(WORK_LIST_ID)
+
+    assert seen == {"before": False, "after": True, "date_enabled": True}
+
+
 def test_task_dialog_saves_a_weekly_repetition(qtbot: QtBot) -> None:
     stack = TodoUiStack(register_editors=False)
     window = TaskEditWindow(stack.task_editor, stack.renderer, ScreenDialogRunner(), LAYOUT)

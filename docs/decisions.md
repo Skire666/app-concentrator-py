@@ -1142,6 +1142,14 @@ superseded.
      `TableSnapshot.overflow_column`, drawn by `LinkTextDelegate`). The links of every line are now
      underlined in the table (this supersedes open question 3, "first line only"); a link cut away cannot
      be clicked. The `todo.table.more_lines` texts are removed.
+- Amendment (owner request, 2026-11-22): **ticking Repeat fills a missing due date.** In the task dialog,
+  ticking Repeat while Due date is unticked ticks it and sets it to the first date of the series that is
+  today or later (`RecurrenceCalculator.first_on_or_after`): today for a new series, which starts on the
+  weekday of today; the next date of the task's own series when it is ticked again. The owner chose today
+  over the first date of the preview (which would skip today's occurrence). The due time stays unset. A
+  due date already set is kept; later changes of the series do not move the due date; unticking Repeat
+  keeps it. The `RECURRENCE_REQUIRES_DUE_DATE` inline error now shows only when Due date is unticked
+  afterwards.
 
 ## ADR-043 — Phase 7 focus queue decisions
 

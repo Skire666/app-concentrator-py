@@ -197,6 +197,19 @@ def test_next_from_jumps_over_past_dates_to_today_or_later() -> None:
     )
 
 
+def test_first_on_or_after_keeps_a_date_of_the_series() -> None:
+    recurrence = _recurrence(RecurrenceFrequencyEnum.WEEKLY, date(2026, 11, 6), weekdays=(WeekdayEnum.FRIDAY,))
+
+    assert RecurrenceCalculator.first_on_or_after(recurrence, date(2026, 11, 6)) == date(2026, 11, 6)
+    assert RecurrenceCalculator.first_on_or_after(recurrence, date(2026, 11, 9)) == date(2026, 11, 13)
+
+
+def test_first_on_or_after_the_first_supported_date_searches_after_it() -> None:
+    recurrence = _recurrence(RecurrenceFrequencyEnum.DAILY, date.min)
+
+    assert RecurrenceCalculator.first_on_or_after(recurrence, date.min) == date.min + timedelta(days=1)
+
+
 def test_next_from_keeps_a_date_that_is_today() -> None:
     recurrence = _recurrence(RecurrenceFrequencyEnum.DAILY, date(2026, 11, 1))
 
