@@ -1,0 +1,41 @@
+
+-------------------------------------
+
+[docs]
+
+Indiquer en mode FAQ, ou info-bulle dans l'appli :
+URL et chemin sont cliquables
+mais implique d'être sur 1 ligne
+
+Idée : Mettre un @"xxxx" ? Me permettrait de ne pas être sur une ligne
+Ou alors une zone dédié, avec lien uniquement, sur une ligne
+
+-------------------------------------
+
+[UX/UI]
+
+Le tableau, rendre colonne configurable (masquer/afficher).
+Survole de la ligne en bleu, à refaire
+Le texte, mal aligné à gauche, revoir espacement
+La ligne, avec la mise en gras, je doute de l'intérêt ?
+
+-------------------------------------
+
+[feature]
+
+Lors de la modification d'une tache :
+Cliquer sur répété, demande à cocher automatiquement l'échéance
+
+Solution : La faire cocher automatiquement, avec date du jour.
+Solution v2 : ne pas la cocher, et autoriser une répétition, par contre, faut synchro l'échéance ?
+NOTE PCO : distinguer la prochaine date, de l'échéance, faire que les 2 boutons soit en mode radiobutton plutôt que checbox ?
+
+-------------------------------------
+
+[UX/UI]
+
+Taille minimum de l'application, pas la possibilité de réduire en dessous de 60% sur un 1080p.
+Revoir la limite basse. Il me faut autoriser largeur 550 pixels (soit 1/3), et hauteur 500
+NOTE PCO : faire 500x500 ?
+
+// FIN
