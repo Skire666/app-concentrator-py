@@ -27,7 +27,6 @@ from concentrator.bootstrap.todo import attach_todo_dialogs, build_todo
 from concentrator.infrastructure.system.app_paths import AppPaths
 from concentrator.presentation.common.date_time_formatter import DateTimeFormatter
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
-from concentrator.presentation.focus.focus_presenters import FocusPresenters
 from concentrator.presentation.journal.journal_layout import JournalLayout
 from concentrator.presentation.journal.journal_presenter import JournalPresenter
 from concentrator.presentation.settings.settings_files_presenter import SettingsFilesPresenter
@@ -59,13 +58,12 @@ _logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class _Pages:
-    """Presenters of the TODO manager, of the focus queue and of the Journal and Settings pages."""
+    """Presenters of the TODO manager and of the Journal and Settings pages."""
 
     journal: JournalPresenter
     settings: SettingsPresenter
     settings_files: SettingsFilesPresenter
     todo: TodoPresenters
-    focus: FocusPresenters
 
 
 class Shell:
@@ -221,18 +219,12 @@ def _tick_handlers(timer: TimerServices, extras: TimerExtras, pages: _Pages) -> 
     Args:
         timer: Timer engine.
         extras: Hourly chime.
-        pages: Journal, task table and focus queue (they re-render when the minute changes).
+        pages: Journal and task table (they re-render when the minute changes).
 
     Returns:
         The handlers.
     """
-    return (
-        timer.engine.tick,
-        extras.chime_service.tick,
-        pages.journal.on_tick,
-        pages.todo.table.on_tick,
-        pages.focus.queue.on_tick,
-    )
+    return (timer.engine.tick, extras.chime_service.tick, pages.journal.on_tick, pages.todo.table.on_tick)
 
 
 def _wire_window(
@@ -274,8 +266,8 @@ def _pages(
     """
     settings, settings_files = build_settings(config, paths, translator, services, timer)
     journal = build_journal(config, translator, services.core, services.feed)
-    todo, focus = build_todo(config, translator, services.core, services.storage.store)
-    return _Pages(journal, settings, settings_files, todo, focus)
+    todo = build_todo(config, translator, services.core, services.storage.store)
+    return _Pages(journal, settings, settings_files, todo)
 
 
 def _connect_settings(window: MainWindow, presenters: MainWindowPresenters, core: Core) -> None:
@@ -398,5 +390,4 @@ def _presenters(
         settings=settings,
         settings_files=pages.settings_files,
         todo=pages.todo,
-        focus=pages.focus,
     )

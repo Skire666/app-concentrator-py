@@ -19,7 +19,6 @@ from concentrator.presentation.todo.task_actions import TaskActions
 from concentrator.presentation.todo.task_menu_builder import TaskMenuBuilder
 from concentrator.presentation.todo.task_row_formatter import (
     COLUMN_SORT_KEYS,
-    FOCUS_COLUMN,
     LIST_COLUMN,
     STATE_COLUMN,
     TASK_COLUMN,
@@ -68,7 +67,7 @@ class TaskTablePresenter:
             view: Current list, filters, sort and selection.
             actions: Task actions (check boxes, keyboard, context menu).
             clock: Current local time (due marks).
-            menu: Builds the context menu (same actions as the toolbar); knows the queued tasks (stars).
+            menu: Builds the context menu (same actions as the toolbar).
             links: Finds the links of the texts.
         """
         self._translator = translator
@@ -101,7 +100,6 @@ class TaskTablePresenter:
             sort_descending=state.descending,
             hidden_columns=() if state.query().all_lists else (LIST_COLUMN,),
             overflow_column=TASK_COLUMN,
-            toggle_column=FOCUS_COLUMN,
         )
         menu = self._menu.build(self._view.selected(), self._view.lists(), state.list_id)
         return TaskTableSnapshot(table=table, menu=menu)
@@ -118,8 +116,7 @@ class TaskTablePresenter:
         """
         now = self._clock.now_local()
         names = {item.id: item.name for item in self._view.lists()} if all_lists else {}
-        queued = self._menu.queued_task_ids()
-        return tuple(self._rows.row(task, now, names.get(task.list_id, ""), queued=task.id in queued) for task in tasks)
+        return tuple(self._rows.row(task, now, names.get(task.list_id, "")) for task in tasks)
 
     def on_selection_changed(self, task_ids: tuple[str, ...]) -> None:
         """Remember the selected tasks; the toolbar and the details follow.

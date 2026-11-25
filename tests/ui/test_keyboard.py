@@ -229,8 +229,8 @@ def shown(qtbot: QtBot) -> ShellHarness:
 
 def test_focus_page_zones_are_keyboard_ready(shown: ShellHarness) -> None:
     todo = shown.todo
-    added = [todo.task_commands.quick_add(WORK_LIST_ID, f"Task {number}").data for number in range(2)]
-    assert todo.focus.commands.add_tasks([task.id for task in added if task is not None]).is_success
+    for number in range(2):
+        assert todo.task_commands.quick_add(WORK_LIST_ID, f"Task {number}").is_success
     shown.turn()
     splitter = shown.window.focus_page.findChildren(QSplitter)[0]
 

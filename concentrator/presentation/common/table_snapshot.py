@@ -35,7 +35,6 @@ class TableRowSnapshot:
         links: Clickable parts of the cells.
         overflow: Drawn after the part of the cell of ``TableSnapshot.overflow_column`` that fits when its
             text is too wide (``... (5 lines)``), ``""`` for none.
-        toggle_enabled: Whether a click on the cell of ``TableSnapshot.toggle_column`` is sent back.
     """
 
     key: int | str
@@ -45,7 +44,6 @@ class TableRowSnapshot:
     check_enabled: bool = True
     links: tuple[CellLinkSnapshot, ...] = ()
     overflow: str = ""
-    toggle_enabled: bool = False
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -63,7 +61,6 @@ class TableSnapshot:
         sort_descending: Direction of the sort indicator.
         hidden_columns: Columns not shown.
         overflow_column: Column whose long texts are cut and followed by the ``overflow`` of their row.
-        toggle_column: Column whose cells act as a toggle button (the focus star), ``-1`` for none.
     """
 
     columns: tuple[str, ...]
@@ -76,4 +73,3 @@ class TableSnapshot:
     sort_descending: bool = False
     hidden_columns: tuple[int, ...] = ()
     overflow_column: int = -1
-    toggle_column: int = -1

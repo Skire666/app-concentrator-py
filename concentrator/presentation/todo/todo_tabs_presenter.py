@@ -68,29 +68,6 @@ class ListEditorOpener(Protocol):
         ...
 
 
-class QuickAddListTarget(Protocol):
-    """The list of the quick-add field of the focus queue (``QuickAddListChoice``)."""
-
-    def current(self) -> TaskList | None:
-        """Return the list that receives a quick-added task.
-
-        Returns:
-            The list, ``None`` when an Inbox will be created.
-        """
-        ...
-
-    def choose(self, list_id: str) -> ValidationResult:
-        """Use a list for the quick add.
-
-        Args:
-            list_id: List of the tab.
-
-        Returns:
-            Success.
-        """
-        ...
-
-
 class TodoTabsPresenter:
     """Builds ``TODO_TABS`` and runs the list actions through the action gate."""
 
@@ -103,7 +80,6 @@ class TodoTabsPresenter:
         view: TodoView,
         commands: TaskListCommands,
         editor: ListEditorOpener,
-        quick_add_list: QuickAddListTarget | None = None,
     ) -> None:
         """Create the presenter; the dialog service comes with ``attach``.
 
@@ -114,7 +90,6 @@ class TodoTabsPresenter:
             view: Lists, open counts and the current list.
             commands: List use cases.
             editor: Opens the list dialog.
-            quick_add_list: List of the focus quick add (adds "Use for focus quick add" to the tab menu).
         """
         self._translator = translator
         self._texts = UiTexts(translator)
@@ -123,7 +98,6 @@ class TodoTabsPresenter:
         self._view = view
         self._commands = commands
         self._editor = editor
-        self._quick_add_list = quick_add_list
         self._dialogs: DialogPort | None = None
         self._operations: dict[ActionIdEnum, Callable[[str], ValidationResult]] = {
             ActionIdEnum.LIST_SELECT: self._select,
@@ -132,8 +106,6 @@ class TodoTabsPresenter:
             ActionIdEnum.LIST_MOVE_LATER: lambda list_id: commands.move(list_id, LATER),
             ActionIdEnum.LIST_DELETE: self._delete,
         }
-        if quick_add_list is not None:
-            self._operations[ActionIdEnum.FOCUS_SET_QUICK_ADD_LIST] = quick_add_list.choose
 
     def attach(self, dialogs: DialogPort) -> None:
         """Set the dialog service (built with the main window).
@@ -300,8 +272,7 @@ class TodoTabsPresenter:
             lists: Every list.
 
         Returns:
-            Edit, Move earlier, Move later (within the priority), Delete (unless it is the last list), then
-            "Use for focus quick add", checked for the list that receives the quick-added tasks.
+            Edit, Move earlier, Move later (within the priority), Delete (unless it is the last list).
         """
         enabled = {
             ActionIdEnum.LIST_EDIT: True,
@@ -309,12 +280,7 @@ class TodoTabsPresenter:
             ActionIdEnum.LIST_MOVE_LATER: lists.neighbor(task_list.id, LATER) is not None,
             ActionIdEnum.LIST_DELETE: len(lists) > 1,
         }
-        menu = tuple(action_button(self._texts, self._gate, action, enabled=enabled[action]) for action in MENU_ACTIONS)
-        if self._quick_add_list is None:
-            return menu
-        current = self._quick_add_list.current()
-        chosen = current is not None and current.id == task_list.id
-        return (*menu, action_button(self._texts, self._gate, ActionIdEnum.FOCUS_SET_QUICK_ADD_LIST, checked=chosen))
+        return tuple(action_button(self._texts, self._gate, action, enabled=enabled[action]) for action in MENU_ACTIONS)
 
     def _attached_dialogs(self) -> DialogPort:
         """The dialog service.

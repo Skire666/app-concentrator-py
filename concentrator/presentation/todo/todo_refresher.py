@@ -1,6 +1,5 @@
 """Re-renders the TODO manager when its data changes, another file opens or the layout is reset."""
 
-from concentrator.application.focus.focus_events import FocusQueueChangedEvent
 from concentrator.application.storage.storage_events import UserDataReplacedEvent
 from concentrator.application.todo.todo_events import (
     TaskChangedEvent,
@@ -21,7 +20,6 @@ type TodoDataEvent = (
     | TaskStateChangedEvent
     | TaskOccurrenceCompletedEvent
     | TaskDeletedEvent
-    | FocusQueueChangedEvent
 )
 
 
@@ -39,10 +37,10 @@ class TodoRefresher:
         self._renderer = renderer
 
     def on_todo_changed(self, _event: TodoDataEvent) -> None:
-        """A list or a task changed, or the focus queue (stars and history of zone 1).
+        """A list or a task changed.
 
         Args:
-            _event: Published by the TODO or focus use cases.
+            _event: Published by the TODO use cases.
         """
         self._refresh()
 

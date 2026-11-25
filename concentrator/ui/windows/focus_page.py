@@ -1,4 +1,4 @@
-"""Menu A page: zone 1 (TODO manager) and zone 2 (timer, focus queue, favorites, options)."""
+"""Menu A page: zone 1 (TODO manager) and zone 2 (timer, favorites, options)."""
 
 from typing import Final
 
@@ -9,14 +9,12 @@ from PySide6.QtWidgets import QSplitter, QTabWidget, QVBoxLayout, QWidget
 from concentrator.presentation.common.action_id_enum import ActionIdEnum
 from concentrator.presentation.common.render_coordinator import RenderCoordinator
 from concentrator.presentation.common.render_section_enum import RenderSectionEnum
-from concentrator.presentation.focus.focus_presenters import FocusPresenters
 from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.presentation.todo.task_details_snapshot import TaskDetailsSnapshot
 from concentrator.presentation.todo.task_history_snapshot import TaskHistorySnapshot
 from concentrator.presentation.todo.todo_layout import TodoLayout
 from concentrator.presentation.todo.todo_presenters import TodoPresenters
 from concentrator.presentation.todo.todo_toolbar_snapshot import TodoToolbarSnapshot
-from concentrator.ui.panels.focus_queue_panel import FocusQueuePanel
 from concentrator.ui.panels.presets_panel import PresetsPanel
 from concentrator.ui.panels.quick_add_panel import QuickAddPanel
 from concentrator.ui.panels.special_options_panel import SpecialOptionsPanel
@@ -40,7 +38,7 @@ class FocusPage(QWidget):
 
     Zone 1, top to bottom: list tabs, toolbar, quick add, filter bar, then the task table, with the Show done /
     Show archived bar attached to its bottom, above the details pane in a vertical splitter (the details pane can
-    be collapsed). Zone 2, top to bottom: timer, the room of the focus queue, favorites, special options.
+    be collapsed). Zone 2, top to bottom: timer, favorites, special options, then the free height.
     """
 
     def __init__(
@@ -69,7 +67,7 @@ class FocusPage(QWidget):
         pane, self._table, self._toggles = table_pane(self._todo_splitter, todo_layout)
         self._info, self._details, self._history = info_tabs(self._todo_splitter)
         zone2 = QWidget(self._splitter)
-        self._timer, self._focus, self._presets, self._options = zone2_panels(timer_layout, zone2)
+        self._timer, self._presets, self._options = zone2_panels(timer_layout, zone2)
         self._build_zone1(zone1, pane, todo_layout.spacing_px)
         self._build_zone2(zone2, timer_layout.spacing_px)
         self._build_splitter(zone1, zone2)
@@ -82,13 +80,8 @@ class FocusPage(QWidget):
         return self._timer
 
     @property
-    def focus_queue_panel(self) -> FocusQueuePanel:
-        """Focus queue, between the timer and the favorites."""
-        return self._focus
-
-    @property
     def presets_panel(self) -> PresetsPanel:
-        """Favorites, below the focus queue."""
+        """Favorites, below the timer."""
         return self._presets
 
     @property
@@ -163,22 +156,6 @@ class FocusPage(QWidget):
         self._connect_filters(todo)
         self._connect_table(todo)
         self._register_todo(todo, renderer)
-
-    def connect_focus(self, focus: FocusPresenters, renderer: RenderCoordinator) -> None:
-        """Connect the focus queue and the star of the task table, and register the queue section.
-
-        Args:
-            focus: Presenters of the focus queue.
-            renderer: Render coordinator.
-        """
-        queue, panel = focus.queue, self._focus
-        panel.row_action_requested.connect(queue.on_row_action)
-        panel.picker_text_changed.connect(queue.on_picker_text_changed)
-        panel.picked.connect(queue.on_picked)
-        panel.quick_add_text_changed.connect(queue.on_quick_add_text_changed)
-        panel.quick_add_submitted.connect(queue.on_quick_add_submitted)
-        self._table.focus_toggled.connect(focus.actions.on_task_toggled)
-        renderer.register(RenderSectionEnum.FOCUS_QUEUE, queue.build_snapshot, panel.render_snapshot)
 
     def _connect_filters(self, todo: TodoPresenters) -> None:
         """Connect the filter bar to its presenter.
@@ -340,7 +317,7 @@ class FocusPage(QWidget):
         stack.addWidget(self._todo_splitter, 1)
 
     def _build_zone2(self, zone2: QWidget, spacing_px: int) -> None:
-        """Timer, focus queue (taking the remaining height), favorites, special options.
+        """Timer, favorites and special options at the top; the free height stays below them.
 
         Args:
             zone2: Container of zone 2.
@@ -349,6 +326,6 @@ class FocusPage(QWidget):
         stack = QVBoxLayout(zone2)
         stack.setSpacing(spacing_px)
         stack.addWidget(self._timer)
-        stack.addWidget(self._focus, 1)
         stack.addWidget(self._presets)
         stack.addWidget(self._options)
+        stack.addStretch(1)

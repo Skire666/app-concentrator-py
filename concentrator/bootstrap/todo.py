@@ -1,9 +1,8 @@
-"""Wiring of the TODO manager and of its focus queue: stores, use cases, view state, presenters and dialogs."""
+"""Wiring of the TODO manager: stores, use cases, view state, presenters and dialogs."""
 
 from collections.abc import Callable
 
 from concentrator.application.common.app_config import AppConfig
-from concentrator.application.focus.focus_events import FocusQueueChangedEvent
 from concentrator.application.ports.translator_port import TranslatorPort
 from concentrator.application.storage.storage_events import UserDataReplacedEvent
 from concentrator.application.todo.link_commands import LinkCommands
@@ -21,7 +20,6 @@ from concentrator.application.todo.todo_events import (
 )
 from concentrator.application.todo.todo_queries import TodoQueries
 from concentrator.bootstrap.core import Core
-from concentrator.bootstrap.focus import FocusCore, TodoParts, build_focus_core, build_focus_presenters
 from concentrator.domain.todo.link_detector import LinkDetector
 from concentrator.infrastructure.persistence.store_todo import (
     StoreTaskListReader,
@@ -32,7 +30,6 @@ from concentrator.infrastructure.persistence.store_todo import (
 from concentrator.infrastructure.persistence.user_data_store import UserDataStore
 from concentrator.infrastructure.qt.qt_link_opener import QtLinkOpener
 from concentrator.presentation.common.layout_state_keeper import LayoutStateKeeper
-from concentrator.presentation.focus.focus_presenters import FocusPresenters
 from concentrator.presentation.todo.link_presenter import LinkPresenter
 from concentrator.presentation.todo.list_edit_presenter import ListEditPresenter
 from concentrator.presentation.todo.quick_add_presenter import QuickAddPresenter
@@ -157,13 +154,8 @@ def _editors(
     return task_editor, list_editor
 
 
-def build_todo(
-    config: AppConfig, translator: TranslatorPort, core: Core, store: UserDataStore
-) -> tuple[TodoPresenters, FocusPresenters]:
-    """Create the TODO and focus queue presenters and subscribe them to the data events.
-
-    The focus use cases come before the TODO presenters (the stars of the table and the tab menu read them),
-    the focus presenters after them ("Add to focus" joins the task actions).
+def build_todo(config: AppConfig, translator: TranslatorPort, core: Core, store: UserDataStore) -> TodoPresenters:
+    """Create the TODO presenters and subscribe them to the data events.
 
     Args:
         config: Loaded configuration (``[todo]``).
@@ -172,8 +164,7 @@ def build_todo(
         store: In-memory data of the open file.
 
     Returns:
-        The TODO presenters, whose dialogs are attached with the main window (``attach_todo_dialogs``), and
-        the focus presenters.
+        The TODO presenters, whose dialogs are attached with the main window (``attach_todo_dialogs``).
     """
     defaults = TodoDefaults.from_section(config.todo)
     stores = _stores(store)
@@ -183,12 +174,9 @@ def build_todo(
     view = _view(core, queries, defaults)
     editors = _editors(translator, core, (queries, lists, tasks), view, defaults)
     use_cases = (lists, tasks, *_side_commands(stores, core, defaults, links))
-    focus = build_focus_core(
-        config, translator, core, store, TodoParts(stores=stores, lists=lists, tasks=tasks, defaults=defaults)
-    )
-    presenters = _assemble(translator, core, (view, config, links), use_cases, editors, focus)
+    presenters = _assemble(translator, core, (view, config, links), use_cases, editors)
     _subscribe(core, presenters.refresher)
-    return presenters, build_focus_presenters(translator, core, focus, (view, presenters.actions, links), TODO_EVENTS)
+    return presenters
 
 
 def _side_commands(
@@ -216,7 +204,6 @@ def _assemble(
     shown: tuple[TodoView, AppConfig, LinkDetector],
     commands: tuple[TaskListCommands, TaskCommands, LinkCommands, TaskScheduleCommands],
     editors: tuple[TaskEditPresenter, ListEditPresenter],
-    focus: FocusCore,
 ) -> TodoPresenters:
     """Create the presenters of zone 1 around the dialogs.
 
@@ -226,7 +213,6 @@ def _assemble(
         shown: Current list, filters and selection; configuration; links of the texts.
         commands: List, task, link and due date use cases.
         editors: Task and list dialog presenters.
-        focus: Queued tasks (stars, focus actions) and the quick-add list (tab menu).
 
     Returns:
         The presenters.
@@ -234,10 +220,10 @@ def _assemble(
     view = shown[0]
     task_editor, list_editor = editors
     actions = _actions(translator, core, view, (commands[1], commands[3]), task_editor)
-    toolbar, table, filters = _table_presenters(translator, core, shown, actions, focus)
+    toolbar, table, filters = _table_presenters(translator, core, shown, actions)
     details, history, links = _info_presenters(translator, core, shown, commands[2])
     return TodoPresenters(
-        tabs=_tabs(translator, core, view, (commands[0], list_editor), focus),
+        tabs=_tabs(translator, core, view, (commands[0], list_editor)),
         toolbar=toolbar,
         filters=filters,
         quick_add=QuickAddPresenter(translator, core.gate, core.renderer, view=view, commands=commands[1]),
@@ -253,11 +239,7 @@ def _assemble(
 
 
 def _tabs(
-    translator: TranslatorPort,
-    core: Core,
-    view: TodoView,
-    lists: tuple[TaskListCommands, ListEditPresenter],
-    focus: FocusCore,
+    translator: TranslatorPort, core: Core, view: TodoView, lists: tuple[TaskListCommands, ListEditPresenter]
 ) -> TodoTabsPresenter:
     """Create the presenter of the list tabs.
 
@@ -266,21 +248,12 @@ def _tabs(
         core: Main-thread services.
         view: Lists and the current list.
         lists: List use cases and the list dialog.
-        focus: Quick-add list of the focus queue (tab menu).
 
     Returns:
         The presenter.
     """
     commands, editor = lists
-    return TodoTabsPresenter(
-        translator,
-        core.gate,
-        core.renderer,
-        view=view,
-        commands=commands,
-        editor=editor,
-        quick_add_list=focus.services.choice,
-    )
+    return TodoTabsPresenter(translator, core.gate, core.renderer, view=view, commands=commands, editor=editor)
 
 
 def _actions(
@@ -331,11 +304,7 @@ def _info_presenters(
 
 
 def _table_presenters(
-    translator: TranslatorPort,
-    core: Core,
-    shown: tuple[TodoView, AppConfig, LinkDetector],
-    actions: TaskActions,
-    focus: FocusCore,
+    translator: TranslatorPort, core: Core, shown: tuple[TodoView, AppConfig, LinkDetector], actions: TaskActions
 ) -> tuple[TodoToolbarPresenter, TaskTablePresenter, TaskFilterPresenter]:
     """Create the presenters of the toolbar, of the task table and of its filter bar.
 
@@ -344,7 +313,6 @@ def _table_presenters(
         core: Main-thread services.
         shown: Current list, filters and selection; configuration; links of the texts.
         actions: Task actions (the toolbar and the context menu of the table share them).
-        focus: Queued tasks (stars, "Add to focus" and "Remove from focus").
 
     Returns:
         The toolbar, table and filter bar presenters.
@@ -358,7 +326,6 @@ def _table_presenters(
         actions=actions,
         links=links,
         max_links=config.links.max_links_in_menu,
-        queued=focus.queued_task_ids,
     )
     table = TaskTablePresenter(
         translator,
@@ -396,13 +363,13 @@ def _filters(translator: TranslatorPort, core: Core, view: TodoView, config: App
 
 
 def _subscribe(core: Core, refresher: TodoRefresher) -> None:
-    """Re-render the TODO manager when its data or the focus queue changes, or another file opens.
+    """Re-render the TODO manager when its data changes or another file opens.
 
     Args:
         core: Main-thread services (event bus).
         refresher: Follows the data.
     """
-    for event_type in (*TODO_EVENTS, FocusQueueChangedEvent):
+    for event_type in TODO_EVENTS:
         core.event_bus.subscribe(event_type, refresher.on_todo_changed)
     core.event_bus.subscribe(UserDataReplacedEvent, refresher.on_user_data_replaced)
 

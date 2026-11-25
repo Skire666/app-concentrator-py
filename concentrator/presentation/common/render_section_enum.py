@@ -6,7 +6,8 @@ from concentrator.domain.common.base_int_enum import BaseIntEnum
 class RenderSectionEnum(BaseIntEnum):
     """One section per registered panel snapshot. Later phases append values.
 
-    7 (notification area icon, removed at the phase 2 review, ADR-038) is never reused.
+    7 (notification area icon, removed at the phase 2 review, ADR-038) and 23 (focus queue, removed by
+    ADR-046) are never reused.
     """
 
     UNKNOWN = -1
@@ -32,4 +33,3 @@ class RenderSectionEnum(BaseIntEnum):
     QUICK_ADD = 20
     TODO_FILTERS = 21
     TODO_HISTORY = 22
-    FOCUS_QUEUE = 23

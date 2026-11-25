@@ -239,7 +239,7 @@ def measure_table(core: Core, setup: tuple[AppPaths, AppConfig], store: UserData
         Report lines.
     """
     paths, config = setup
-    todo, _focus = build_todo(config, load_translator(paths, config), core, store)
+    todo = build_todo(config, load_translator(paths, config), core, store)
     rows = len(todo.table.build_snapshot().table.rows)
     table_ms = best_ms(todo.table.build_snapshot, repeat)
     return [f"table snapshot ({rows} rows): {table_ms:.1f} ms"]

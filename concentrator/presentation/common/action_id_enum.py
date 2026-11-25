@@ -7,7 +7,8 @@ class ActionIdEnum(BaseIntEnum):
     """Every user action. Later phases append values; values are never renumbered.
 
     27 and 28 (notification area menu, removed at the phase 2 review, ADR-038), 33 and 34 (moving a
-    favorite, removed at the phase 3 review, ADR-039) are never reused.
+    favorite, removed at the phase 3 review, ADR-039) and 90 to 100 (focus queue, removed by ADR-046) are
+    never reused.
 
     The label of a control bound to an action is the catalog key ``action.<name_lowercase>``, with an
     optional ``action.<name_lowercase>.tooltip``.
@@ -100,14 +101,3 @@ class ActionIdEnum(BaseIntEnum):
     TASK_SET_DUE_DATE = 87
     TASK_CLEAR_DUE_DATE = 88
     LINK_OPEN = 89
-    FOCUS_ADD_SELECTED = 90
-    FOCUS_REMOVE_SELECTED = 91
-    FOCUS_TOGGLE_TASK = 92
-    FOCUS_PICK = 93
-    FOCUS_QUICK_ADD = 94
-    FOCUS_COMPLETE = 95
-    FOCUS_REMOVE = 96
-    FOCUS_MOVE_UP = 97
-    FOCUS_MOVE_DOWN = 98
-    FOCUS_SHOW_IN_LIST = 99
-    FOCUS_SET_QUICK_ADD_LIST = 100

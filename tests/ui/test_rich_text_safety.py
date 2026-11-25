@@ -29,7 +29,6 @@ def _seed_hostile_texts(harness: ShellHarness) -> None:
     assert listed.is_success
     task = todo.task_commands.quick_add(WORK_LIST_ID, f"Task {MARKUP} & <i>more</i>").data
     assert task is not None
-    assert todo.focus.commands.add_tasks((task.id,)).is_success
     harness.turn()
     todo.table.on_selection_changed((task.id,))
     harness.stack.renderer.request(RenderSectionEnum.TODO_DETAILS, RenderSectionEnum.TODO_HISTORY)
@@ -85,9 +84,14 @@ def test_hostile_texts_reach_the_window(qtbot: QtBot) -> None:
     _seed_hostile_texts(harness)
 
     tabs = [bar.tabText(index) for bar in harness.window.findChildren(QTabBar) for index in range(bar.count())]
-    plain = [label.text() for label in harness.window.findChildren(QLabel)]
+    model = harness.window.focus_page.table_panel.model
+    cells = [
+        str(model.index(row, column).data() or "")
+        for row in range(model.rowCount())
+        for column in range(model.columnCount())
+    ]
     assert any(MARKUP in text for text in tabs)
-    assert any(MARKUP in text for text in plain)
+    assert any(MARKUP in text for text in cells)
 
 
 def test_no_label_or_tooltip_interprets_user_markup(qtbot: QtBot) -> None:

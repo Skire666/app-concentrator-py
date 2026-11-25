@@ -4,7 +4,6 @@ from PySide6.QtWidgets import QSplitter, QTabWidget, QVBoxLayout, QWidget
 
 from concentrator.presentation.timer.timer_layout import TimerLayout
 from concentrator.presentation.todo.todo_layout import TodoLayout
-from concentrator.ui.panels.focus_queue_panel import FocusQueuePanel
 from concentrator.ui.panels.presets_panel import PresetsPanel
 from concentrator.ui.panels.quick_add_panel import QuickAddPanel
 from concentrator.ui.panels.special_options_panel import SpecialOptionsPanel
@@ -64,21 +63,14 @@ def info_tabs(splitter: QSplitter) -> tuple[QTabWidget, TaskDetailsPanel, TaskHi
     return tabs, TaskDetailsPanel(tabs), TaskHistoryPanel(tabs)
 
 
-def zone2_panels(
-    timer_layout: TimerLayout, zone2: QWidget
-) -> tuple[TimerPanel, FocusQueuePanel, PresetsPanel, SpecialOptionsPanel]:
+def zone2_panels(timer_layout: TimerLayout, zone2: QWidget) -> tuple[TimerPanel, PresetsPanel, SpecialOptionsPanel]:
     """Create the panels of zone 2.
 
     Args:
-        timer_layout: Font of the timer digits and spacing of the favorites and of the queue.
+        timer_layout: Font of the timer digits and spacing of the favorites.
         zone2: Container of zone 2.
 
     Returns:
-        Timer, focus queue, favorites and special options.
+        Timer, favorites and special options.
     """
-    return (
-        TimerPanel(timer_layout, zone2),
-        FocusQueuePanel(timer_layout.spacing_px, zone2),
-        PresetsPanel(timer_layout, zone2),
-        SpecialOptionsPanel(zone2),
-    )
+    return TimerPanel(timer_layout, zone2), PresetsPanel(timer_layout, zone2), SpecialOptionsPanel(zone2)

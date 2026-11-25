@@ -132,15 +132,12 @@ def test_table_rows_show_state_text_due_and_marks() -> None:
     table = stack.table.build_snapshot().table
     rows = {row.key: row for row in table.rows}
 
-    assert table.columns[1:3] == ("en:todo.column.focus", "en:todo.column.task")
+    assert table.columns[1:3] == ("en:todo.column.task", "en:todo.column.list")
     separator = "en:todo.table.line_separator"
-    assert rows["task-001"].cells[1] == "en:todo.table.focus_off"
-    assert not rows["task-004"].cells[1]
-    assert (rows["task-001"].toggle_enabled, rows["task-004"].toggle_enabled) == (True, False)
-    assert rows["task-001"].cells[2] == separator.join(("Report", "with sources", "and charts"))
-    assert (table.overflow_column, table.toggle_column) == (2, 1)
-    assert rows["task-001"].cells[4] == "en:format.date(day=05,month=11,year=2026)"
-    assert rows["task-002"].cells[4] == "en:format.date(day=06,month=11,year=2026) en:format.time(hour=18,minute=00)"
+    assert rows["task-001"].cells[1] == separator.join(("Report", "with sources", "and charts"))
+    assert table.overflow_column == 1
+    assert rows["task-001"].cells[3] == "en:format.date(day=05,month=11,year=2026)"
+    assert rows["task-002"].cells[3] == "en:format.date(day=06,month=11,year=2026) en:format.time(hour=18,minute=00)"
     assert [rows[key].tone for key in ("task-001", "task-002", "task-003", "task-004", "task-005")] == [
         RowToneEnum.ERROR,
         RowToneEnum.WARNING,
@@ -149,8 +146,8 @@ def test_table_rows_show_state_text_due_and_marks() -> None:
         RowToneEnum.NORMAL,
     ]
     assert (rows["task-004"].checked, rows["task-005"].checked) == (True, False)
-    assert (table.check_column, table.sort_column, table.sort_descending) == (0, 8, True)
-    assert table.hidden_columns == (3,)
+    assert (table.check_column, table.sort_column, table.sort_descending) == (0, 7, True)
+    assert table.hidden_columns == (2,)
     assert [row.key for row in table.rows] == ["task-005", "task-004", "task-003", "task-002", "task-001"]
 
 
@@ -207,7 +204,6 @@ def test_toolbar_states_follow_a_mixed_selection() -> None:
         ActionIdEnum.TASK_REOPEN,
         ActionIdEnum.TASK_ARCHIVE,
         ActionIdEnum.TASK_MOVE,
-        ActionIdEnum.FOCUS_ADD_SELECTED,
         ActionIdEnum.TASK_DELETE,
     }
     assert [(target.list_id, target.enabled) for target in menu.move_targets] == [(HOME_LIST_ID, True)]

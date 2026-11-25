@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 
-from concentrator.presentation.focus.focus_presenters import FocusPresenters
 from concentrator.presentation.journal.journal_presenter import JournalPresenter
 from concentrator.presentation.settings.settings_files_presenter import SettingsFilesPresenter
 from concentrator.presentation.settings.settings_presenter import SettingsPresenter
@@ -30,7 +29,6 @@ class MainWindowPresenters:
         settings: Settings form.
         settings_files: File sections of the settings page.
         todo: TODO manager of zone 1.
-        focus: Focus queue of zone 2 and the star of zone 1.
     """
 
     shell: ShellPresenter
@@ -43,4 +41,3 @@ class MainWindowPresenters:
     settings: SettingsPresenter
     settings_files: SettingsFilesPresenter
     todo: TodoPresenters
-    focus: FocusPresenters
