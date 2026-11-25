@@ -91,7 +91,8 @@ class UserDataCodec:
             app_version: Version written in ``app_version``.
             limits: Bounds from ``concentrator.ini`` applied by the domain rules on read.
             migrations: Steps up to the schema version this application reads; by default none, up to
-                ``CURRENT_SCHEMA_VERSION`` (the first released layout). Tests pass their own chain.
+                ``CURRENT_SCHEMA_VERSION`` (version 2 has no step from version 1, ADR-046). Tests pass their own
+                chain.
         """
         self._app_version = app_version
         self._limits = limits

@@ -10,7 +10,6 @@ from typing import Final
 from PySide6.QtGui import QIcon, QImageReader
 
 from concentrator.application.common.app_config import AppConfig
-from concentrator.application.focus.focus_defaults import FocusDefaults
 from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.user_data import StoredUserData, UserData, UserDataLimits
 from concentrator.application.timer.chime_defaults import ChimeDefaults
@@ -18,8 +17,6 @@ from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.application.todo.todo_defaults import TodoDefaults
 from concentrator.bootstrap.translator_loader import CATALOG_LANGUAGES
 from concentrator.domain.common.multiline_text import MultilineText
-from concentrator.domain.focus.focus_item import FocusItem, FocusItemId
-from concentrator.domain.focus.focus_items_collection import FocusItemsCollection
 from concentrator.domain.settings.language_enum import LanguageEnum
 from concentrator.domain.settings.user_settings import UserSettings, UserSettingsId
 from concentrator.domain.timer.hourly_chime import HourlyChime, HourlyChimeId
@@ -57,7 +54,6 @@ ROUND_TRIP_TIME: Final = datetime(2026, 1, 1, tzinfo=UTC)
 ROUND_TRIP_LIST_ID: Final = TaskListId("00000000-0000-7000-8000-000000000003")
 ROUND_TRIP_TASK_ID: Final = TaskId("00000000-0000-7000-8000-000000000004")
 ROUND_TRIP_RECURRING_ID: Final = TaskId("00000000-0000-7000-8000-000000000005")
-ROUND_TRIP_FOCUS_ID: Final = FocusItemId("00000000-0000-7000-8000-000000000006")
 ROUND_TRIP_TEXT: Final = ("Self-check task", "l'arborescence D:/Projets et https://example.org/?q='x'")
 ROUND_TRIP_DUE: Final = (date(2026, 1, 2), time(14, 30))
 
@@ -131,7 +127,7 @@ def _svg_failures(paths: AppPaths) -> list[str]:
 def _round_trip_data(
     timer: TimerDefaults, chime: ChimeDefaults, defaults: SettingsDefaults, todo: TodoDefaults
 ) -> UserData:
-    """Content of a new data file with every section, built from the ini defaults (the weekly task is queued).
+    """Content of a new data file with every section, built from the ini defaults.
 
     Args:
         timer: ``[timer]`` values (configuration and favorites).
@@ -158,8 +154,7 @@ def _round_trip_data(
         ROUND_TRIP_CHIME_ID, ROUND_TRIP_TIME, enabled=chime.enabled, settings=chime.settings
     )
     data = UserData.initial(settings, timer_config, presets, hourly_chime, _round_trip_lists(todo))
-    focus = FocusItem.create(ROUND_TRIP_FOCUS_ID, ROUND_TRIP_TIME, task_id=ROUND_TRIP_RECURRING_ID, position=0)
-    return data.with_tasks(_round_trip_tasks(todo)).with_focus_queue(FocusItemsCollection((focus,)))
+    return data.with_tasks(_round_trip_tasks(todo))
 
 
 def _round_trip_lists(todo: TodoDefaults) -> TaskListsCollection:
@@ -225,8 +220,7 @@ def storage_failures(app_version: str, config: AppConfig) -> list[str]:
     timer = TimerDefaults.from_section(config.timer)
     settings = SettingsDefaults.from_section(config.settings)
     todo = TodoDefaults.from_section(config.todo)
-    focus = FocusDefaults.from_section(config.focus)
-    limits = UserDataLimits(timer=timer.limits, settings=settings, todo=todo.limits, focus=focus.limits)
+    limits = UserDataLimits(timer=timer.limits, settings=settings, todo=todo.limits)
     codec = UserDataCodec(app_version, limits)
     data = _round_trip_data(timer, ChimeDefaults.from_section(config.chime), settings, todo)
     stored = StoredUserData(data=data, saved_at=ROUND_TRIP_TIME)

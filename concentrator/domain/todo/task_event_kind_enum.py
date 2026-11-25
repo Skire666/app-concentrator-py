@@ -4,7 +4,10 @@ from concentrator.domain.common.base_int_enum import BaseIntEnum
 
 
 class TaskEventKindEnum(BaseIntEnum):
-    """What happened to a task. Phases 6 and 7 append values; values are never reused."""
+    """What happened to a task. Later changes append values; values are never reused.
+
+    12 and 13 (added to and removed from the focus queue, removed by ADR-046) are never reused.
+    """
 
     UNKNOWN = -1
     UNSET = 0
@@ -19,5 +22,3 @@ class TaskEventKindEnum(BaseIntEnum):
     COPIED_FROM = 9
     OCCURRENCE_COMPLETED = 10
     RECURRENCE_CHANGED = 11
-    ADDED_TO_FOCUS = 12
-    REMOVED_FROM_FOCUS = 13

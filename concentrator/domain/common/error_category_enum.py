@@ -4,7 +4,10 @@ from concentrator.domain.common.base_int_enum import BaseIntEnum
 
 
 class ErrorCategoryEnum(BaseIntEnum):
-    """Thousands digit of an ``ErrorCodeEnum`` value."""
+    """Thousands digit of an ``ErrorCodeEnum`` value.
+
+    6 (focus queue, removed by ADR-046) is never reused.
+    """
 
     UNKNOWN = -1
     UNSET = 0
@@ -13,5 +16,4 @@ class ErrorCategoryEnum(BaseIntEnum):
     CONFIG = 3
     TIMER = 4
     TODO = 5
-    FOCUS = 6
     SYSTEM = 7

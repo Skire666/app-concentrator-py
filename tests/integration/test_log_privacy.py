@@ -16,8 +16,8 @@ from concentrator.domain.common.multiline_text import MultilineText
 from concentrator.domain.todo.priority_enum import PriorityEnum
 from concentrator.domain.todo.tasks_collection import TasksCollection
 from concentrator.infrastructure.persistence.user_data_codec import UserDataCodec
-from tests.fakes.focus_stack import FocusStack
 from tests.fakes.todo_factory import HOME_LIST_ID, WORK_LIST_ID
+from tests.fakes.todo_stack import TodoStack
 from tests.fakes.user_data_factory import USER_DATA_LIMITS, make_stored
 
 SECRET: Final = "Zq7secret"
@@ -31,16 +31,15 @@ def _visible_records(caplog: pytest.LogCaptureFixture) -> list[str]:
     return [record.getMessage() for record in caplog.records if record.levelno >= logging.INFO]
 
 
-def _run_every_task_use_case(stack: FocusStack) -> None:
+def _run_every_task_use_case(stack: TodoStack) -> None:
     listed = stack.list_commands.create(
         ListValues(name=f"List {SECRET}", description=MultilineText((SECRET,)), priority=PriorityEnum.HIGH)
     )
     assert listed.data is not None
     task = stack.task_commands.quick_add(WORK_LIST_ID, TASK_TEXT).data
     assert task is not None
-    other = stack.focus_commands.quick_add(f"Quick {SECRET}", WORK_LIST_ID).data
+    other = stack.task_commands.quick_add(WORK_LIST_ID, f"Quick {SECRET}").data
     assert other is not None
-    stack.focus_commands.add_tasks((task.id,))
     for index in range(2):
         stack.link_commands.open_link(task.id, index)
     stack.link_commands.open_link(task.id, 7)
@@ -56,8 +55,8 @@ def _run_every_task_use_case(stack: FocusStack) -> None:
     stack.task_commands.delete((task.id, other.id))
 
 
-def test_task_list_and_focus_use_cases_never_log_user_text(caplog: pytest.LogCaptureFixture) -> None:
-    stack = FocusStack()
+def test_task_and_list_use_cases_never_log_user_text(caplog: pytest.LogCaptureFixture) -> None:
+    stack = TodoStack()
 
     with caplog.at_level(logging.DEBUG):
         _run_every_task_use_case(stack)
@@ -67,7 +66,7 @@ def test_task_list_and_focus_use_cases_never_log_user_text(caplog: pytest.LogCap
 
 
 def _stored_with_secret() -> StoredUserData:
-    stack = FocusStack()
+    stack = TodoStack()
     stack.task_commands.quick_add(WORK_LIST_ID, TASK_TEXT)
     stored = make_stored()
     return replace(stored, data=stored.data.with_tasks(TasksCollection(stack.tasks())))

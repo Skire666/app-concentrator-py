@@ -25,7 +25,7 @@ def test_encode_converts_a_non_utc_saved_at_and_drops_nothing_else() -> None:
 
     assert text.endswith("position = 0\n")
     assert "\r" not in text
-    assert text.startswith("# Concentrator user data. Schema version 1.\n")
+    assert text.startswith("# Concentrator user data. Schema version 2.\n")
 
 
 def test_decode_reads_the_spec_example() -> None:
@@ -92,8 +92,9 @@ def test_unknown_enum_integer_is_reported_by_the_rules() -> None:
             ErrorCodeEnum.STORAGE_FIELD_INVALID_TYPE,
             "settings.created_at",
         ),
-        ("schema_version = 1", "schema_version = 0", ErrorCodeEnum.STORAGE_FIELD_INVALID_VALUE, "schema_version"),
-        ("schema_version = 1", "schema_version = true", ErrorCodeEnum.STORAGE_FIELD_INVALID_TYPE, "schema_version"),
+        ("schema_version = 2", "schema_version = 0", ErrorCodeEnum.STORAGE_FIELD_INVALID_VALUE, "schema_version"),
+        ("schema_version = 2", "schema_version = 1", ErrorCodeEnum.STORAGE_FIELD_INVALID_VALUE, "schema_version"),
+        ("schema_version = 2", "schema_version = true", ErrorCodeEnum.STORAGE_FIELD_INVALID_TYPE, "schema_version"),
     ],
 )
 def test_invalid_content_is_reported_per_field(old: str, new: str, code: ErrorCodeEnum, field: str) -> None:
@@ -105,7 +106,7 @@ def test_invalid_content_is_reported_per_field(old: str, new: str, code: ErrorCo
 
 
 def test_newer_schema_version_is_refused_before_validation() -> None:
-    result = CODEC.decode(_edited("schema_version = 1\n", "schema_version = 2\nfuture_section = []\n"))
+    result = CODEC.decode(_edited("schema_version = 2\n", "schema_version = 3\nfuture_section = []\n"))
 
     assert result.validation.error_codes == (ErrorCodeEnum.STORAGE_SCHEMA_VERSION_UNSUPPORTED,)
     assert result.validation.severity is SeverityEnum.CRITICAL
@@ -122,7 +123,7 @@ def test_empty_or_odd_document_is_a_structure_error(text: str) -> None:
 
 @pytest.mark.parametrize("number", ["inf", "-inf", "nan"])
 def test_infinity_and_nan_are_invalid_values(number: str) -> None:
-    result = CODEC.decode(_edited("schema_version = 1", f"schema_version = {number}"))
+    result = CODEC.decode(_edited("schema_version = 2", f"schema_version = {number}"))
 
     assert result.validation.error_codes == (ErrorCodeEnum.STORAGE_FIELD_INVALID_VALUE,)
 

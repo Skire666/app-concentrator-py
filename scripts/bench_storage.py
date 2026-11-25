@@ -24,9 +24,8 @@ from typing import Annotated, Final
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from concentrator.application.focus.focus_defaults import FocusDefaults
 from concentrator.application.settings.settings_defaults import SettingsDefaults
-from concentrator.application.storage.user_data import StoredUserData, UserDataLimits
+from concentrator.application.storage.user_data import CURRENT_SCHEMA_VERSION, StoredUserData, UserDataLimits
 from concentrator.application.timer.timer_defaults import TimerDefaults
 from concentrator.application.todo.todo_defaults import TodoDefaults
 from concentrator.domain.common.multiline_text import MultilineText
@@ -155,7 +154,7 @@ def build_document(tasks: int, events: int) -> dict[str, object]:
     Returns:
         The document.
     """
-    return {"schema_version": 1, "tasks": [make_task(number, events) for number in range(tasks)]}
+    return {"schema_version": CURRENT_SCHEMA_VERSION, "tasks": [make_task(number, events) for number in range(tasks)]}
 
 
 def best_time(operation: Callable[[], object], repeat: int) -> float:
@@ -240,7 +239,6 @@ def _codec() -> tuple[UserDataCodec, int]:
         timer=TimerDefaults.from_section(config.data.timer).limits,
         settings=SettingsDefaults.from_section(config.data.settings),
         todo=todo,
-        focus=FocusDefaults.from_section(config.data.focus).limits,
     )
     return UserDataCodec(metadata.version(PACKAGE_NAME), limits), todo.max_history_events
 

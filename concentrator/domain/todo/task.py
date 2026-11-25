@@ -95,21 +95,7 @@ def _series_ends(recurrence: Recurrence, occurrence: int, following: date | None
     return False
 
 
-def _source_details(source: str) -> tuple[tuple[str, str], ...]:
-    """Details naming where a completion was made.
-
-    Args:
-        source: ``SOURCE_FOCUS``, or ``""`` for zone 1.
-
-    Returns:
-        ``(("source", source),)``, or nothing for an empty source.
-    """
-    return ((DETAIL_SOURCE, source),) if source else ()
-
-
-def _occurrence_event(
-    now: datetime, occurrence: int, due: date, following: NextOccurrence | None, source: str
-) -> TaskEvent:
+def _occurrence_event(now: datetime, occurrence: int, due: date, following: NextOccurrence | None) -> TaskEvent:
     """Build the ``OCCURRENCE_COMPLETED`` event.
 
     Args:
@@ -117,18 +103,15 @@ def _occurrence_event(
         occurrence: Number of the occurrence (1 for the first).
         due: Its due date.
         following: Where the task goes, ``None`` when the series ended.
-        source: Where the completion was made (``SOURCE_FOCUS``), ``""`` for zone 1.
 
     Returns:
-        The event with ``occurrence``, ``due``, while the series goes on ``next`` and ``skipped``, then
-        ``source`` when given.
+        The event with ``occurrence``, ``due`` and, while the series goes on, ``next`` and ``skipped``.
     """
     details = [(DETAIL_OCCURRENCE, str(occurrence)), (DETAIL_DUE, due.isoformat())]
     if following is not None and following.due_date is not None:
         details.append((DETAIL_NEXT, following.due_date.isoformat()))
         if following.skipped:
             details.append((DETAIL_SKIPPED, str(following.skipped)))
-    details.extend(_source_details(source))
     return TaskEvent(at=now, kind=TaskEventKindEnum.OCCURRENCE_COMPLETED, details=tuple(details))
 
 
@@ -296,16 +279,13 @@ class Task:
         event = _change(TaskEventKindEnum.MOVED, now, self.list_id, list_id)
         return replace(self, list_id=list_id, history=self.history.with_event(event, max_events), updated_at=now)
 
-    def transitioned(
-        self, kind: TaskEventKindEnum, now: datetime, max_events: int, *, source: str = ""
-    ) -> DataResult[Self]:
+    def transitioned(self, kind: TaskEventKindEnum, now: datetime, max_events: int) -> DataResult[Self]:
         """Complete, reopen, archive or unarchive the task.
 
         Args:
             kind: ``COMPLETED``, ``REOPENED``, ``ARCHIVED`` or ``UNARCHIVED``.
             now: Change instant (timezone-aware UTC).
             max_events: Most history events kept.
-            source: Where a completion was made (``SOURCE_FOCUS``), ``""`` for zone 1.
 
         Returns:
             The changed task, or ``TASK_STATE_TRANSITION_INVALID`` on ``state``.
@@ -320,42 +300,27 @@ class Task:
             completed_at = now
         elif kind is TaskEventKindEnum.REOPENED:
             completed_at = None
-        event = TaskEvent(at=now, kind=kind, details=_source_details(source))
+        event = TaskEvent(at=now, kind=kind)
         history = self.history.with_event(event, max_events)
         return DataResult.ok(replace(self, state=target, completed_at=completed_at, history=history, updated_at=now))
 
-    def with_event(self, event: TaskEvent, max_events: int) -> Self:
-        """Record an event that changes nothing else (focus queue additions and removals).
-
-        Args:
-            event: New event; its instant becomes ``updated_at``.
-            max_events: Most history events kept.
-
-        Returns:
-            The task with the event.
-        """
-        return replace(self, history=self.history.with_event(event, max_events), updated_at=event.at)
-
-    def completed(self, now: datetime, today: date, max_events: int, *, source: str = "") -> DataResult[Self]:
+    def completed(self, now: datetime, today: date, max_events: int) -> DataResult[Self]:
         """Complete the task: the current occurrence of an open recurring task, or the whole task.
 
         Args:
             now: Change instant (timezone-aware UTC).
             today: Current local date.
             max_events: Most history events kept.
-            source: Where the completion was made (``SOURCE_FOCUS``), ``""`` for zone 1.
 
         Returns:
             The changed task, or ``TASK_STATE_TRANSITION_INVALID`` on ``state``.
         """
         if self.recurrence is None or self.due_date is None or self.state is not TaskStateEnum.OPEN:
-            return self.transitioned(TaskEventKindEnum.COMPLETED, now, max_events, source=source)
-        return DataResult.ok(
-            self.complete_occurrence(self.recurrence, self.due_date, now, today, max_events, source=source)
-        )
+            return self.transitioned(TaskEventKindEnum.COMPLETED, now, max_events)
+        return DataResult.ok(self.complete_occurrence(self.recurrence, self.due_date, now, today, max_events))
 
     def complete_occurrence(
-        self, recurrence: Recurrence, due_date: date, now: datetime, today: date, max_events: int, *, source: str = ""
+        self, recurrence: Recurrence, due_date: date, now: datetime, today: date, max_events: int
     ) -> Self:
         """Complete the current occurrence of an open recurring task (phase 6 spec, owner decision).
 
@@ -369,7 +334,6 @@ class Task:
             now: Change instant (timezone-aware UTC).
             today: Current local date.
             max_events: Most history events kept.
-            source: Where the completion was made (``SOURCE_FOCUS``), ``""`` for zone 1.
 
         Returns:
             The changed task.
@@ -377,8 +341,8 @@ class Task:
         occurrence = self.occurrences_done + 1
         following = RecurrenceCalculator.next_from(recurrence, due_date, today)
         if _series_ends(recurrence, occurrence, following.due_date):
-            history = self.history.with_event(_occurrence_event(now, occurrence, due_date, None, source), max_events)
-            completed = TaskEvent(at=now, kind=TaskEventKindEnum.COMPLETED, details=_source_details(source))
+            history = self.history.with_event(_occurrence_event(now, occurrence, due_date, None), max_events)
+            completed = TaskEvent(at=now, kind=TaskEventKindEnum.COMPLETED)
             history = history.with_event(completed, max_events)
             return replace(
                 self,
@@ -388,7 +352,7 @@ class Task:
                 history=history,
                 updated_at=now,
             )
-        event = _occurrence_event(now, occurrence, due_date, following, source)
+        event = _occurrence_event(now, occurrence, due_date, following)
         return replace(
             self,
             due_date=following.due_date,

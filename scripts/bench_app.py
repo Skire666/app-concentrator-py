@@ -32,7 +32,6 @@ from typing import Final
 from PySide6.QtWidgets import QApplication
 
 from concentrator.application.common.app_config import AppConfig
-from concentrator.application.focus.focus_defaults import FocusDefaults
 from concentrator.application.settings.settings_defaults import SettingsDefaults
 from concentrator.application.storage.user_data import UserData, UserDataLimits
 from concentrator.application.timer.timer_defaults import TimerDefaults
@@ -183,7 +182,6 @@ def codec_of(config: AppConfig) -> UserDataCodec:
         timer=TimerDefaults.from_section(config.timer).limits,
         settings=SettingsDefaults.from_section(config.settings),
         todo=TodoDefaults.from_section(config.todo).limits,
-        focus=FocusDefaults.from_section(config.focus).limits,
     )
     return UserDataCodec(metadata.version(PACKAGE_NAME), limits)
 

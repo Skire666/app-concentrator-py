@@ -1,8 +1,8 @@
 """Error codes carried by validation issues.
 
 Ranges: ``1xxx`` common validation, ``2xxx`` storage, ``3xxx`` config and i18n, ``4xxx`` timer,
-``5xxx`` todo, ``6xxx`` focus, ``7xxx`` system. Every code has the UI message key
-``error.<name_lowercase>`` in both catalogs.
+``5xxx`` todo, ``7xxx`` system (``6xxx``, the focus queue removed by ADR-046, is never reused). Every code has
+the UI message key ``error.<name_lowercase>`` in both catalogs.
 """
 
 from typing import Final
@@ -108,12 +108,6 @@ class ErrorCodeEnum(BaseIntEnum):
     RECURRENCE_FREQUENCY_UNSET = 5206
     RECURRENCE_END_KIND_UNSET = 5207
     RECURRENCE_END_DATE_MISSING = 5208
-
-    # 6xxx focus queue
-    FOCUS_TASK_ALREADY_QUEUED = 6001
-    FOCUS_QUEUE_FULL = 6002
-    FOCUS_TASK_NOT_OPEN = 6003
-    FOCUS_TASK_MISSING = 6004
 
     # 70xx links and folders
     LINK_OPEN_FAILED = 7003

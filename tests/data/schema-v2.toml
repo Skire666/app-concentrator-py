@@ -1,8 +1,8 @@
-# Concentrator user data. Schema version 1.
+# Concentrator user data. Schema version 2.
 # Close Concentrator before editing this file by hand. Comments are not preserved.
-schema_version = 1
+schema_version = 2
 saved_at = '2026-11-06T16:44:03Z'
-app_version = '1.0.0'
+app_version = '2.0.0'
 
 [settings]
 id = '019a5c1e-7a40-7c3e-9d5a-1f2b3c4d5e6f'
@@ -91,7 +91,6 @@ history = [
   { at = '2026-11-06T16:41:00Z', kind = 1, details = {} },
   { at = '2026-11-06T16:46:00Z', kind = 2, details = {} },
   { at = '2026-11-06T16:47:00Z', kind = 3, details = { from = '', to = '2026-11-13' } },
-  { at = '2026-11-06T16:48:00Z', kind = 12, details = {} },
   { at = '2026-11-10T16:41:00Z', kind = 10, details = { due = '2026-11-09', next = '2026-11-13' } },
 ]
 
@@ -123,10 +122,3 @@ state = 3
 history = [
   { at = '2026-11-06T17:11:00Z', kind = 1, details = {} },
 ]
-
-[[focus_queue]]
-id = '019a5c30-cccc-7ddd-8eee-5a6b7c8d9e0f'
-created_at = '2026-11-06T17:10:00Z'
-updated_at = '2026-11-06T17:10:00Z'
-task_id = '019a5c22-bbbb-7ccc-8ddd-4f5a6b7c8d9e'
-position = 0

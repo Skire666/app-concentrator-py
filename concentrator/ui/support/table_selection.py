@@ -10,8 +10,8 @@ class TableSelection:
     """Selects the rows of each snapshot without echoing the change, and scrolls only to a new selection.
 
     After a model reset the view loses its selection: selecting the same rows again must not move the view
-    (code review of phase 7); a selection of other rows made elsewhere (Show in list, quick add, duplicate)
-    is scrolled into view.
+    (code review of phase 7); a selection of other rows made elsewhere (quick add, duplicate) is scrolled
+    into view.
     """
 
     def __init__(self, view: QTableView, scroll_column: int) -> None:

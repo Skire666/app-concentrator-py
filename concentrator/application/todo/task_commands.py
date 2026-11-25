@@ -138,18 +138,16 @@ class TaskCommands:
         self._event_bus.publish(TaskDeletedEvent(task_ids=tuple(task_ids)))
         return ValidationResult.success()
 
-    def complete(self, task_ids: Sequence[str], *, source: str = "") -> ValidationResult:
+    def complete(self, task_ids: Sequence[str]) -> ValidationResult:
         """Mark open tasks done; a recurring task completes its current occurrence and moves to its next date.
 
         Args:
             task_ids: Tasks to complete (all must be open).
-            source: Where the completion was made (``SOURCE_FOCUS`` for the focus queue), ``""`` for zone 1;
-                it is recorded in the completion events.
 
         Returns:
             Success, skipped for no task, ``ENTITY_NOT_FOUND`` or ``TASK_STATE_TRANSITION_INVALID``.
         """
-        return self._transition(task_ids, TaskEventKindEnum.COMPLETED, source=source)
+        return self._transition(task_ids, TaskEventKindEnum.COMPLETED)
 
     def reopen(self, task_ids: Sequence[str]) -> ValidationResult:
         """Reopen done tasks.
@@ -244,13 +242,12 @@ class TaskCommands:
         text = self._links.normalized(draft.text)
         return draft if text is draft.text else replace(draft, text=text)
 
-    def _transition(self, task_ids: Sequence[str], kind: TaskEventKindEnum, *, source: str = "") -> ValidationResult:
+    def _transition(self, task_ids: Sequence[str], kind: TaskEventKindEnum) -> ValidationResult:
         """Change the state of every task, or of none.
 
         Args:
             task_ids: Tasks to change.
             kind: Transition.
-            source: Where a completion was made, ``""`` for zone 1.
 
         Returns:
             Success, skipped, ``ENTITY_NOT_FOUND`` or ``TASK_STATE_TRANSITION_INVALID``.
@@ -261,7 +258,7 @@ class TaskCommands:
         moment = (self._clock.now_utc(), self._clock.now_local().date())
         changed: list[Task] = []
         for task in found.data:
-            result = self._transitioned(task, kind, moment, source)
+            result = self._transitioned(task, kind, moment)
             if result.data is None:
                 return result.validation
             changed.append(result.data)
@@ -273,23 +270,20 @@ class TaskCommands:
             self._publish_state(before, after)
         return ValidationResult.success()
 
-    def _transitioned(
-        self, task: Task, kind: TaskEventKindEnum, moment: tuple[datetime, date], source: str
-    ) -> DataResult[Task]:
+    def _transitioned(self, task: Task, kind: TaskEventKindEnum, moment: tuple[datetime, date]) -> DataResult[Task]:
         """Apply one transition (a completion of a recurring task completes its occurrence).
 
         Args:
             task: Task to change.
             kind: Transition.
             moment: Change instant (UTC) and current local date, the same for every task of the command.
-            source: Where a completion was made, ``""`` for zone 1.
 
         Returns:
             The changed task, or ``TASK_STATE_TRANSITION_INVALID``.
         """
         now, today = moment
         if kind is TaskEventKindEnum.COMPLETED:
-            return task.completed(now, today, self._limits.max_history_events, source=source)
+            return task.completed(now, today, self._limits.max_history_events)
         return task.transitioned(kind, now, self._limits.max_history_events)
 
     def _publish_state(self, before: Task, after: Task) -> None:

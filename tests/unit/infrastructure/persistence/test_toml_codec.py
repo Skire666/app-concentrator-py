@@ -90,7 +90,7 @@ def test_encode_writes_the_file_layout() -> None:
             },
             {"text": [], "history": []},
         ],
-        "focus_queue": [],
+        "timer_presets": [],
         "odd key": "x",
         "unset": None,
     }
@@ -99,7 +99,7 @@ def test_encode_writes_the_file_layout() -> None:
 
     assert text == (
         "schema_version = 1\n"
-        "focus_queue = []\n"
+        "timer_presets = []\n"
         "'odd key' = 'x'\n"
         "\n"
         "[settings]\n"
@@ -124,7 +124,7 @@ def test_encode_writes_the_file_layout() -> None:
     )
     assert tomllib.loads(text) == {
         "schema_version": 1,
-        "focus_queue": [],
+        "timer_presets": [],
         "odd key": "x",
         "settings": {"id": "s", "enabled": True, "ratio": 0.5},
         "tasks": [

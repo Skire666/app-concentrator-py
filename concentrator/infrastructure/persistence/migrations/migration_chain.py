@@ -30,8 +30,8 @@ def schema_version_of(document: Document) -> int | None:
 class MigrationChain:
     """Runs the steps that bring an older document up to ``target_version``.
 
-    Schema version 1 is the first released layout, so the production chain has no step. A later breaking
-    change bumps ``CURRENT_SCHEMA_VERSION`` and appends one step (ADR-044).
+    The production chain has no step: schema version 2 removed the focus queue and reads no version 1 file
+    (ADR-046). A later breaking change bumps ``CURRENT_SCHEMA_VERSION`` and appends one step (ADR-044).
     """
 
     def __init__(self, target_version: int, steps: Sequence[SchemaMigration] = ()) -> None:
