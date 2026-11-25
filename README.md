@@ -1,10 +1,9 @@
 # Concentrator
 
 A local, single-window desktop application for Windows 11 that helps you focus: a countdown timer with
-alarms, one-click timer favorites, an hourly chime, a focus queue of the few tasks you work on now, and a
-full TODO list manager. Everything stays on your computer, in one readable TOML file you choose.
+alarms, one-click timer favorites, an hourly chime and a full TODO list manager. Everything stays on your computer, in one readable TOML file you choose.
 
-![Focus page: TODO lists on the left; timer, focus queue, favorites and hourly chime on the right](docs/images/focus-page.png)
+![Focus page: TODO lists on the left; timer, favorites and hourly chime on the right](docs/images/focus-page.png)
 
 ## Features
 
@@ -15,8 +14,6 @@ full TODO list manager. Everything stays on your computer, in one readable TOML 
 - **TODO lists** as tabs, with priorities; tasks with due dates and times, repetition (daily, weekly,
   monthly, yearly), history, filters, accent-insensitive search, bulk actions, and clickable folder paths
   and web addresses.
-- **Focus queue** under the timer: the tasks you work on now, picked from your lists; completing one
-  completes the task.
 - **Journal** page showing the application log live; **Settings** page; English and French, switched live.
 - **Safe storage**: atomic saves, a backup of the previous version, daily copies, recovery after a crash
   or a damaged file, detection of outside edits.
@@ -46,7 +43,7 @@ Updating and removing are explained in [USAGE.md](USAGE.md#installing-updating-a
 
 | What | Where |
 |---|---|
-| Your data (settings, timer, favorites, lists, tasks, focus queue) | the TOML file you chose, default `%APPDATA%\Concentrator\concentrator.toml`, with `.bak` next to it |
+| Your data (settings, timer, favorites, lists, tasks) | the TOML file you chose, default `%APPDATA%\Concentrator\concentrator.toml`, with `.bak` next to it |
 | Daily backups (last 7 days) | `%APPDATA%\Concentrator\backups\` |
 | Window layout and the path of your data file | `%APPDATA%\Concentrator\ui-state.ini` |
 | Logs (never the text of your tasks) | `%LOCALAPPDATA%\Concentrator\logs\` |

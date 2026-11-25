@@ -4,6 +4,25 @@ All notable changes to Concentrator. The format follows [Keep a Changelog](https
 and versions follow [Semantic Versioning](https://semver.org/). The data file has its own
 `schema_version`; a release that changes it says so here.
 
+## [Unreleased]
+
+Data file schema version 2 (planned release 2.0.0).
+
+### Removed
+
+- The focus queue: the list under the timer, the star column of the task table, **Add to focus** and
+  **Remove from focus**, **Use for focus quick add** in the tab menu, the focus lines of the task history
+  and the `[focus]` section of `concentrator.ini`. Zone 2 shows the timer, the favorites and the special
+  options.
+
+### Changed
+
+- The data file is at schema version 2, without the `[[focus_queue]]` section. A data file of version 1.0.0
+  is refused and left untouched: start with a new data file. Version 1.0.0 refuses a file of version 2.
+- `concentrator.ini` has no `[focus]` section and eight task column widths: an ini of version 1.0.0 stops
+  the start. Use the one shipped with the new version.
+- The task table columns go back to their default widths and order once.
+
 ## [1.0.0] - 2026-11-12
 
 First release, for Windows 11 (64-bit), in English and French. Data file schema version 1.

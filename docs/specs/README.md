@@ -13,7 +13,7 @@ TODO list manager last, as requested.
 | 4 | [Journal and settings](phase-4-journal-settings.md) | Menu B log viewer, Menu C editable settings | 1 |
 | 5 | [TODO core](phase-5-todo-core.md) | Lists as tabs, tasks CRUD, states, table view | 1 |
 | 6 | [TODO advanced](phase-6-todo-advanced.md) | Recurrence, history, filters, search, links, bulk actions | 5 |
-| 7 | [Focus queue](phase-7-focus-queue.md) | Quick TODO in zone 2 fed from tasks, history on completion | 3, 6 |
+| 7 | [Focus queue](phase-7-focus-queue.md) | Quick TODO in zone 2 fed from tasks (removed by ADR-046) | 3, 6 |
 | 8 | [Hardening and release](phase-8-release.md) | Performance, accessibility, packaging, documentation, v1.0.0 | all |
 
 Phase 4 can be swapped with phase 3 if you need the journal earlier for debugging.

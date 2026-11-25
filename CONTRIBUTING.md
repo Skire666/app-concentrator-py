@@ -48,7 +48,7 @@ output through another command hides it.
 ### Add an error code
 
 1. Add the member to `concentrator/domain/common/error_code_enum.py` in the range of its family (`1xxx`
-   common, `2xxx` storage, `3xxx` config and i18n, `4xxx` timer, `5xxx` todo, `6xxx` focus, `7xxx` system).
+   common, `2xxx` storage, `3xxx` config and i18n, `4xxx` timer, `5xxx` todo, `7xxx` system; `6xxx` is retired).
    Never renumber or reuse a value.
 2. Add `error.<name_lowercase>` to `assets/i18n/en.json` and `fr.json`, with the same placeholders: say
    what happened and what to do.
@@ -88,7 +88,7 @@ needed. `tests/architecture/test_enum_conventions.py` checks the conventions.
 
 Additive fields need defaults. A breaking change bumps `CURRENT_SCHEMA_VERSION`, appends a
 `SchemaMigration` to the `MigrationChain` of `concentrator/infrastructure/persistence/migrations/`, adds
-a reference file for the new version next to `tests/data/schema-v1.toml`, and gets an entry in
+a reference file for the new version next to `tests/data/schema-v2.toml`, and gets an entry in
 `docs/decisions.md`.
 
 ## Release

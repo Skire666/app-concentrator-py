@@ -8,7 +8,8 @@ messages. The only French content is the UI catalog `assets/i18n/fr.json`.
 
 Concentrator is a local, single-user, single-window desktop application for **Windows 11**, written in
 **Python 3.14** with **PySide6 (>= 6.11)**. It combines a countdown **timer** with alarms, timer
-**favorites**, an **hourly chime**, a **focus queue** (quick TODO) and a full **TODO list manager**.
+**favorites**, an **hourly chime** and a full **TODO list manager**. The focus queue of release 1.0.0 was
+removed (ADR-046).
 
 - No network, no console window, no command-line options, one instance only.
 - User data: one TOML file chosen by the user at first launch (default proposed).
@@ -20,8 +21,8 @@ Concentrator is a local, single-user, single-window desktop application for **Wi
 ┌────────┬───────────────────────────────────────────┬───────────────────────┐
 │ Module │ Menu A "Focus" (default page)             │                       │
 │ bar    │ Zone 1 (~70 %): TODO manager              │ Zone 2 (~30 %):       │
-│ 100 px │ list tabs · toolbar · table · details     │ timer · focus queue · │
-│ full   │                                           │ favorites · options   │
+│ 100 px │ list tabs · toolbar · table · details     │ timer · favorites ·   │
+│ full   │                                           │ options               │
 │ height │ Menu B "Journal" and Menu C "Settings" replace zones 1 + 2        │
 │        ├───────────────────────────────────────────────────────────────────┤
 │        │ Status bar (1 line): last save state · language button FRA/ENG    │
@@ -92,14 +93,13 @@ concentrator/
 │   │                     ValidationResult, DataResult, ids, MultilineText, Identified protocol
 │   ├── timer/            TimerConfig, TimerSession, TimerPreset(+Collection), HourlyChime, *Rules
 │   ├── todo/             TaskList, Task, TaskEvent, Recurrence, LinkTarget, collections, *Rules
-│   ├── focus/            FocusItem, FocusItemsCollection, FocusRules
 │   └── settings/         UserSettings, LanguageEnum, UserSettingsRules
 ├── application/
 │   ├── ports/            Protocols implemented by infrastructure (readers, writers, clock, ...)
 │   ├── common/           EventBus, events, AppConfig (plain frozen dataclasses)
 │   ├── storage/          load/recover/save coordination (SaveCoordinator, StartupCommands,
 │   │                     ExternalChangeCommands, startup plan, storage events)
-│   └── timer/ todo/ focus/ settings/ journal/   *_commands.py (writes), *_queries.py (reads)
+│   └── timer/ todo/ settings/ journal/   *_commands.py (writes), *_queries.py (reads)
 ├── infrastructure/
 │   ├── persistence/      TOML codec, pydantic schemas, mappers, atomic writer, writer thread,
 │   │                     in-memory UserDataStore, readers/writers
@@ -114,7 +114,7 @@ concentrator/
 │   ├── ports/            Protocols implemented by ui (DialogPort, ...)
 │   ├── common/           RenderCoordinator, ActionGate, ActionIdEnum, RenderSectionEnum,
 │   │                     FormState, ButtonSnapshot, formatters
-│   └── shell/ storage/ timer/ todo/ focus/ journal/ settings/   *_presenter.py, *_snapshot.py, *_form.py
+│   └── shell/ storage/ timer/ todo/ journal/ settings/   *_presenter.py, *_snapshot.py, *_form.py
 ├── ui/                   Qt widgets only
 │   ├── windows/          MainWindow, pages and dialogs: compose panels, wire signals
 │   ├── panels/           compose widgets, expose signals, render_snapshot(snapshot)
@@ -153,8 +153,8 @@ and `infrastructure -> application -> domain`. `bootstrap` wires everything.
 | `ui.panels` | + `ui.widgets`, `ui.support` | `ui.windows` |
 | `bootstrap` | everything | — (only `__main__` imports it) |
 
-Feature isolation in the domain: `domain.timer` and `domain.todo` never import each other;
-`domain.focus` may import `domain.todo` identifiers only (`TaskId`; tested in `tests/architecture`). `domain.common` imports no other feature.
+Feature isolation in the domain: `domain.timer` and `domain.todo` never import each other; `domain.common`
+imports no other feature.
 
 Ports live in the layer that consumes them. Adapters explicitly subclass the Protocol they implement
 (so basedpyright checks conformance at definition) and mark methods with `@override`.
@@ -233,7 +233,8 @@ class DataResult[T]:
 - `SeverityEnum`: `UNKNOWN=-1, UNSET=0, SKIPPED=1, SUCCESS=2, WARNING=3, ERROR=4, CRITICAL=5`.
   Worst severity = highest value; `UNKNOWN` is treated as `ERROR` by `is_failure`.
 - `ErrorCodeEnum` uses numeric ranges: `1xxx` common validation, `2xxx` storage, `3xxx` config and
-  i18n, `4xxx` timer, `5xxx` todo, `6xxx` focus, `7xxx` system (links, audio, instance).
+  i18n, `4xxx` timer, `5xxx` todo, `7xxx` system (links, audio, instance). `6xxx` (the focus queue,
+  ADR-046) is never reused.
 - Every code has a UI message key `error.<code_name_lowercase>` in both catalogs (tested).
 - Never discard a returned `ValidationResult` or `DataResult`: handle it, propagate it, or log it.
 
@@ -241,7 +242,7 @@ class DataResult[T]:
 
 - `TaskRules.validate(task) -> ValidationResult`, plus focused methods (`validate_text`, ...) used by
   forms for inline errors. Rules are stateless; limits come from arguments built from `AppConfig`.
-- `TasksCollection`, `TaskListsCollection`, `TimerPresetsCollection`, `FocusItemsCollection`: immutable
+- `TasksCollection`, `TaskListsCollection`, `TimerPresetsCollection`: immutable
   wrappers (tuple + id index) with `get(id) -> DataResult[T]`, `contains`, `with_added`,
   `with_replaced`, `without`, `filtered(query)`, `sorted_by(...)`, `__len__`, `__iter__`.
   Group-level business logic (ordering, uniqueness, "next position") lives here.
@@ -287,8 +288,8 @@ Writers of aggregates changed in bulk (tasks, lists) also expose `update_many(en
   `DataResult[T]`.
 - A command: build or change the entity with `now` and ids from ports, validate with `*Rules`, call
   the writer, publish an event on success. Nothing else.
-- Cross-feature reactions use the synchronous `EventBus` (e.g. focus removes an item when
-  `TaskStateChangedEvent` says the task is done). Features never call each other's writers.
+- Cross-feature reactions use the synchronous `EventBus` (e.g. the log level follows
+  `UserSettingsChangedEvent`). Features never call each other's writers.
 
 ### 6.4 Threads
 
@@ -312,7 +313,7 @@ Writers of aggregates changed in bulk (tasks, lists) also expose `update_many(en
 - Location chosen at first launch: open an existing file, create at the default location
   (`paths.default_data_file`, i.e. `%APPDATA%/Concentrator/concentrator.toml`), or create elsewhere.
   The chosen path is stored in the UI state `.ini`.
-- Content: user settings, timer config, presets, chime, lists, tasks, focus queue, `schema_version`.
+- Content: user settings, timer config, presets, chime, lists, tasks, `schema_version`.
   Running timer state is not persisted.
 - Read pipeline: text -> leading BOM removed -> `tomllib.loads` -> schema version check -> native TOML
   dates and times turned into ISO text -> `json.dumps` -> `Schema.model_validate_json` (pydantic,
@@ -335,11 +336,11 @@ Writers of aggregates changed in bulk (tasks, lists) also expose `update_many(en
   per error, `field` = joined `loc`, code from the pydantic error type (`missing` ->
   `STORAGE_FIELD_MISSING`, `extra_forbidden` -> `STORAGE_FIELD_UNEXPECTED`, `*_type`/`*_parsing` ->
   `STORAGE_FIELD_INVALID_TYPE`, others -> `STORAGE_FIELD_INVALID_VALUE`). Details go to the log.
-- Schema evolution: additive fields need defaults. Schema version 1 is frozen at release 1.0.0
-  (`tests/data/schema-v1.toml` must read and write back byte for byte). Any breaking change bumps
-  `CURRENT_SCHEMA_VERSION` and appends a `SchemaMigration` (dict to dict) to the `MigrationChain` of
-  `infrastructure/persistence/migrations/`; the chain runs after the newer-version check and before
-  validation (ADR-044).
+- Schema evolution: additive fields need defaults. Schema version 2 (the focus queue removed, ADR-046) is
+  frozen (`tests/data/schema-v2.toml` must read and write back byte for byte); version 1 files are refused,
+  without migration (owner decision). Any breaking change bumps `CURRENT_SCHEMA_VERSION` and appends a
+  `SchemaMigration` (dict to dict) to the `MigrationChain` of `infrastructure/persistence/migrations/`; the
+  chain runs after the newer-version check and before validation (ADR-044).
 
 ### 7.2 Atomic save and recovery
 
@@ -374,7 +375,7 @@ shows the save state.
 | File | Owner | Content | Access |
 |---|---|---|---|
 | `concentrator.ini` | application (next to the exe; `assets/config/` in dev) | constants and defaults | read-only, validated by pydantic into `AppConfig` at startup |
-| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path (`storage/data_file_path`), language hint for the startup dialogs (`shell/language_hint`, ADR-027), quick-add list of the focus queue (`focus/quick_add_list_id`, ADR-043) | read-write only through `ViewPreferencesPort`; Qt blobs (geometry, splitter and header states) cross the presentation layer as opaque base64 strings via `LayoutStateKeeper`, under `layout/*` keys (ADR-022); persisted filters are layout keys too, so "Reset layout" removes exactly `layout/*` (ADR-040) |
+| `ui-state.ini` | Qt (`QSettings`, `IniFormat`, `paths.ui_state_file`) | geometry, splitters, header states, sorts, filters, active page, data file path (`storage/data_file_path`), language hint for the startup dialogs (`shell/language_hint`, ADR-027) | read-write only through `ViewPreferencesPort`; Qt blobs (geometry, splitter and header states) cross the presentation layer as opaque base64 strings via `LayoutStateKeeper`, under `layout/*` keys (ADR-022); persisted filters are layout keys too, so "Reset layout" removes exactly `layout/*` (ADR-040) |
 | user TOML file | user | business data and personal settings | `UserDataFilePort` only |
 
 `AppConfig` values support the tokens `{appdata}`, `{localappdata}` and `{app_dir}`, resolved by
@@ -512,8 +513,7 @@ Long asynchronous actions use `begin(action) -> ActionToken` and `token.finish()
   (`"timer.button.start": "Start"`). Placeholders `{name}`. Plain JSON, loaded at startup.
 - `TranslatorPort.tr(key, **params)` and `tr_plural(key, count, **params)` (keys `<key>.one` and
   `<key>.other`; French uses "one" for 0 and 1, English only for 1). Missing key: fall back to English,
-  then to the key itself, and log a WARNING once. `translations(key)` gives the text in every loaded
-  language, the current one first, to recognize a name stored in either (the Inbox, ADR-043).
+  then to the key itself, and log a WARNING once.
 - Date/time formats and month/day names are catalog entries (`format.date`, ...). Do not use the
   `locale` module. The formatter zero-pads day, month, hour and minute before filling the
   `{day}`/`{month}`/`{year}`/`{hour}`/`{minute}` templates (`06/11/2026`, never `6/11/2026`).
@@ -669,10 +669,9 @@ updated, no TODO comments left without an issue reference.
 | Term | Meaning |
 |---|---|
 | Module bar | Left vertical bar (100 px) with the buttons for menus A, B, C |
-| Menu A / Focus page | Zone 1 (TODO manager) + Zone 2 (timer, focus queue, favorites, options) |
+| Menu A / Focus page | Zone 1 (TODO manager) + Zone 2 (timer, favorites, options) |
 | Menu B / Journal | Application log viewer with level filter |
 | Menu C / Settings | Editable user settings |
-| Focus queue | Quick TODO list in zone 2, made of references to existing tasks |
 | Preset / favorite | Saved timer duration (default 15, 30, 45 min) |
 | Ringing | Timer reached zero; alarm playing until OK, restart, snooze or auto-stop |
 | Snapshot | Immutable description of what a panel shows |

@@ -4,8 +4,7 @@ Concentrator keeps your TODO lists and your settings in a data file you choose, 
 rings with an MP3 alarm, even when the window is in the background. Favorites start the timer in one
 click, and an hourly chime can mark each full hour. The journal shows what Concentrator logs, and the
 settings page gathers your settings and the data file commands. Tasks can repeat, be searched and
-filtered, and the folders and web addresses written in them open in one click. Under the timer, the focus
-queue holds the few tasks you work on now.
+filtered, and the folders and web addresses written in them open in one click.
 
 ## Installing, updating and removing
 
@@ -20,8 +19,8 @@ Concentrator runs on Windows 11 (64-bit). It needs no Python and no administrato
 - **Update**: close Concentrator, then replace the `Concentrator` folder with the new one. Your data file,
   `ui-state.ini`, the backups and the logs live in `%APPDATA%` and `%LOCALAPPDATA%` and are kept. The new
   `concentrator.ini` replaces yours: if you edited it, copy your values into the new file (keys may have
-  been added). A data file written by an older version opens as it is; one written by a newer version is
-  refused and left untouched.
+  been added). A data file written by a newer version is refused and left untouched. Version 2.0.0 removed
+  the focus queue and reads no data file written by version 1.0.0: start with a new data file.
 - **Remove**: delete the `Concentrator` folder. Delete `%APPDATA%\Concentrator` and
   `%LOCALAPPDATA%\Concentrator` too if you no longer want your data, backups and logs (your data file may
   be elsewhere if you chose another place).
@@ -195,9 +194,8 @@ filter bar, the tasks in a table and, under it, the details and the history of t
 
 ### Table
 
-- Columns: done check box, focus star (see "Focus queue"), task, list (when the table shows every list), due
-  date and time, repetition, times done (`3 / 10` for a series of 10 times), number of links, creation and
-  change dates.
+- Columns: done check box, task, list (when the table shows every list), due date and time, repetition,
+  times done (`3 / 10` for a series of 10 times), number of links, creation and change dates.
 - A task due today is bold; an overdue task (date past, or today with its time passed) is bold and
   highlighted. Done and archived tasks are greyed and never marked overdue.
 - Click a column header to sort by it; click again to reverse the order. Tasks without a due date stay
@@ -216,7 +214,7 @@ filter bar, the tasks in a table and, under it, the details and the history of t
     appears). Quick add still adds to the current tab.
   - The counter on the right reads "12 of 87 tasks": the tasks shown, out of all the tasks of this list
     (or of every list), whatever their state.
-- Focus, repetition, times done and links do not sort.
+- Repetition, times done and links do not sort.
 - The task column shows the lines of the task one after the other, separated by `·`. A text that does not
   fit in 80 % of the column (`text_width_percent` in `concentrator.ini`) is cut there and followed by
   `... (5 lines)`, the number of lines of the task.
@@ -247,43 +245,10 @@ filter bar, the tasks in a table and, under it, the details and the history of t
 ### History
 
 Each task keeps a short history (creation, text, due date and repetition changes, completions and
-occurrences, reopenings, archiving, moves, copies, focus queue additions and removals): the last 10 events, the creation always kept
+occurrences, reopenings, archiving, moves, copies): the last 10 events, the creation always kept
 (`max_history_events` in `concentrator.ini`). The **History** tab under the table lists them, newest
 first, with their local date and time, for example "06/11/2026 17:45 - Occurrence 3 completed (due
 10/11/2026, next 17/11/2026)".
-
-## Focus queue
-
-The focus queue, under the timer, lists the few tasks you want to do now. Every entry is a real task of
-your lists: completing it in the queue completes the task, and the task keeps its history.
-
-- **Add a task**:
-  - click the star (☆) of a task in the table; a full star (★) shows a queued task, a click on it takes the
-    task out of the queue;
-  - or select tasks and use **Add to focus** in the toolbar or the context menu (the tasks already queued
-    or not open are skipped);
-  - or type in the search field of the queue: it proposes the open tasks of every list that are not queued
-    yet (every word must appear, case and accents do not matter, the tasks due first, 20 at most,
-    `picker_max_results` in `concentrator.ini`). Click an entry, or press Enter for the first one;
-  - or type a new task in the quick-add field and press Enter: the task is created in the quick-add list,
-    then queued. The hint of the field names that list. Right-click a list tab > **Use for focus quick
-    add** to choose it; until then, the list named "Inbox" or "Boîte de réception" is used (whatever the
-    current language), and an Inbox is created in the current language if no list has either name. A text
-    that is refused (too long) creates nothing.
-- **Tick** an entry to complete its task. The task is done in its list and its history reads "Completed,
-  from the focus queue". A repeating task completes its current occurrence, moves to its next date and
-  leaves the queue.
-- **×** takes the task out of the queue; the task itself is untouched. **Remove from focus** in the toolbar
-  does the same for the selected tasks.
-- **Right-click** an entry: **Move up**, **Move down** (or **Alt+Up** / **Alt+Down** on the selected entry)
-  and **Show in list**, which shows its list, clears the filters and the search, and selects the task.
-- A task completed, archived or deleted in its list leaves the queue; reopening it does not queue it again.
-  Its history says why it left ("Left the focus queue: archived"); a deleted task has no history left.
-- The header shows the number of tasks out of the capacity (`4 / 20`, `max_items` in `concentrator.ini`,
-  `[focus]`). When the queue is full, adding a task shows a message under the fields and adds nothing.
-- An overdue entry is bold and highlighted, an entry due today is bold, as in the table.
-- The queue, its order and the quick-add list are kept: the queue in the data file, the list choice in the
-  UI state.
 
 ## The timer
 
@@ -446,8 +411,8 @@ The other sections act at once:
 - **Module bar** (left, full height): **Focus**, **Journal** and **Settings** switch the page. The
   button of the visible page is highlighted; the Journal button shows the number of new errors.
 - **Focus** page: zone 1 (TODO lists, left) and zone 2, separated by a splitter you can drag. Zone 2
-  shows, from top to bottom, the timer, the focus queue (it takes the free height), the favorites and the
-  special options. Zone 1 is the TODO manager (see "TODO lists").
+  shows, from top to bottom, the timer, the favorites and the special options; the free height stays below
+  them. Zone 1 is the TODO manager (see "TODO lists").
 - **Journal** and **Settings** pages: see above.
 - **Status bar** (bottom, one line): the save state on the left, the language button on the right.
   The button shows the current language (`ENG` or `FRA`); click it to switch every text between
@@ -473,12 +438,11 @@ The other sections act at once:
 | Where | Keys | Action |
 |---|---|---|
 | Zone 1 of the Focus page | Ctrl+N | New task |
-| Quick add field, focus queue fields | Enter | Add the task (the first proposed task in the queue search) |
+| Quick add field | Enter | Add the task |
 | Task table | Enter, double click | Edit the task |
 | Task table | Space | Mark done or reopen |
 | Task table | Del | Delete (after a question) |
 | Task table | Ctrl+click, Shift+click | Select several tasks |
-| Focus queue entry | Alt+Up, Alt+Down | Move the entry |
 | Journal | Ctrl+C | Copy the selected entries |
 
 ## Editing concentrator.ini
@@ -494,7 +458,7 @@ message that names the file and the faulty keys. Updating Concentrator replaces 
 
 | File | Location | Content |
 |---|---|---|
-| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings (language, journal detail level, taskbar alert), timer (`[timer]`), favorites (`[[timer_presets]]`, or `timer_presets = []` when you deleted them all), hourly chime (`[hourly_chime]`), lists (`[[task_lists]]`), tasks (`[[tasks]]`) and the focus queue (`[[focus_queue]]`). A task whose list does not exist makes the file unreadable (the recovery dialog explains it). A file written by an older version gets the missing sections from `concentrator.ini` at the next start. |
+| `concentrator.toml` | chosen at first launch (default `%APPDATA%\Concentrator\`) | Your data: settings (language, journal detail level, taskbar alert), timer (`[timer]`), favorites (`[[timer_presets]]`, or `timer_presets = []` when you deleted them all), hourly chime (`[hourly_chime]`), lists (`[[task_lists]]`) and tasks (`[[tasks]]`). A task whose list does not exist makes the file unreadable (the recovery dialog explains it). A file of schema version 1 (Concentrator 1.0.0) is refused. |
 | `concentrator.toml.bak` | next to the data file | The version before the last save. |
 | `concentrator.toml.tmp` | next to the data file | Only while saving, or after an interrupted save. |
 | `*.corrupt-*`, `*.tmp.discarded-*`, `*.bak.discarded-*` | next to the data file | Files put aside by the recovery dialog; delete them when you no longer need them. |

@@ -146,7 +146,7 @@ superseded.
 
 ## ADR-013 — Focus queue items always reference tasks
 
-- Status: accepted (phase 7).
+- Status: superseded by ADR-046 (the focus queue is removed, 2026-11-25); accepted at phase 7.
 - Decision: the quick TODO list holds references to tasks; quick-add creates a real task in the
   quick-add list (Inbox by default). One completion path, one history, recurring tasks handled.
 
@@ -1168,8 +1168,8 @@ superseded.
 
 ## ADR-043 — Phase 7 focus queue decisions
 
-- Status: accepted, owner decisions at the phase 7 plan review (2026-11-11: "Suit tes recommandations");
-  the items "decided during the build" are to be approved at the phase 7 review.
+- Status: superseded by ADR-046 (the focus queue is removed, 2026-11-25). Accepted, owner decisions at the
+  phase 7 plan review (2026-11-11: "Suit tes recommandations").
 - Context: the phase 7 spec adds the focus queue of zone 2 (ADR-013). It leaves open whether a completion
   made from the queue also records a removal (the history keeps 10 events, ADR-041), whether completed items
   stay visible, how the user chooses the quick-add list, what "Show in list" does when filters hide the
@@ -1418,3 +1418,51 @@ superseded.
   `just_playback` (miniaudio too, less control); `winsound` (WAV only, no volume); pygame (SDL, heavier).
 - Consequences: one runtime dependency more (pure wheels for Windows x64 only matter here); the audio
   buffer is a tunable; listening checks (alarm, chime, preview, volume curve, crackles) are manual.
+
+## ADR-046 — The focus queue is removed
+
+- Status: accepted, owner request (2026-11-25): "Dans le module Focus, supprimer la notion de focus dans le
+  minuteur ainsi que dans le tableau des actions. Il faut aussi retirer la logique dans l'historique." Plan
+  approved the same day ("Suit tes recommandations"), with one change by the owner: "Pas de fichier toml
+  existant à reprendre. La v2 n'a pas besoin de migrer une v1." Supersedes ADR-013 and ADR-043. Branch
+  `remove-focus-queue`.
+- Context: the focus queue of phase 7 (under the timer, the star column of the task table, "Add to focus" and
+  "Remove from focus", "Use for focus quick add" in the tab menu, and the focus events of the task history)
+  is no longer wanted. The Focus page, its module button and the timer stay: the timer itself had no focus
+  logic.
+- Decision:
+  1. **Every layer loses the queue**: `domain.focus`, `application.focus`, the focus ports and stores,
+     `TaskFocusHistory`, `presentation.focus`, the queue panel, its row and picker widgets and their style,
+     `bootstrap/focus.py`. Zone 2 shows the timer, the favorites and the special options at the top; the
+     free height stays below them.
+  2. **Task table**: the Focus column goes, so the task column is column 1 again and the List column 2. The
+     header blob moves to `layout/focus_page/todo_header_v4`; `todo.default_column_widths_px` has eight
+     values (60, 120, 140, 130, 50, 50, 140, 140). `TableSnapshot.toggle_column` and
+     `TableRowSnapshot.toggle_enabled` existed only for the star and are removed.
+  3. **History**: completions no longer carry a `source` detail (`Task.completed`, `TaskCommands.complete`);
+     the History tab has no focus texts. `Task.with_event`, used only by the queue, is removed.
+  4. **Data file, schema version 2 without migration**: `[[focus_queue]]` leaves the schema (pydantic
+     `extra="forbid"` would refuse it), so `CURRENT_SCHEMA_VERSION` becomes 2. The owner has no file to carry
+     over, so the `MigrationChain` gets no step: a version 1 file is refused like any older version without a
+     step (`STORAGE_FIELD_INVALID_VALUE` on `schema_version`, the recovery dialog offers another file or a new
+     one) and is never written. `tests/data/schema-v2.toml` replaces `schema-v1.toml` as the frozen
+     reference (read without any issue, written back byte for byte).
+  5. **`concentrator.ini`**: the `[focus]` section is removed. An ini of release 1.0.0 kept next to the new
+     executable stops the start with the usual message (unknown section, nine column widths); the release
+     zip ships the new ini.
+  6. **Retired numbers, never reused**: `ActionIdEnum` 90 to 100, `RenderSectionEnum` 23,
+     `TaskEventKindEnum` 12 and 13, `ErrorCodeEnum` 6001 to 6004 and `ErrorCategoryEnum` 6 (the `6xxx`
+     range). Their catalog keys (`action.focus_*`, `focus.*`, `error.focus_*`, `field.focus_queue.*`,
+     `todo.column.focus`, `todo.table.focus_*`, `todo.history.*focus*`) are removed.
+  7. **Code left without caller is removed**: `TranslatorPort.translations` (it recognized the Inbox in either
+     language), `TaskActions.register`, `TodoViewState.reveal` ("Show in list").
+  8. **`ui-state.ini`**: `focus/quick_add_list_id` and `layout/focus_page/todo_header_v3` are no longer read;
+     they stay in the file, like the earlier header keys.
+  9. **`furryp.json`** no longer names `concentrator.domain.focus` (owner approval).
+  10. **Version**: the change is listed under "Unreleased" in the changelog; the next release is 2.0.0 (a
+      feature removed and a data file that 1.0.0 cannot read).
+- Alternatives: keep `focus_queue` accepted and ignored in schema version 1 (a dead field forever); a
+  migration step from version 1 dropping the queue and the focus events (not needed: no file to carry
+  over).
+- Consequences: no way back to 1.0.0 with a data file written by this version; the README screenshot of the
+  Focus page must be taken again.

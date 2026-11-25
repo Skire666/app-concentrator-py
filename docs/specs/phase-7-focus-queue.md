@@ -1,5 +1,7 @@
 # Phase 7 — Focus queue (quick TODO in zone 2)
 
+> **Removed** after release 1.0.0 by ADR-046 (2026-11-25). This spec is kept as the record of phase 7.
+
 Depends on: phases 3 and 6. Branch: `phase-7-focus-queue`.
 
 ## Goal
